@@ -1,0 +1,40 @@
+{
+    "api": {
+      "baseUrl": "https://proglove-chatbot-v1-dev.jazeeautomation.com",
+      "endpoints": {
+        "conversation": "/conversation/YOUR_UUID_HERE/message"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    "websocket": {
+      "baseUrl": "wss://proglove-chatbot-v1-dev.jazeeautomation.com",
+      "endpoints": {
+          "user_chat": "/ws/user/YOUR_UUID_HERE/" 
+          
+      },
+      "reconnectInterval": 5000
+    },
+    "app": {
+      "title": "Jazee AI Assistant",
+      "drawerWidth": 280,
+      "disclaimer": "A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories."
+    },
+    "chat": {
+      "defaultTitle": "My Custom Title",
+      "isDark": true,
+      "showBotAvatar": true,
+      "colors": {
+        "userMessage": {
+          "background": "rgb(79, 70, 229)",
+          "text": "rgb(247, 246, 255)"
+        },
+        "assistantMessage": {
+          "background": "#F1F0F0",
+          "text": "#000000"
+        }
+      }
+    }
+  }
+  

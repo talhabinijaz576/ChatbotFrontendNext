@@ -1,0 +1,32 @@
+{
+    "api": {
+      "baseUrl": "https://leadgen-chatbot-v1.jazeeautomation.com",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    "websocket": {
+      "reconnectInterval": 5000
+    },
+    "app": {
+      "title": "Jazee AI Assistant",
+      "drawerWidth": 280,
+      "disclaimer": "A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories."
+    },
+    "chat": {
+      "defaultTitle": "My Custom Title",
+      "isDark": false,
+      "showBotAvatar": true,
+      "colors": {
+        "userMessage": {
+          "background": "rgb(79, 70, 229)",
+          "text": "rgb(247, 246, 255)"
+        },
+        "assistantMessage": {
+          "background": "#F1F0F0",
+          "text": "#000000"
+        }
+      }
+    }
+  }
+  
