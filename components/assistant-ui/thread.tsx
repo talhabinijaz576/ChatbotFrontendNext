@@ -47,6 +47,8 @@ import GithubButton from "../mem0/github-button";
 import Link from "next/link";
 import { ScrollArea } from "../ui/scroll-area";
 import MarkdownRenderer from "../mem0/markdown";
+import type { ThreadMessageLike } from "@assistant-ui/react";
+
 interface ThreadProps {
   sidebarOpen: boolean;
   setSidebarOpen: Dispatch<SetStateAction<boolean>>;
@@ -55,6 +57,7 @@ interface ThreadProps {
   toggleDarkMode: () => void;
   defaultTitle?: string;
   disclaimer?: string;
+  messages: ThreadMessageLike[];
 }
 
 export const Thread: FC<ThreadProps> = ({
@@ -64,11 +67,22 @@ export const Thread: FC<ThreadProps> = ({
   isDarkMode,
   toggleDarkMode,
   defaultTitle,
-  disclaimer
+  disclaimer,
+  messages
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const timeout = setTimeout(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, 0);
+
+  return () => clearTimeout(timeout);
+}, [messages.length]);
+
+
   return (
     <ThreadPrimitive.Root
       className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col overflow-hidden relative h-[calc(100dvh-4rem)] pb-4 md:h-full"
@@ -202,7 +216,9 @@ export const Thread: FC<ThreadProps> = ({
       </div>
 
       <ScrollArea className="flex-1 w-full">
-        <div className="flex h-full flex-col w-full items-center px-4 pt-8 justify-end">
+        <div
+          className="flex h-full flex-col w-full items-center px-4 pt-8 justify-end"
+        >
           <ThreadWelcome
             composerInputRef={
               composerInputRef as React.RefObject<HTMLTextAreaElement>
@@ -220,7 +236,7 @@ export const Thread: FC<ThreadProps> = ({
           />
 
           <ThreadPrimitive.If empty={false}>
-            <div className="min-h-8 flex-grow" />
+            <div className="min-h-8 flex-grow"  ref={bottomRef} />
           </ThreadPrimitive.If>
         </div>
       </ScrollArea>
@@ -378,15 +394,6 @@ const ComposerAction: FC = () => {
 };
 
 const UserMessage: FC = () => {
-  // const [config, setConfig] = useState<AppConfig | null>(null);
-
-  // useEffect(() => {
-  //   if (!config) {
-  //     loadConfig().then(setConfig);
-  //   }
-  // }, [config]);
-
-  // if (!config) return null;
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       <UserActionBar />

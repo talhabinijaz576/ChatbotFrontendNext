@@ -1,3 +1,5 @@
+import { ThreadMessageLike } from "@assistant-ui/react";
+
 // Generate a random number between min and max (inclusive)
 const getRandomNumber = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -20,3 +22,12 @@ const getRandomNumber = (min: number, max: number): number => {
   export const generateConversationId = (): string => {
     return getRandomNumber(1000000, 9999999).toString();
   }; 
+
+export function normalizeMessages(rawMessages: any[]): ThreadMessageLike[] {
+    return rawMessages.map((msg, index) => ({
+      id: msg.id ?? index,
+      role: msg.role,
+      content: msg.text || "", // ensure fallback if text is missing
+    }));
+  }
+  

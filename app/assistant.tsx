@@ -10,16 +10,14 @@ import { v4 as uuidv4 } from "uuid";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, AlignJustify } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThreadList } from "@/components/assistant-ui/thread-list";
 import { Thread } from "@/components/assistant-ui/thread";
 import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 import ActionModal from "@/components/mem0/ActionModal";
 import { useIframe } from "./hooks/useIframe";
 import { chatService } from "./services/chatService";
-import { generateUserId } from "./utils/idGenerator";
 import { useRouter } from "next/navigation";
-
+import { normalizeMessages } from "./utils/idGenerator";
+import { AssistantModal } from "@assistant-ui/react-ui";
 
 export function Assistant({
   initialConversationId,
@@ -28,19 +26,26 @@ export function Assistant({
   initialConversationId: string | null;
   initialMessages?: any[];
 }) {
-  console.log("🚀 ~ initialMessages:", initialMessages)
+  console.log("🚀 ~ initialMessages:", initialMessages);
 
   const router = useRouter();
   const iframe = useIframe();
 
-  const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
-  
-  const convertedInitialMessages: ThreadMessageLike[] = initialMessages.map((msg: any) => ({
-    role: msg.type === "system" ? "system" : msg.type, // ensure it's a valid role
-    content: [{ type: "text", text: msg.text }],
-  }));
+  const [conversationId, setConversationId] = useState<string | null>(
+    initialConversationId
+  );
 
-  const [messages, setMessages] = useState<ThreadMessageLike[]>(convertedInitialMessages);
+  const convertedInitialMessages: ThreadMessageLike[] = initialMessages.map(
+    (msg: any) => ({
+      role: msg.type === "system" ? "system" : msg.type, // ensure it's a valid role
+      content: [{ type: "text", text: msg.text }],
+    })
+  );
+
+  const [messages, setMessages] = useState<ThreadMessageLike[]>(
+    convertedInitialMessages
+  );
+  console.log("🚀 ~ messages:", messages);
   const [config, setConfig] = useState<any>(null);
   const [open, setOpen] = useState(false);
 
@@ -57,7 +62,6 @@ export function Assistant({
   const [isRunning, setIsRunning] = useState(false);
   const userId = getOrCreateUserId();
 
-
   // Message helpers
   const convertMessage = (message: any) => ({
     role: message.role,
@@ -67,9 +71,9 @@ export function Assistant({
   const onNew = async (message: AppendMessage) => {
     const input = message.content[0]?.text;
     if (!input) return;
-  
+
     const newUserMessage = { role: "user", text: input };
-  
+
     // If first message, generate new chatId and redirect
     if (!conversationId) {
       const newId = uuidv4();
@@ -79,24 +83,25 @@ export function Assistant({
       router.push(`/chat/${newId}`);
       return;
     }
-  
+
     // Else append as usual
     setMessages((prev) => [...prev, newUserMessage]);
     setIsRunning(true);
-  
+
     const assistantMessage = await chatService.sendMessage(
       input,
       userId,
       conversationId
     );
-  
+    console.log("🚀 ~ onNew ~ assistantMessage:", assistantMessage);
+
     setMessages((prev) => [
       ...prev,
       { role: assistantMessage.type, ...assistantMessage },
     ]);
     setIsRunning(false);
   };
-  
+
   const runtime = useExternalStoreRuntime({
     isRunning,
     messages,
@@ -104,13 +109,12 @@ export function Assistant({
     onNew,
     threadId: conversationId ?? undefined,
   });
-  
 
   // WebSocket setup
   useEffect(() => {
     chatService.initializeConnection(userId);
     const unsubscribe = chatService.onMessage((incoming) => {
-      console.log("🚀 ~ unsubscribe ~ incoming:", incoming)
+      console.log("🚀 ~ unsubscribe ~ incoming:", incoming);
       if (incoming?.type === "assistant" && incoming.text) {
         setMessages((prev) => [...prev, { role: "assistant", ...incoming }]);
       }
@@ -137,11 +141,18 @@ export function Assistant({
   // Routing and conversation handling
   const switchConversation = (id: string) => {
     setConversationId(id);
-    setMessages(loadMessages(id));
+    const mess = loadMessages(id);
+    const converted = normalizeMessages(mess);
+    console.log("🚀 ~ switchConversation ~ converted:", converted);
+    setMessages(converted);
+    setMessages((prev) => [
+      ...prev,
+      { role: assistantMessage.type, ...assistantMessage },
+    ]);
     if (id) {
-  localStorage.setItem(`my-convo-${id}`, "true");
-  router.push(`/chat/${id}`);
-}
+      localStorage.setItem(`my-convo-${id}`, "true");
+      router.push(`/chat/${id}`);
+    }
   };
 
   const createNewChat = () => {
@@ -166,33 +177,10 @@ export function Assistant({
   if (!config) return <div>Loading config...</div>;
 
   return (
-    <AssistantRuntimeProvider runtime={runtime} options={{ threadVisibility: "hidden" }}>
-      <div className={`bg-[#f8fafc] dark:bg-zinc-900 ${isDarkMode ? "dark" : ""}`}>
-      <div>
-      <button onClick={() => setOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Show JSON</button>
-
-      {open && (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "white",
-            padding: 20,
-            border: "1px solid black",
-            zIndex: 1000,
-            maxHeight: "70vh",
-            overflowY: "auto",
-            width: "60vw",
-          }}
-        >
-          <pre>{JSON.stringify(messages, null, 2)}</pre>
-          <button onClick={() => setOpen(false)}>Close</button>
-        </div>
-      )}
-    </div>
-
+    <AssistantRuntimeProvider runtime={runtime}>
+      <div
+        className={`bg-[#f8fafc] dark:bg-zinc-900 relative ${isDarkMode ? "dark" : ""}`}
+      >
         <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <Link href="/" className="flex items-center">
             <ThemeAwareLogo width={120} height={40} isDarkMode={isDarkMode} />
@@ -211,21 +199,25 @@ export function Assistant({
               }}
               className="p-2 rounded-full hover:bg-[#eef2ff] dark:hover:bg-zinc-800"
             >
-              {isDarkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+              {isDarkMode ? (
+                <Sun className="w-6 h-6" />
+              ) : (
+                <Moon className="w-6 h-6" />
+              )}
             </button>
           </div>
         </header>
 
         {/* SIDEBAR + THREAD VIEW */}
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] h-[calc(100dvh-4rem)]">
-          
           {/* Sidebar */}
           <aside
             className={`fixed md:static top-0 left-0 z-50 h-full w-64 bg-white dark:bg-zinc-900 border-r dark:border-zinc-800 transform transition-transform duration-300 ease-in-out ${
-              sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+              sidebarOpen
+                ? "translate-x-0"
+                : "-translate-x-full md:translate-x-0"
             }`}
           >
-            
             <div className="h-16 px-4 flex items-center justify-between border-b dark:border-zinc-800 md:hidden">
               <span className="font-bold text-lg">Chats</span>
               <button onClick={() => setSidebarOpen(false)}>✖</button>
@@ -270,12 +262,10 @@ export function Assistant({
                 ))}
               </ul>
             </div>
-           
           </aside>
 
           {/* Thread UI */}
           <main className="overflow-y-auto">
-
             <Thread
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
@@ -288,6 +278,7 @@ export function Assistant({
               defaultTitle={config.app.title || "Mem0 Assistant"}
               disclaimer={config.app.disclaimer}
               colors={config.chat?.colors}
+              messages={messages}
             />
           </main>
         </div>
@@ -300,8 +291,37 @@ export function Assistant({
           onIframeError={iframe.onIframeError}
           onIframeLoad={iframe.onIframeLoad}
         />
-      </div>
+        <div className="absolute right-2 bottom-5">
+          <button
+            onClick={() => setOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Show JSON
+          </button>
 
+          {open && (
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                background: "white",
+                padding: 20,
+                border: "1px solid black",
+                zIndex: 1000,
+                maxHeight: "70vh",
+                overflowY: "auto",
+                width: "60vw",
+              }}
+            >
+              <pre>{JSON.stringify(messages, null, 2)}</pre>
+              <button onClick={() => setOpen(false)}>Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <AssistantModal />
     </AssistantRuntimeProvider>
   );
 }
