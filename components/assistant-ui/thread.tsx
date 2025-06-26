@@ -68,26 +68,29 @@ export const Thread: FC<ThreadProps> = ({
   toggleDarkMode,
   defaultTitle,
   disclaimer,
-  messages
+  messages,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-useEffect(() => {
-  const timeout = setTimeout(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, 0);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 300);
 
-  return () => clearTimeout(timeout);
-}, [messages.length]);
-
+    return () => clearTimeout(timeout);
+  }, [messages.length]);
 
   return (
     <ThreadPrimitive.Root
-      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col overflow-hidden relative h-[calc(100dvh-4rem)] pb-4 md:h-full"
+      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col overflow-hidden relative h-[calc(100svh-4rem)] pb-4 md:h-full justify-end"
       style={{
         ["--thread-max-width" as string]: "42rem",
+        height: "100svh",
+        overflow: "hidden",
+        overscrollBehavior: "none",
+        touchAction: "manipulation",
       }}
     >
       {/* Mobile sidebar overlay */}
@@ -165,13 +168,13 @@ useEffect(() => {
               <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
                 <ThreadListPrimitive.New asChild>
                   <div className="flex items-center flex-col gap-2 w-full">
-                  <Button
-                    className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
-                    variant="default"
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                    New Thread
-                  </Button>
+                    <Button
+                      className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
+                      variant="default"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      New Thread
+                    </Button>
                     <Button
                       className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-700 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-zinc-800 text-white"
                       onClick={toggleDarkMode}
@@ -179,7 +182,7 @@ useEffect(() => {
                     >
                       {isDarkMode ? (
                         <div className="flex items-center gap-2">
-                          <Sun className="w-6 h-6" /> 
+                          <Sun className="w-6 h-6" />
                           <span>Toggle Light Mode</span>
                         </div>
                       ) : (
@@ -189,7 +192,11 @@ useEffect(() => {
                         </div>
                       )}
                     </Button>
-                    <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" className="w-full rounded-lg h-9 pl-2 text-sm font-semibold bg-zinc-800 dark:border-zinc-800 dark:text-white text-white hover:bg-zinc-900" text="View on Github" />
+                    <GithubButton
+                      url="https://github.com/mem0ai/mem0/tree/main/examples"
+                      className="w-full rounded-lg h-9 pl-2 text-sm font-semibold bg-zinc-800 dark:border-zinc-800 dark:text-white text-white hover:bg-zinc-900"
+                      text="View on Github"
+                    />
 
                     <Link
                       href={"https://app.mem0.ai/"}
@@ -215,10 +222,11 @@ useEffect(() => {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 w-full">
-        <div
-          className="flex h-full flex-col w-full items-center px-4 pt-8 justify-end"
-        >
+      <ScrollArea
+        className="flex-0 md:flex-1 w-full overflow-y-auto"
+        style={{ maxHeight: "100svh" }}
+      >
+        <div className="flex flex-col w-full items-center px-4 pt-8 justify-end">
           <ThreadWelcome
             composerInputRef={
               composerInputRef as React.RefObject<HTMLTextAreaElement>
@@ -236,7 +244,7 @@ useEffect(() => {
           />
 
           <ThreadPrimitive.If empty={false}>
-            <div className="min-h-8 flex-grow"  ref={bottomRef} />
+            <div className="min-h-8 flex-grow" ref={bottomRef} />
           </ThreadPrimitive.If>
         </div>
       </ScrollArea>
@@ -273,17 +281,22 @@ interface ThreadWelcomeProps {
   disclaimer?: string;
 }
 
-const ThreadWelcome: FC<ThreadWelcomeProps> = ({ composerInputRef, defaultTitle, disclaimer }) => {
+const ThreadWelcome: FC<ThreadWelcomeProps> = ({
+  composerInputRef,
+  defaultTitle,
+  disclaimer,
+}) => {
   return (
     <ThreadPrimitive.Empty>
       <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
         <div className="flex w-full flex-grow flex-col items-center justify-start">
           <div className="flex flex-col items-center justify-center h-full">
             <div className="text-[2rem] leading-[1] tracking-[-0.02em] md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2 text-center md:w-full w-5/6">
-             { defaultTitle } {/* || "Mem0 - ChatGPT with memory" */}
+              {defaultTitle} {/* || "Mem0 - ChatGPT with memory" */}
             </div>
             <p className="text-center text-md text-[#1e293b] dark:text-white mb-2 md:w-3/4 w-5/6">
-              {disclaimer || "A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories."}
+              {disclaimer ||
+                "A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories."}
             </p>
           </div>
         </div>
@@ -302,7 +315,9 @@ interface ThreadWelcomeSuggestionsProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
 }
 
-const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({ composerInputRef }) => {
+const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
+  composerInputRef,
+}) => {
   return (
     <div className="mt-3 flex flex-col md:flex-row w-full md:items-stretch justify-center gap-4 dark:text-white items-center">
       <ThreadPrimitive.Suggestion
@@ -398,12 +413,13 @@ const UserMessage: FC = () => {
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       <UserActionBar />
 
-      <div 
-      // style={{
-      //     backgroundColor: config.chat?.colors?.userMessage.background, // custom color
-      //     color: config.chat?.colors?.userMessage.text,
-      //   }} 
-        className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
+      <div
+        // style={{
+        //     backgroundColor: config.chat?.colors?.userMessage.background, // custom color
+        //     color: config.chat?.colors?.userMessage.text,
+        //   }}
+        className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2"
+      >
         <MessagePrimitive.Content />
       </div>
 

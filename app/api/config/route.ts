@@ -21,14 +21,3 @@ export async function GET(req: NextApiRequest, res: NextApiResponse) {
     headers: { "Content-Type": "application/json" },
   });
 }
-
-// export async function GET(req: NextApiRequest, res: NextApiResponse) {
-//   const configPath = path.resolve(process.cwd(), "../config/config.json");
-//   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-//   // res.status(200).json(config);
-
-//   return new Response(JSON.stringify(config),{
-//     status: 201,
-//     headers: { 'Content-Type': 'application/json' }
-//   });
-// }

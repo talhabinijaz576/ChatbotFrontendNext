@@ -17,7 +17,6 @@ import { useIframe } from "./hooks/useIframe";
 import { chatService } from "./services/chatService";
 import { useRouter } from "next/navigation";
 import { normalizeMessages } from "./utils/idGenerator";
-import { AssistantModal } from "@assistant-ui/react-ui";
 
 export function Assistant({
   initialConversationId,
@@ -47,6 +46,7 @@ export function Assistant({
   );
   console.log("🚀 ~ messages:", messages);
   const [config, setConfig] = useState<any>(null);
+  console.log("🚀 ~ config:", config)
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -56,6 +56,13 @@ export function Assistant({
         setConfig(data);
       });
   }, []);
+
+  useEffect(() => {
+    if (config?.chat?.autoMessage?.role && messages.length === 0) {
+      setMessages([config.chat.autoMessage]);
+    }
+  }, [config]);
+  
   const [history, setHistory] = useState(() => getConversationHistory());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(config?.chat?.isDark);
@@ -80,7 +87,7 @@ export function Assistant({
       setConversationId(newId);
       setMessages([newUserMessage]);
       saveConversationToHistory(newId, `Chat ${history.length + 1}`);
-      router.push(`/chat/${newId}`);
+      router.push(`/chat/${newId}`, undefined, { shallow: true });
       return;
     }
 
@@ -145,13 +152,14 @@ export function Assistant({
     const converted = normalizeMessages(mess);
     console.log("🚀 ~ switchConversation ~ converted:", converted);
     setMessages(converted);
-    setMessages((prev) => [
-      ...prev,
-      { role: assistantMessage.type, ...assistantMessage },
-    ]);
+    // setMessages((prev) => [
+    //   ...prev,
+    //   { role: assistantMessage.type, ...assistantMessage },
+    // ]);
     if (id) {
       localStorage.setItem(`my-convo-${id}`, "true");
-      router.push(`/chat/${id}`);
+      router.push(`/chat/${id}`, undefined, { shallow: true });
+
     }
   };
 
@@ -321,7 +329,6 @@ export function Assistant({
           )}
         </div>
       </div>
-      <AssistantModal />
     </AssistantRuntimeProvider>
   );
 }
