@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
+import { useEffect } from "react";
 // import { useRouter } from "next/router";
 // import { useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -12,5 +13,12 @@ import { v4 as uuidv4 } from "uuid";
 // );
 
 export default function HomePage() {
-  redirect(`/chat/${uuidv4()}`);
+  const router = useRouter();
+
+  useEffect(() => {
+    const newId = uuidv4(); // Always new for each tab
+    router.replace(`/chat/${newId}`);
+  }, []);
+
+  return <div>Redirecting...</div>;
 }

@@ -69,7 +69,6 @@ class ChatService {
       try {
         const data1 = JSON.parse(event.data);
         console.log("🚀 ~ ChatService ~ connect ~ data1:", data1)
-        console.log("🚀 ~ ChatService ~ connect ~ event.data:", event.data)
         const data = JSON.parse(data1.event);
         console.log("📩 Incoming WebSocket Message:", data);
         this.handleIncomingMessage([data]);

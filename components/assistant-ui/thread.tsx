@@ -48,6 +48,11 @@ import Link from "next/link";
 import { ScrollArea } from "../ui/scroll-area";
 import MarkdownRenderer from "../mem0/markdown";
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import {
+  ComposerAddAttachment,
+  ComposerAttachments,
+  UserMessageAttachments,
+} from "../attachment";
 
 interface ThreadProps {
   sidebarOpen: boolean;
@@ -84,13 +89,15 @@ export const Thread: FC<ThreadProps> = ({
 
   return (
     <ThreadPrimitive.Root
-      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col overflow-hidden relative h-[calc(100svh-4rem)] pb-4 md:h-full justify-end"
+      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col relative h-[calc(100svh-4rem)] pb-4 md:h-full justify-end"
       style={{
         ["--thread-max-width" as string]: "42rem",
-        height: "100svh",
-        overflow: "hidden",
         overscrollBehavior: "none",
         touchAction: "manipulation",
+        height: "100%",
+        margin: 0,
+        padding: 0,
+        overflow: "hidden",
       }}
     >
       {/* Mobile sidebar overlay */}
@@ -224,7 +231,7 @@ export const Thread: FC<ThreadProps> = ({
 
       <ScrollArea
         className="flex-0 md:flex-1 w-full overflow-y-auto"
-        style={{ maxHeight: "100svh" }}
+        style={{ maxHeight: "80svh" }}
       >
         <div className="flex flex-col w-full items-center px-4 pt-8 justify-end">
           <ThreadWelcome
@@ -367,6 +374,8 @@ interface ComposerProps {
 const Composer: FC<ComposerProps> = ({ composerInputRef }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
+      <ComposerAttachments />
+      <ComposerAddAttachment />
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
@@ -412,7 +421,7 @@ const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       <UserActionBar />
-
+      <UserMessageAttachments />
       <div
         // style={{
         //     backgroundColor: config.chat?.colors?.userMessage.background, // custom color

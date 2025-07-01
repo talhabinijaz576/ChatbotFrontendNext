@@ -23,11 +23,15 @@ const getRandomNumber = (min: number, max: number): number => {
     return getRandomNumber(1000000, 9999999).toString();
   }; 
 
-export function normalizeMessages(rawMessages: any[]): ThreadMessageLike[] {
-    return rawMessages.map((msg, index) => ({
-      id: msg.id ?? index,
-      role: msg.role,
-      content: msg.text || "", // ensure fallback if text is missing
-    }));
+  export function normalizeMessages(rawMessages: any[]): ThreadMessageLike[] {
+    return rawMessages
+      .filter(msg => msg && typeof msg.role === "string") // basic guard
+      .map((msg, index) => ({
+        id: msg.id ?? index,
+        role: msg.role,
+        text: typeof msg.text === "string" ? msg.text : "", // safe fallback
+      }));
   }
+  
+  
   

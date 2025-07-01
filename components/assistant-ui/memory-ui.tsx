@@ -42,7 +42,6 @@ const isMemoryAnnotation = (a: unknown): a is MemoryAnnotation =>
 
 const useMemories = (): Memory[] => {
   const annotations = useMessage((m) => m.metadata.unstable_annotations);
-  console.log("annotations", annotations);
   return useMemo(
     () =>
       annotations?.filter(isMemoryAnnotation).flatMap((a) => {
