@@ -22,13 +22,3 @@ export default function HomePage() {
 
   return <div>Redirecting...</div>;
 }
-
-  const router = useRouter();
-
-  useEffect(() => {
-    const newId = uuidv4(); // Always new for each tab
-    router.replace(`/chat/${newId}`);
-  }, []);
-
-  return <div>Redirecting...</div>;
-}
