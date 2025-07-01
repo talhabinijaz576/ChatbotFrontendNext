@@ -18,7 +18,8 @@ function isValidUUID(id: string) {
   }
   
   export default function ChatPage({ params }: { params: Promise<{ conversationId: string }> }) {
-        const { conversationId } = use(params);
+    const { conversationId } = use(params);
+    console.log("Con ID", conversationId)    
     const router = useRouter();
   
     const [messages, setMessages] = useState<ThreadMessageLike[] | null>(null);
