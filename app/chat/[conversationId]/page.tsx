@@ -41,30 +41,7 @@ function isValidUUID(id: string) {
           setLoading(false);
           return;
         }
-    
-        // ✅ Otherwise, try to fetch the shared conversation
-        // const fetchConversation = async () => {
-        //   try {
-        //     const res = await fetch(`/conversation/${conversationId}/view`);
-        //     if (res.status === 404) {
-        //       setMessages([]);
-        //     } else {
-        //       const data = await res.json();
-        //       if (Array.isArray(data?.messages) && data.messages.length > 0) {
-        //         setMessages(convertApiMessages(data.messages));
-        //       } else {
-        //         setNotFound(true);
-        //       }
-        //     }
-        //   } catch (err) {
-        //     console.error("Error loading conversation:", err);
-        //     setMessages([]);
-        //   } finally {
-        //     setLoading(false);
-        //   }
-        // };
-    
-        // fetchConversation();
+
       }, [conversationId]);
     
   

@@ -96,19 +96,23 @@ class ChatService {
 
     const payload = {
       message: {
-        content: message.content[0].text,
+        content: message.content[0]?.text || "",
         attachments: (message.attachments || []).map(att => {
+          const base64Content =
+            att.content?.[0]?.image || // for images
+            att.content?.[0]?.file ||  // for PDFs, DOCs, etc.
+            att.content?.[0]?.text ||  // for PDFs, DOCs, etc.
+            ""; // fallback
+    
           return {
-            type: att.type,
+            type: att.type, // e.g. 'image', 'pdf', 'doc', 'video', etc.
             name: att.name,
-            base64_content: att.content?.[0]?.image || "",
-              // att.type === "image"
-              //   ? att.content?.[0]?.image || ""
-              //   : "", // you can extend for PDFs etc. later
+            base64_content: base64Content,
           };
         }),
       },
     };
+    
     
 
     try {

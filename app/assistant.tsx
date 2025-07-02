@@ -21,6 +21,7 @@ import { chatService } from "./services/chatService";
 import { useRouter } from "next/navigation";
 import { normalizeMessages } from "./utils/idGenerator";
 import { useCallback } from "react";
+import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapter";
 
 // === Utility Functions ===
 
@@ -107,6 +108,7 @@ export function Assistant({
                 try {
                   // Replace single quotes with double quotes for valid JSON parsing
                   const normalized = item.text.replace(/'/g, '"');
+                  console.log("🚀 ~ converted ~ normalized:", normalized)
                   contentArray = JSON.parse(normalized);
                 } catch (err) {
                   console.warn("Failed to parse user message text, using fallback:", item.text);
@@ -265,6 +267,7 @@ export function Assistant({
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
+      console.log("🚀 ~ userAppendMessage:", userAppendMessage)
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
       const userMessage: ThreadMessageLike = {
@@ -322,6 +325,7 @@ export function Assistant({
       attachments: new CompositeAttachmentAdapter([
         new SimpleImageAttachmentAdapter(),
         new SimpleTextAttachmentAdapter(),
+        new SimplePdfAttachmentAdapter(),
       ]),
     },
   });
