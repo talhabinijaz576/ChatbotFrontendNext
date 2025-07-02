@@ -90,14 +90,26 @@ class ChatService {
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string): Promise<any> {
+    console.log("🚀 ~ ChatService ~ sendMessage ~ message:", message)
     // Ensure WebSocket is connected
     this.initializeConnection(conversationId);
 
     const payload = {
       message: {
-        content: message
-      }
+        content: message.content[0].text,
+        attachments: (message.attachments || []).map(att => {
+          return {
+            type: att.type,
+            name: att.name,
+            base64_content: att.content?.[0]?.image || "",
+              // att.type === "image"
+              //   ? att.content?.[0]?.image || ""
+              //   : "", // you can extend for PDFs etc. later
+          };
+        }),
+      },
     };
+    
 
     try {
       // Send via API

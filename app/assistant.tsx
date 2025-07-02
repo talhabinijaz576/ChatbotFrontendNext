@@ -10,7 +10,7 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, AlignJustify } from "lucide-react";
 import { Thread } from "@/components/assistant-ui/thread";
@@ -79,12 +79,92 @@ export function Assistant({
   const [open, setOpen] = useState(false);
   const userId = getOrCreateUserId();
 
-  // === Effects ===
+  // Step 1: Load config once on page load
+  const configRef = useRef(null);
+
   useEffect(() => {
     fetch("/api/config")
       .then((res) => res.json())
-      .then(setConfig);
+      .then((data) => {
+        setConfig(data);
+        initConversation(data);
+        // call your logic here directly
+      });
   }, []);
+
+    // Step 2: Load conversation/messages when config + conversationId are ready
+    const initConversation = (config2) => {
+      fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`)
+        .then(res => res.json())
+        .then(data => {
+          console.log("🚀 ~ data:", data);
+          if (Array.isArray(data.messages) && data.messages.length > 0) {
+            console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
+            const converted = data.messages.map((item) => {
+              let contentArray;
+    
+              if (item.type === "user") {
+                try {
+                  // Replace single quotes with double quotes for valid JSON parsing
+                  const normalized = item.text.replace(/'/g, '"');
+                  contentArray = JSON.parse(normalized);
+                } catch (err) {
+                  console.warn("Failed to parse user message text, using fallback:", item.text);
+                  contentArray = [{ type: "text", text: item.text }];
+                }
+              } else {
+                // Assistant messages are plain text
+                contentArray = [{ type: "text", text: item.text }];
+              }
+    
+              return {
+                role: item.type, // "user" or "assistant"
+                content: contentArray,
+                id: `${item.type}-message-${item.id}`,
+                createdAt: new Date(), // You can use item.timestamp if available
+              };
+            });
+            const autoMessage = {
+              role: config2.chat.autoMessage.role,
+              content: [{ ...config2.chat.autoMessage, type: "text" }],
+              id: "user-message-" + conversationId,
+              createdAt: new Date(),
+            };
+    
+            setMessages([autoMessage, ...converted]);
+          } else {
+            const existingMessage = JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]");
+            if (existingMessage.length > 1) {
+              setMessages(existingMessage);
+            } else {
+              setMessages([
+                {
+                  role: config2.chat.autoMessage.role,
+                  content: [{ ...config2.chat.autoMessage, type: "text" }],
+                  id: "user-message-" + conversationId,
+                  createdAt: new Date(),
+                },
+              ]);
+            }
+          }
+        })
+        .catch(() => {
+          const existingMessage = JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]");
+          if (existingMessage.length > 1) {
+            setMessages(existingMessage);
+          } else {
+            setMessages([
+              {
+                role: config2.chat.autoMessage.role,
+                content: [{ ...config2.chat.autoMessage, type: "text" }],
+                id: "user-message-" + conversationId,
+                createdAt: new Date(),
+              },
+            ]);
+          }
+        });
+    };
+    
 
   useEffect(() => {
     if (config?.chat?.isDark) setIsDarkMode(true);
@@ -93,7 +173,7 @@ export function Assistant({
 
 
   useEffect(() => {
-    if (conversationId) saveMessages(conversationId, messages);
+    if (conversationId && messages.length > 1) saveMessages(conversationId, messages);
   }, [messages]);
 
   useEffect(() => {
@@ -120,24 +200,6 @@ export function Assistant({
       unsubscribe();
     };
   }, [conversationId]);
-
-  useLayoutEffect(() => {
-    const existingMessage = JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]");
-  
-    if (existingMessage.length > 0) {
-      setMessages(existingMessage);
-    } else if (config?.chat?.autoMessage?.role) {
-      const autoMess = {
-        role: config.chat.autoMessage.role,
-        content: [{ ...config.chat.autoMessage, type: "text" }],
-        id: "user-message-" + conversationId,
-        createdAt: new Date(),
-      };
-      setMessages([autoMess]);
-    }
-  }, [config, conversationId]);
-  
-  
   
 
   // === Chat Handlers ===
@@ -220,7 +282,7 @@ export function Assistant({
       setIsRunning(true);
       try {
         const assistantResponse = await chatService.sendMessage(
-          userAppendMessage.content,
+          userAppendMessage,
           userId,
           conversationId!
         );
