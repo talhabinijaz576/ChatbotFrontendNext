@@ -81,7 +81,6 @@ export function Assistant({
   const userId = getOrCreateUserId();
 
   // Step 1: Load config once on page load
-  const configRef = useRef(null);
 
   useEffect(() => {
     fetch("/api/config")
@@ -98,7 +97,6 @@ export function Assistant({
       fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`)
         .then(res => res.json())
         .then(data => {
-          console.log("🚀 ~ data:", data);
           if (Array.isArray(data.messages) && data.messages.length > 0) {
             console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
             const converted = data.messages.map((item) => {
@@ -107,9 +105,9 @@ export function Assistant({
               if (item.type === "user") {
                 try {
                   // Replace single quotes with double quotes for valid JSON parsing
-                  const normalized = item.text.replace(/'/g, '"');
-                  console.log("🚀 ~ converted ~ normalized:", normalized)
-                  contentArray = JSON.parse(normalized);
+                  // const normalized = item.text.replace(/'/g, '"');
+                  // const parsed = JSON.parse(normalized);
+                  contentArray = [{ type: "text", text: item.text }];
                 } catch (err) {
                   console.warn("Failed to parse user message text, using fallback:", item.text);
                   contentArray = [{ type: "text", text: item.text }];
@@ -136,8 +134,17 @@ export function Assistant({
             setMessages([autoMessage, ...converted]);
           } else {
             const existingMessage = JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]");
+            
+            console.log("🚀 ~ existingMessage:", existingMessage)
             if (existingMessage.length > 1) {
-              setMessages(existingMessage);
+              const parsedMessages = existingMessage.map((item) => ({
+                role: item.role,
+                content: [{ text: item.text, type: "text" }],
+                id: "user-message-" + conversationId,
+                createdAt: new Date(),
+              }));
+              setMessages(parsedMessages);
+              
             } else {
               setMessages([
                 {
@@ -150,7 +157,8 @@ export function Assistant({
             }
           }
         })
-        .catch(() => {
+        .catch((e) => {
+          console.log("🚀 ~ e:", e)
           const existingMessage = JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]");
           if (existingMessage.length > 1) {
             setMessages(existingMessage);
