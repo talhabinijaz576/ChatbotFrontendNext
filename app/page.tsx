@@ -1,24 +1,8 @@
-"use client";
-import { useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
+import { Suspense } from 'react'
+import RedirectClient from './RedirectClient'
+export const dynamic = "force-dynamic"; 
 
-export default function HomePage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    // Only redirect if we're at the root `/` path
-    if (pathname === "/") {
-      const newId = uuidv4();
-      const params = new URLSearchParams(searchParams);
-      const queryString = params.toString();
-      router.replace(`/chat/${newId}${queryString ? `?${queryString}` : ""}`);
-    }else {
-      router.replace(`/widget/chat/`);
-    }
-  }, [pathname, searchParams, router]);
-
-  return <div>Redirecting...</div>;
+export default function Page() {
+  return <Suspense fallback={<p>Loading chat...</p>}><RedirectClient /> </Suspense>
 }

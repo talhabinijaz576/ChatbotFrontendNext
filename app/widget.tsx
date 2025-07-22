@@ -14,8 +14,11 @@ import { useIframe } from "./hooks/useIframe";
 import { AssistantModal } from "@assistant-ui/react-ui";
 import ActionModal from "@/components/mem0/ActionModal";
 import { chatService } from "./services/chatService";
+import { useSearchParams } from "next/navigation";
 
-export default function Widget({ params }) {
+export default function Widget({  }) {
+  const params = useSearchParams();
+
   // const parmsConversationId = params.get("conversationId");
   const [conversationId, setConversationId] = useState(() => {
     return params.get("conversationId") || uuidv4();
