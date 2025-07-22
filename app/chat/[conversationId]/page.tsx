@@ -13,7 +13,6 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
     params: { conversationId: string };
     searchParams: { [key: string]: string | string[] | undefined };
   }) {
-    console.log("Query params:", searchParams);
     const { conversationId } = use(params);
     const newParams = use(searchParams); 
   

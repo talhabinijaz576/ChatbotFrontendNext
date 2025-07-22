@@ -108,7 +108,9 @@
     --chart-5: 340 75% 55%
   }
 }
-
+html, body {
+  background-color: transparent !important;
+}
 
 
 @layer base {
