@@ -62,6 +62,16 @@ interface ThreadProps {
   toggleDarkMode: () => void;
   defaultTitle?: string;
   disclaimer?: string;
+  colors?: {
+    userMessage?: {
+      background?: string;
+      text?: string;
+    };
+    assistantMessage?: {
+      background?: string;
+      text?: string;
+    };
+  };
   messages: ThreadMessageLike[];
 }
 
@@ -73,6 +83,7 @@ export const Thread: FC<ThreadProps> = ({
   toggleDarkMode,
   defaultTitle,
   disclaimer,
+  colors,
   messages,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -244,7 +255,7 @@ export const Thread: FC<ThreadProps> = ({
 
           <ThreadPrimitive.Messages
             components={{
-              UserMessage: UserMessage,
+              UserMessage: (props) => <UserMessage {...props} colors={colors} />,
               EditComposer: EditComposer,
               AssistantMessage: AssistantMessage,
             }}
@@ -417,16 +428,16 @@ const ComposerAction: FC = () => {
   );
 };
 
-const UserMessage: FC = () => {
+const UserMessage: FC = ({ colors }) => {
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
-      <UserActionBar />
+      {/* <UserActionBar /> */}
       <UserMessageAttachments />
       <div
-        // style={{
-        //     backgroundColor: config.chat?.colors?.userMessage.background, // custom color
-        //     color: config.chat?.colors?.userMessage.text,
-        //   }}
+        style={{
+          backgroundColor: colors?.userMessage?.background ?? "#10101a",
+          color: colors?.userMessage?.text ?? "#ffffff",
+        }}
         className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2"
       >
         <MessagePrimitive.Content />
@@ -502,7 +513,7 @@ const AssistantMessage: FC = () => {
         />
       </div>
 
-      <AssistantActionBar />
+      {/* <AssistantActionBar /> */}
 
       <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
     </MessagePrimitive.Root>

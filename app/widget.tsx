@@ -11,10 +11,10 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { useEffect, useState, useCallback, use } from "react";
 import { useIframe } from "./hooks/useIframe";
-import { AssistantModal } from "@assistant-ui/react-ui";
 import ActionModal from "@/components/mem0/ActionModal";
 import { chatService } from "./services/chatService";
 import { useSearchParams } from "next/navigation";
+import { AssistantModal } from "@/components/assistant-modal";
 
 export default function Widget({  }) {
   const params = useSearchParams();
@@ -79,14 +79,12 @@ export default function Widget({  }) {
             id: "user-message-" + conversationId,
             createdAt: new Date(),
           };
-console.log("converted", converted)
           setMessages([autoMessage, ...converted]);
         } else {
           const existingMessage = JSON.parse(
             localStorage.getItem(`conversation:${conversationId}`) || "[]"
           );
 
-          console.log("🚀 ~ existingMessage:", existingMessage);
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
               role: item.role,
@@ -207,11 +205,17 @@ console.log("converted", converted)
       ]),
     },
   });
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    // Open the modal on first render
+    setOpen(true);
+  }, []);
 
   if (!config) return <div>Loading config...</div>;
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <AssistantModal confif={config} />
+      <AssistantModal config={config} />
 
       <ActionModal
           open={iframe.showIframe}

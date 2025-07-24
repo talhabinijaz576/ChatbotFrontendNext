@@ -15,27 +15,24 @@ export type TooltipIconButtonProps = ComponentPropsWithoutRef<typeof Button> & {
   side?: "top" | "bottom" | "left" | "right";
 };
 
-export const TooltipIconButton = forwardRef<
-  HTMLButtonElement,
-  TooltipIconButtonProps
->(({ children, tooltip, side = "bottom", className, ...rest }, ref) => {
-  return (
+export const TooltipIconButton = forwardRef<HTMLButtonElement, TooltipIconButtonProps>(
+  ({ tooltip, side, children, ...props }, ref) => (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          {...rest}
-          className={cn("aui-button-icon", className)}
-          ref={ref}
-        >
+        <Button ref={ref} {...props}>
           {children}
-          <span className="aui-sr-only">{tooltip}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side={side}>{tooltip}</TooltipContent>
+{/* 
+      <TooltipTrigger asChild>
+      <Button ref={ref} {...props}>
+        {children}
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent side={side}>{tooltip}</TooltipContent> */}
     </Tooltip>
-  );
-});
+  )
+);
 
 TooltipIconButton.displayName = "TooltipIconButton";

@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { normalizeMessages } from "./utils/idGenerator";
 import { useCallback } from "react";
 import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapter";
+import { OtpModal } from "@/components/assistant-ui/otpModal";
 
 // === Utility Functions ===
 
@@ -79,6 +80,8 @@ export function Assistant({
   const [config, setConfig] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [open, setOpen] = useState(false);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+
   const userId = getOrCreateUserId();
 
   // Step 1: Load config once on page load
@@ -94,10 +97,19 @@ export function Assistant({
   }, []);
 
   // Step 2: Load conversation/messages when config + conversationId are ready
-  const initConversation = (config2) => {
+  const initConversation = (config2: any) => {
     fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 403) {
+          // Handle forbidden access (e.g. trigger OTP modal)
+          setOtpModalOpen(true); // <-- Replace with your actual modal logic
+          throw new Error("403 Forbidden - OTP required");
+        }
+
+        return res.json();
+      })
       .then((data) => {
+        console.log("🚀 ~ .then ~ data:", data);
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
           const converted = data.messages.map((item) => {
@@ -164,21 +176,14 @@ export function Assistant({
       })
       .catch((e) => {
         console.log("🚀 ~ e:", e);
-        const existingMessage = JSON.parse(
-          localStorage.getItem(`conversation:${conversationId}`) || "[]"
-        );
-        if (existingMessage.length > 1) {
-          setMessages(existingMessage);
-        } else {
-          setMessages([
-            {
-              role: config2.chat.autoMessage.role,
-              content: [{ ...config2.chat.autoMessage, type: "text" }],
-              id: "user-message-" + conversationId,
-              createdAt: new Date(),
-            },
-          ]);
-        }
+        setMessages([
+          {
+            role: config2.chat.autoMessage.role,
+            content: [{ ...config2.chat.autoMessage, type: "text" }],
+            id: "user-message-" + conversationId,
+            createdAt: new Date(),
+          },
+        ]);
       });
   };
 
@@ -476,6 +481,12 @@ export function Assistant({
             <button onClick={() => setOpen(false)}>Close</button>
           </div>
         )}
+
+        <OtpModal
+          open={otpModalOpen}
+          onClose={() => setOtpModalOpen(false)}
+          // onVerify={(otp) => handleOtpVerification(otp)}
+        />
       </div>
     </AssistantRuntimeProvider>
   );
