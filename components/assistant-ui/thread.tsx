@@ -429,6 +429,7 @@ const ComposerAction: FC = () => {
 };
 
 const UserMessage: FC = ({ colors }) => {
+  console.log("colors", colors);
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       {/* <UserActionBar /> */}

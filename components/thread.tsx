@@ -6,7 +6,7 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
 } from "@assistant-ui/react";
-import type { FC } from "react";
+import { useEffect, useState, type FC } from "react";
 import {
   ArrowDownIcon,
   CheckIcon,
@@ -24,10 +24,27 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { MarkdownText } from "./markdown-text";
 
 export const Thread: FC = ({ defaultTitle, disclaimer, colors }) => {
+  const [maxWidth, setMaxWidth] = useState("100%");
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (window.innerWidth <= 480) {
+        setMaxWidth("380px");
+      } else {
+        setMaxWidth("100%");
+      }
+    };
+
+    updateWidth(); // Initial check
+    window.addEventListener("resize", updateWidth);
+
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
   return (
     <ThreadPrimitive.Root
-      className="bg-background box-border flex h-full flex-col overflow-hidden"
+      className="bg-background box-border flex h-full flex-col overflow-hidden w-full s8:w-[380px] max-w-[300px] px-4 mx-auto"
       style={{
+        maxWidth,
         ["--thread-max-width" as string]: "42rem",
       }}
     >
@@ -209,7 +226,7 @@ const EditComposer: FC = () => {
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
-      <div className="text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5">
+      <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
         <MessageError />
       </div>
