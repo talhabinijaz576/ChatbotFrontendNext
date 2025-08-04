@@ -29,12 +29,11 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors }) => {
   useEffect(() => {
     const updateWidth = () => {
       if (window.innerWidth <= 480) {
-        setMaxWidth("380px");
+        setMaxWidth("350px");
       } else {
         setMaxWidth("100%");
       }
     };
-
     updateWidth(); // Initial check
     window.addEventListener("resize", updateWidth);
 
