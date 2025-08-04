@@ -60,7 +60,7 @@ const style = {
   top: "50%",
   left: "50%",
   transform: "translate(-50%, -50%)",
-  width: 400,
+  width: 1000,
   bgcolor: "background.paper",
   borderRadius: 2,
   boxShadow: 24,
@@ -92,6 +92,7 @@ export function Assistant({
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [open, setOpen] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [lastMessageResponse, setlastMessageResponse] = useState<ThreadMessageLike | null>(null);
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -328,6 +329,7 @@ export function Assistant({
           createdAt: new Date(),
         };
         setMessages((currentConversation) => [...currentConversation, assRes]);
+        setlastMessageResponse(assRes);
       } catch (error) {
         console.error("Error communicating with backend:", error);
       } finally {
@@ -515,7 +517,7 @@ export function Assistant({
             JSON Response
           </Typography>
           <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px" }}>
-            {JSON.stringify(messages, null, 2)}
+            {JSON.stringify(lastMessageResponse, null, 2)}
           </pre>
         </Box>
       </Modal>
