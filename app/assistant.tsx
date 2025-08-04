@@ -23,6 +23,7 @@ import { normalizeMessages } from "./utils/idGenerator";
 import { useCallback } from "react";
 import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapter";
 import { OtpModal } from "@/components/assistant-ui/otpModal";
+import { Box, Button, Modal, Typography } from "@mui/material";
 
 // === Utility Functions ===
 
@@ -54,8 +55,18 @@ const saveMessages = (id: string, messages: any[]) => {
   localStorage.setItem(`conversation:${id}`, JSON.stringify(messages));
 };
 
-const loadMessages = (id: string) => {
-  return JSON.parse(localStorage.getItem(`conversation:${id}`) || "[]");
+const style = {
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: 400,
+  bgcolor: "background.paper",
+  borderRadius: 2,
+  boxShadow: 24,
+  p: 4,
+  maxHeight: "80vh",
+  overflowY: "auto",
 };
 
 // === Main Component ===
@@ -83,6 +94,10 @@ export function Assistant({
   const [otpModalOpen, setOtpModalOpen] = useState(false);
 
   const userId = getOrCreateUserId();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleModalOpen = () => setModalOpen(true);
+  const handleModalClose = () => setModalOpen(false);
 
   // Step 1: Load config once on page load
 
@@ -488,6 +503,20 @@ export function Assistant({
           // onVerify={(otp) => handleOtpVerification(otp)}
         />
       </div>
+      <Button variant="contained" onClick={handleModalOpen}>
+        Show JSON Message
+      </Button>
+
+      <Modal open={modalOpen} onClose={handleModalClose}>
+        <Box sx={style}>
+          <Typography variant="h6" mb={2}>
+            JSON Response
+          </Typography>
+          <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px" }}>
+            {JSON.stringify(messages, null, 2)}
+          </pre>
+        </Box>
+      </Modal>
     </AssistantRuntimeProvider>
   );
 }
