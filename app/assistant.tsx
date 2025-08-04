@@ -92,7 +92,7 @@ export function Assistant({
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [open, setOpen] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [lastMessageResponse, setlastMessageResponse] = useState<ThreadMessageLike | null>(null);
+  const [lastMessageResponse, setlastMessageResponse] = useState(null);
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -329,7 +329,7 @@ export function Assistant({
           createdAt: new Date(),
         };
         setMessages((currentConversation) => [...currentConversation, assRes]);
-        setlastMessageResponse(assRes);
+        setlastMessageResponse(assistantResponse);
       } catch (error) {
         console.error("Error communicating with backend:", error);
       } finally {
