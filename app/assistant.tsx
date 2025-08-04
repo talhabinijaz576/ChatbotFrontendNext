@@ -374,7 +374,7 @@ export function Assistant({
         {/* HEADER */}
         <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <Link href="/" className="flex items-center">
-            <ThemeAwareLogo width={120} height={40} isDarkMode={isDarkMode} />
+            <ThemeAwareLogo width={120} height={40} isDarkMode={isDarkMode} config={config} />
           </Link>
           <button
             onClick={() => setSidebarOpen(true)}
@@ -503,9 +503,11 @@ export function Assistant({
           // onVerify={(otp) => handleOtpVerification(otp)}
         />
       </div>
-      <Button variant="contained" onClick={handleModalOpen}>
-        Show JSON Message
-      </Button>
+      {config.chat.isVisible && (
+        <Button variant="contained" onClick={handleModalOpen}>
+          Show JSON Message
+        </Button>
+      )}
 
       <Modal open={modalOpen} onClose={handleModalClose}>
         <Box sx={style}>

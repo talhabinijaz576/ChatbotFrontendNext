@@ -10,11 +10,18 @@ export default function ThemeAwareLogo({
   height = 40,
   variant = "default",
   isDarkMode = false,
+  config,
 }: {
   width?: number;
   height?: number;
   variant?: "default" | "collapsed";
   isDarkMode?: boolean;
+  config?: {
+    app: {
+      lightLogo: string;
+      darkLogo: string;
+    };
+  };
 }) {
   // For collapsed variant, always use the icon
   if (variant === "collapsed") {
@@ -29,12 +36,12 @@ export default function ThemeAwareLogo({
   }
   
   // For default variant, use the full logo image
-  const logoSrc = isDarkMode ? darkLogo : lightLogo;
+  const logoSrc = isDarkMode ? config?.app?.darkLogo || darkLogo : config?.app?.lightLogo || lightLogo;
   
   return (
     <Image
       src={logoSrc}
-      alt="Mem0.ai"
+      alt="Jazee.ai"
       width={width}
       height={height}
     />

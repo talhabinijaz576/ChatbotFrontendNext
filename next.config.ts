@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  images: {
+    domains: ['img.icons8.com', 'upload.wikimedia.org', 'cdn-icons-png.flaticon.com', 'www.logo.wine'], // add more as needed
+  },
 };
 
 export default nextConfig;
