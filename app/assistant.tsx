@@ -10,7 +10,7 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, AlignJustify } from "lucide-react";
 import { Thread } from "@/components/assistant-ui/thread";
@@ -19,11 +19,11 @@ import ActionModal from "@/components/mem0/ActionModal";
 import { useIframe } from "./hooks/useIframe";
 import { chatService } from "./services/chatService";
 import { useRouter } from "next/navigation";
-import { normalizeMessages } from "./utils/idGenerator";
 import { useCallback } from "react";
 import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapter";
 import { OtpModal } from "@/components/assistant-ui/otpModal";
 import { Box, Button, Modal, Typography } from "@mui/material";
+import { getCookie, setCookie } from "cookies-next";
 
 // === Utility Functions ===
 
@@ -78,13 +78,11 @@ export function Assistant({
   initialConversationId: string | null;
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  console.log("🚀 ~ initialConversationId:", initialConversationId);
   const router = useRouter();
   const iframe = useIframe();
 
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
-  console.log("🚀 ~ messages:", messages);
   const [history, setHistory] = useState(() => getConversationHistory());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -113,24 +111,57 @@ export function Assistant({
   }, []);
 
   // Step 2: Load conversation/messages when config + conversationId are ready
+  // , {
+  //   method: 'GET',
+  //   headers: config2.api.headers,
+  //   body: JSON.stringify({
+  //     conversationId: conversationId,
+  //     passphrase: "sdjfsdfjsdfhsd"
+  //   }),
+  // }
+  
   const initConversation = (config2: any) => {
-    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`)
+    const otpPhrase = getCookie("otpPhrase");
+
+    let parsedOtpPhrase = [];
+    if (otpPhrase) {
+      try {
+        parsedOtpPhrase = JSON.parse(otpPhrase);
+      } catch (e) {
+        console.error("Invalid JSON in otpPhrase cookie", e);
+      }
+    }
+    
+    const otpPhraseArray = parsedOtpPhrase.find?.(
+      (item) => item.conversationId === conversationId
+    );
+    
+    console.log("🚀 ~ initConversation ~ otpPhrase:", otpPhrase);
+    // const headers = {
+    //   "Passphrase": otpPhraseArray.passphrase
+    // }
+    const headers = new Headers({
+      Accept: "*/*", // from browser or another config
+    });
+    headers.set("passphrase", otpPhraseArray?.passphrase);
+    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`, {
+      method: "GET",
+      headers: headers,
+    })
       .then((res) => {
+        console.log("Status:", res.status);
         if (res.status === 403) {
-          // Handle forbidden access (e.g. trigger OTP modal)
-          setOtpModalOpen(true); // <-- Replace with your actual modal logic
+          console.log("Opening OTP modal due to 403");
+          setOtpModalOpen(true);
           throw new Error("403 Forbidden - OTP required");
         }
-
         return res.json();
       })
       .then((data) => {
-        console.log("🚀 ~ .then ~ data:", data);
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
           const converted = data.messages.map((item) => {
             let contentArray;
-
             if (item.type === "user") {
               try {
                 // Replace single quotes with double quotes for valid JSON parsing
@@ -376,7 +407,12 @@ export function Assistant({
         {/* HEADER */}
         <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <Link href="/" className="flex items-center">
-            <ThemeAwareLogo width={120} height={40} isDarkMode={isDarkMode} config={config} />
+            <ThemeAwareLogo
+              width={120}
+              height={40}
+              isDarkMode={isDarkMode}
+              config={config}
+            />
           </Link>
           <button
             onClick={() => setSidebarOpen(true)}
@@ -501,7 +537,12 @@ export function Assistant({
 
         <OtpModal
           open={otpModalOpen}
-          onClose={() => setOtpModalOpen(false)}
+          onOtpSuccess={() => {
+            setOtpModalOpen(false);
+            initConversation(config); // retry with new header
+          }}
+          conversationId={conversationId}
+          config={config}
           // onVerify={(otp) => handleOtpVerification(otp)}
         />
       </div>
@@ -516,7 +557,13 @@ export function Assistant({
           <Typography variant="h6" mb={2}>
             JSON Response
           </Typography>
-          <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px" }}>
+          <pre
+            style={{
+              backgroundColor: "#f5f5f5",
+              padding: "10px",
+              borderRadius: "4px",
+            }}
+          >
             {JSON.stringify(lastMessageResponse, null, 2)}
           </pre>
         </Box>

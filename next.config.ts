@@ -18,6 +18,18 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['img.icons8.com', 'upload.wikimedia.org', 'cdn-icons-png.flaticon.com', 'www.logo.wine'], // add more as needed
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        // Add fallbacks for Node.js modules if needed by 'cookies-next'
+        // For example:
+        // fs: false,
+        // path: false,
+        // crypto: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
