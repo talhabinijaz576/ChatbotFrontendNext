@@ -136,10 +136,7 @@ export function Assistant({
       (item) => item.conversationId === conversationId
     );
     
-    console.log("🚀 ~ initConversation ~ otpPhrase:", otpPhrase);
-    // const headers = {
-    //   "Passphrase": otpPhraseArray.passphrase
-    // }
+
     const headers = new Headers({
       Accept: "*/*", // from browser or another config
     });
@@ -151,7 +148,6 @@ export function Assistant({
       .then((res) => {
         console.log("Status:", res.status);
         if (res.status === 403) {
-          console.log("Opening OTP modal due to 403");
           setOtpModalOpen(true);
           throw new Error("403 Forbidden - OTP required");
         }

@@ -28,15 +28,12 @@ const style = {
 export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const inputsRef = useRef([]);
 
   // Send OTP when modal opens
   useEffect(() => {
-    const otpPhrase = getCookie("otpPhrase");
-    console.log("🚀 ~ useEffect ~ otpPhrase:", otpPhrase);
-
     if (open && conversationId) {
       setLoading(true);
       fetch(`${config.api.baseUrl}/conversation/${conversationId}/otp/send`, {
@@ -45,7 +42,6 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log("🚀 ~ OtpModal ~ data:", data)
           const phone = data.phone || "";
           setPhone(phone);
         })
@@ -84,8 +80,8 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
       { maxAge: 60 * 60 * 24 * 7 }
     );
     const otpCode = otp.join("");
-    if (otpCode.length !== 6) {
-      setError("Please enter the complete 6-digit OTP.");
+    if (otpCode.length !== 4) {
+      setError("Please enter the complete 4-digit OTP.");
       return;
     }
     setLoading(true);
@@ -108,7 +104,6 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
         }
       })
       .catch((e) => {
-        console.log("🚀 ~ OtpModal ~ e:", e)
         setError("Error validating OTP")
       })
       .finally(() => setLoading(false));
@@ -117,10 +112,6 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
   return (
     <Modal
       open={open}
-      // onClose={(event, reason) => {
-      //   if (loading) return;
-      //   onClose();
-      // }}
       disableEscapeKeyDown={loading}
     >
       <Box sx={style}>
@@ -149,7 +140,6 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
           direction="row"
           spacing={1.5}
           justifyContent="center"
-          sx={{ mt: 3 }}
         >
           {otp.map((digit, i) => (
             <input
@@ -171,9 +161,14 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
             />
           ))}
         </Stack>
-
+        <Stack
+          direction="row"
+          spacing={1.5}
+          justifyContent="center"
+          sx={{ mt: 3 }}
+        >
         <Button
-          fullWidth
+          
           variant="contained"
           sx={{ mt: 3, height: "45px" }}
           onClick={handleValidate}
@@ -185,6 +180,7 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
             "Verify OTP"
           )}
         </Button>
+        </Stack>
       </Box>
     </Modal>
   );
