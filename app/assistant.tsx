@@ -141,7 +141,8 @@ export function Assistant({
       Accept: "*/*", // from browser or another config
     });
     headers.set("passphrase", otpPhraseArray?.passphrase);
-    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`, {
+    const params = new URLSearchParams(searchParams).toString();
+    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`, {
       method: "GET",
       headers: headers,
     })

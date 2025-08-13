@@ -93,7 +93,7 @@ export const Thread: FC<ThreadProps> = ({
   useEffect(() => {
     const timeout = setTimeout(() => {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 300);
+    }, 1000);
 
     return () => clearTimeout(timeout);
   }, [messages.length]);
