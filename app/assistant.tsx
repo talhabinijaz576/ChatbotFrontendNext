@@ -140,8 +140,11 @@ export function Assistant({
     const headers = new Headers({
       Accept: "*/*", // from browser or another config
     });
-    headers.set("passphrase", otpPhraseArray?.passphrase);
+    if (otpPhraseArray?.passphrase) {
+      headers.set("passphrase", otpPhraseArray.passphrase);
+    }
     const params = new URLSearchParams(searchParams).toString();
+    console.log("🚀 ~ initConversation ~ params:", params);
     fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`, {
       method: "GET",
       headers: headers,
@@ -156,7 +159,6 @@ export function Assistant({
       })
       .then((data) => {
         if (Array.isArray(data.messages) && data.messages.length > 0) {
-          console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
           const converted = data.messages.map((item) => {
             let contentArray;
             if (item.type === "user") {

@@ -1,0 +1,251 @@
+Debugger listening on ws://127.0.0.1:9229/3148f8c1-327c-4114-8040-79f7d856982b
+For help, see: https://nodejs.org/en/docs/inspector
+Debugger listening on ws://127.0.0.1:9229/5178092e-731a-468d-bdfd-cba591d8862a
+For help, see: https://nodejs.org/en/docs/inspector
+
+> assistant-ui-mem0@0.1.0 dev
+> next dev --turbopack
+
+Starting inspector on 127.0.0.1:9229 failed: address already in use
+Debugger listening on ws://127.0.0.1:9230/c2346e5c-871d-4a30-9acc-ba87a497de12
+For help, see: https://nodejs.org/en/docs/inspector
+   the --inspect option was detected, the Next.js router server should be inspected at 9230.
+   ▲ Next.js 15.2.0 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.123.162:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Compiled in 299ms
+ ✓ Ready in 1621ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbo
+
+[REQUEST] GET /chat/58126d39-741a-4f6b-96ba-c5c90ef6709d/
+ ○ Compiling /chat/[conversationId] ...
+Starting inspector on 127.0.0.1:9230 failed: address already in use
+ ✓ Compiled /chat/[conversationId] in 7.7s
+ ⨯ ReferenceError: localStorage is not defined
+    at getConversationHistory (file://E%3A/New/config/assistant-ui-mem0-starter/app/assistant.tsx:40:20)
+    at eval (file://E%3A/New/config/assistant-ui-mem0-starter/app/assistant.tsx:86:47)
+    at Assistant (file://E%3A/New/config/assistant-ui-mem0-starter/app/assistant.tsx:86:41)
+  38 |
+  39 | const getConversationHistory = () => {
+> 40 |   return JSON.parse(localStorage.getItem("chatHistory") || "[]");
+     |                    ^
+  41 | };
+  42 |
+  43 | const saveConversationToHistory = (id: string, title: string) => { {
+  digest: '681843222'
+}
+ GET /chat/58126d39-741a-4f6b-96ba-c5c90ef6709d/ 500 in 9821ms
+[REQUEST] GET /_next/static/media/gyByhwUxId8gMEwcGFWNOITd-s.p.da1ebef7.woff2
+[REQUEST] GET /_next/static/media/or3nQ6H_1_WfwkMZI_qYFrcdmhHkjko-s.p.be19f591.woff2
+[REQUEST] GET /_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_275e8479._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_compiled_react-dom_1f56dc06._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_compiled_38d265cf._.js
+[REQUEST] GET /.well-known/appspecific/com.chrome.devtools.json
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_client_ce20a02f._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_734f0429._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_compiled_38d265cf._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40swc_helpers_cjs_00636ac3._.js
+[REQUEST] GET /_next/static/chunks/_e69f0d32._.js
+[REQUEST] GET /_next/static/chunks/_fc096475._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_215c0736._.js
+[REQUEST] GET /_next/static/chunks/app_favicon_ico_mjs_0c545fd8._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_compiled_react-dom_1f56dc06._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40swc_helpers_cjs_00636ac3._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_734f0429._.js.map
+ ✓ Compiled /_not-found/page in 483ms
+[REQUEST] GET /_next/static/chunks/_fc096475._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_215c0736._.js.map
+[REQUEST] GET /_next/static/chunks/app_layout_tsx_e936f940._.js
+[REQUEST] GET /_next/static/chunks/_b46f7204._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_1ede9815._.js
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 591ms
+[REQUEST] GET /_next/static/chunks/%5Broot%20of%20the%20server%5D__772746f6._.css
+[REQUEST] GET /_next/static/chunks/node_modules_next_dist_client_ce20a02f._.js.map
+[REQUEST] GET /_next/static/chunks/components_mem0_markdown_b18db1ed.css
+[REQUEST] GET /_next/static/chunks/node_modules_%40assistant-ui_react_dist_ea96893c._.js
+[REQUEST] GET /_next/static/chunks/node_modules_tailwind-merge_dist_bundle-mjs_mjs_b854acb4._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_1ede9815._.js.map
+[REQUEST] GET /_next/static/chunks/_b46f7204._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_micromark-core-commonmark_dev_lib_36a4b45d._.js
+[REQUEST] GET /_next/static/chunks/node_modules_refractor_f85e00c5._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_system_esm_1e8b2fb1._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_material_esm_31568ce6._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40radix-ui_f2f4d6f4._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40floating-ui_9ec1fa39._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40emotion_f6beabba._.js
+[REQUEST] GET /_next/static/chunks/node_modules_8df99807._.js
+[REQUEST] GET /_next/static/chunks/node_modules_tailwind-merge_dist_bundle-mjs_mjs_b854acb4._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40assistant-ui_react_dist_ea96893c._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_micromark-core-commonmark_dev_lib_36a4b45d._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_system_esm_1e8b2fb1._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40radix-ui_f2f4d6f4._.js.map
+[REQUEST] GET /_next/static/chunks/app_chat_%5BconversationId%5D_page_tsx_f275fe9f._.js
+[REQUEST] GET /_next/static/chunks/node_modules_refractor_f85e00c5._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40floating-ui_9ec1fa39._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40emotion_f6beabba._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_material_esm_31568ce6._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_8df99807._.js.map
+[REQUEST] GET /favicon.ico
+[REQUEST] GET /_next/static/chunks/app_layout_tsx_e936f940._.js
+[REQUEST] GET /_next/static/chunks/_b46f7204._.js
+ ✓ Compiled /favicon.ico in 474ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 568ms
+[REQUEST] GET /favicon.ico
+[REQUEST] GET /api/config/
+[REQUEST] GET /api/config/
+[REQUEST] GET /api/config/
+[REQUEST] GET /api/config/
+ GET /favicon.ico 200 in 73ms
+[REQUEST] GET /favicon.ico
+[REQUEST] GET /_next/static/chunks/_b46f7204._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_next_1ede9815._.js
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 96ms
+[REQUEST] GET /_next/static/chunks/node_modules_%40assistant-ui_react_dist_ea96893c._.js
+[REQUEST] GET /_next/static/chunks/node_modules_tailwind-merge_dist_bundle-mjs_mjs_b854acb4._.js
+[REQUEST] GET /_next/static/chunks/node_modules_micromark-core-commonmark_dev_lib_36a4b45d._.js
+ ○ Compiling /api/config ...
+[REQUEST] GET /_next/static/chunks/node_modules_refractor_f85e00c5._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_system_esm_1e8b2fb1._.js
+[REQUEST] GET /_next/static/chunks/node_modules_next_1ede9815._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_tailwind-merge_dist_bundle-mjs_mjs_b854acb4._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40assistant-ui_react_dist_ea96893c._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_material_esm_31568ce6._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40radix-ui_f2f4d6f4._.js
+[REQUEST] GET /_next/static/chunks/node_modules_micromark-core-commonmark_dev_lib_36a4b45d._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_system_esm_1e8b2fb1._.js.map
+ ✓ Compiled /api/config in 821ms
+🚀 ~ GET ~ config: {
+  api: {
+    baseUrl: 'https://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { conversation: '/conversation/YOUR_UUID_HERE/message' },
+    headers: { 'Content-Type': 'application/json' }
+  },
+  websocket: {
+    baseUrl: 'wss://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { user_chat: '/ws/user/YOUR_UUID_HERE/' },
+    reconnectInterval: 1000
+  },
+  app: {
+    title: 'Jazee AI Assistant',
+    drawerWidth: 280,
+    disclaimer: 'A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories.',
+    darkLogo: 'https://img.icons8.com/color/480/artificial-intelligence.png',
+    lightLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png'
+  },
+  chat: {
+    isVisible: true,
+    defaultTitle: 'My Custom Title',
+    isDark: false,
+    showBotAvatar: true,
+    autoMessage: { role: 'assistant', text: 'How can I help you today?' },
+    colors: { userMessage: [Object], assistantMessage: [Object] }
+  }
+}
+ GET /api/config/ 201 in 918ms
+🚀 ~ GET ~ config: {
+  api: {
+    baseUrl: 'https://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { conversation: '/conversation/YOUR_UUID_HERE/message' },
+    headers: { 'Content-Type': 'application/json' }
+  },
+  websocket: {
+    baseUrl: 'wss://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { user_chat: '/ws/user/YOUR_UUID_HERE/' },
+    reconnectInterval: 1000
+  },
+  app: {
+    title: 'Jazee AI Assistant',
+    drawerWidth: 280,
+    disclaimer: 'A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories.',
+    darkLogo: 'https://img.icons8.com/color/480/artificial-intelligence.png',
+    lightLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png'
+  },
+  chat: {
+    isVisible: true,
+    defaultTitle: 'My Custom Title',
+    isDark: false,
+    showBotAvatar: true,
+    autoMessage: { role: 'assistant', text: 'How can I help you today?' },
+    colors: { userMessage: [Object], assistantMessage: [Object] }
+  }
+}
+ GET /api/config/ 201 in 913ms
+🚀 ~ GET ~ config: {
+  api: {
+    baseUrl: 'https://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { conversation: '/conversation/YOUR_UUID_HERE/message' },
+    headers: { 'Content-Type': 'application/json' }
+  },
+  websocket: {
+    baseUrl: 'wss://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { user_chat: '/ws/user/YOUR_UUID_HERE/' },
+    reconnectInterval: 1000
+  },
+  app: {
+    title: 'Jazee AI Assistant',
+    drawerWidth: 280,
+    disclaimer: 'A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories.',
+    darkLogo: 'https://img.icons8.com/color/480/artificial-intelligence.png',
+    lightLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png'
+  },
+  chat: {
+    isVisible: true,
+    defaultTitle: 'My Custom Title',
+    isDark: false,
+    showBotAvatar: true,
+    autoMessage: { role: 'assistant', text: 'How can I help you today?' },
+    colors: { userMessage: [Object], assistantMessage: [Object] }
+  }
+}
+ GET /api/config/ 201 in 942ms
+🚀 ~ GET ~ config: {
+  api: {
+    baseUrl: 'https://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { conversation: '/conversation/YOUR_UUID_HERE/message' },
+    headers: { 'Content-Type': 'application/json' }
+  },
+  websocket: {
+    baseUrl: 'wss://leadgen-chatbot-v1.jazeeautomation.com',
+    endpoints: { user_chat: '/ws/user/YOUR_UUID_HERE/' },
+    reconnectInterval: 1000
+  },
+  app: {
+    title: 'Jazee AI Assistant',
+    drawerWidth: 280,
+    disclaimer: 'A personalized AI chat app powered by Jazee that remembers your preferences, facts, and memories.',
+    darkLogo: 'https://img.icons8.com/color/480/artificial-intelligence.png',
+    lightLogo: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png'
+  },
+  chat: {
+    isVisible: true,
+    defaultTitle: 'My Custom Title',
+    isDark: false,
+    showBotAvatar: true,
+    autoMessage: { role: 'assistant', text: 'How can I help you today?' },
+    colors: { userMessage: [Object], assistantMessage: [Object] }
+  }
+}
+ GET /api/config/ 201 in 940ms
+[REQUEST] GET /_next/static/chunks/node_modules_%40floating-ui_9ec1fa39._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40emotion_f6beabba._.js
+[REQUEST] GET /_next/static/chunks/node_modules_8df99807._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40radix-ui_f2f4d6f4._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40mui_material_esm_31568ce6._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_refractor_f85e00c5._.js.map
+[REQUEST] GET /_next/static/chunks/app_chat_%5BconversationId%5D_page_tsx_f275fe9f._.js
+[REQUEST] GET /_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_61dcf9ba._.js
+[REQUEST] GET /_next/static/chunks/node_modules_%40floating-ui_9ec1fa39._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_%40emotion_f6beabba._.js.map
+[REQUEST] GET /_next/static/chunks/%5Broot%20of%20the%20server%5D__772746f6._.css.map
+[REQUEST] GET /_next/static/chunks/components_mem0_markdown_b18db1ed.css.map
+[REQUEST] GET /_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_3f727431._.js
+[REQUEST] GET /_next/image/
+ ⚠ The "images.domains" configuration is deprecated. Please use "images.remotePatterns" configuration instead.
+[REQUEST] GET /_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_61dcf9ba._.js.map
+[REQUEST] GET /_next/static/chunks/node_modules_8df99807._.js.map
+[?25h

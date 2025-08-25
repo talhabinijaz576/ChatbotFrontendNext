@@ -25,6 +25,8 @@ import {
   Sun,
   Moon,
   SaveIcon,
+  LoaderCircle,
+  Loader,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dispatch, SetStateAction, useState, useRef, useEffect } from "react";
@@ -245,14 +247,9 @@ export const Thread: FC<ThreadProps> = ({
         style={{ maxHeight: "80svh" }}
       >
         <div className="flex flex-col w-full items-center px-4 pt-8 justify-end">
-          <ThreadWelcome
-            composerInputRef={
-              composerInputRef as React.RefObject<HTMLTextAreaElement>
-            }
-            defaultTitle={defaultTitle}
-            disclaimer={disclaimer}
-          />
-
+          {!messages.length && (
+            <Loader />
+          )}
           <ThreadPrimitive.Messages
             components={{
               UserMessage: (props) => <UserMessage {...props} colors={colors} />,
@@ -429,7 +426,6 @@ const ComposerAction: FC = () => {
 };
 
 const UserMessage: FC = ({ colors }) => {
-  console.log("colors", colors);
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       {/* <UserActionBar /> */}
