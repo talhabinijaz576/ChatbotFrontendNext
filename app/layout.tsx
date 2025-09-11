@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mem0 - ChatGPT with Memory",
-  description: "Mem0 - ChatGPT with Memory is a personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories.",
+  title: "Jazee - ChatGPT with Memory",
+  description: "Jazee - ChatGPT with Memory is a personalized AI chat app powered by jazee that remembers your preferences, facts, and memories.",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
       </body>

@@ -84,7 +84,7 @@ export function Assistant({
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [history, setHistory] = useState(() => getConversationHistory());
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [config, setConfig] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -119,7 +119,7 @@ export function Assistant({
   //     passphrase: "sdjfsdfjsdfhsd"
   //   }),
   // }
-  
+
   const initConversation = (config2: any) => {
     const otpPhrase = getCookie("otpPhrase");
 
@@ -131,11 +131,10 @@ export function Assistant({
         console.error("Invalid JSON in otpPhrase cookie", e);
       }
     }
-    
+
     const otpPhraseArray = parsedOtpPhrase.find?.(
       (item) => item.conversationId === conversationId
     );
-    
 
     const headers = new Headers({
       Accept: "*/*", // from browser or another config
@@ -145,10 +144,13 @@ export function Assistant({
     }
     const params = new URLSearchParams(searchParams).toString();
     console.log("🚀 ~ initConversation ~ params:", params);
-    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`, {
-      method: "GET",
-      headers: headers,
-    })
+    fetch(
+      `${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`,
+      {
+        method: "GET",
+        headers: headers,
+      }
+    )
       .then((res) => {
         console.log("Status:", res.status);
         if (res.status === 403) {
@@ -413,12 +415,12 @@ export function Assistant({
               config={config}
             />
           </Link>
-          <button
+          {/* <button
             onClick={() => setSidebarOpen(true)}
             className="text-[#475569] dark:text-zinc-300 md:hidden"
           >
             <AlignJustify size={24} />
-          </button>
+          </button> */}
           <div className="md:flex items-center hidden">
             <button
               onClick={() => {
@@ -437,70 +439,85 @@ export function Assistant({
         </header>
 
         {/* MAIN LAYOUT */}
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] h-[calc(100dvh-4rem)]">
+
+        <div
+          className={`grid grid-cols-1 h-[calc(100dvh-4rem)] ${
+            config.chat.isSidebar && sidebarOpen
+              ? "md:grid-cols-[260px_1fr]"
+              : "md:grid-cols-1"
+          }`}
+        >
           {/* SIDEBAR */}
-          <aside
-            className={`fixed md:static top-0 left-0 z-50 h-full w-64 bg-white dark:bg-zinc-900 border-r dark:border-zinc-800 transform transition-transform duration-300 ease-in-out ${
-              sidebarOpen
-                ? "translate-x-0"
-                : "-translate-x-full md:translate-x-0"
-            }`}
-          >
-            <div className="h-16 px-4 flex items-center justify-between border-b dark:border-zinc-800 md:hidden">
-              <span className="font-semibold text-lg tracking-wide">
-                Conversations
-              </span>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="text-gray-600 dark:text-gray-300 hover:text-red-500"
-              >
-                ✖
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <button
-                onClick={createNewChat}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-600 transition"
-              >
-                ➕ New Chat
-              </button>
-              <ul className="space-y-1">
-                {history.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`group flex items-center justify-between rounded-lg px-3 py-2 cursor-pointer ${
-                      item.id === conversationId
-                        ? "bg-blue-100 dark:bg-zinc-800"
-                        : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    }`}
+          {config.chat.isSidebar && (
+            <aside
+              className={`${
+                // mobile: fixed overlay
+                "fixed md:static top-0 left-0 z-50 h-full md:h-auto w-64 md:w-auto bg-white dark:bg-zinc-900 border-r dark:border-zinc-800"
+              } transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}
+            >
+              {/* MOBILE HEADER */}
+              <div className="h-16 px-4 flex items-center justify-between border-b dark:border-zinc-800 md:hidden">
+                <span className="font-semibold text-lg tracking-wide">
+                  Conversations
+                </span>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-gray-600 dark:text-gray-300 hover:text-red-500"
+                >
+                  ✖
+                </button>
+              </div>
+
+              {/* SIDEBAR CONTENT */}
+              <div className="p-4 space-y-4">
+                {config.chat.isNewChat && (
+                  <button
+                    onClick={createNewChat}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
-                    <span
-                      onClick={() => {
-                        switchConversation(item.id);
-                        setSidebarOpen(false);
-                      }}
-                      className="truncate flex-1 text-sm font-medium"
+                    ➕ New Chat
+                  </button>
+                )}
+                <ul className="space-y-1">
+                  {history.map((item) => (
+                    <li
+                      key={item.id}
+                      className={`group flex items-center justify-between rounded-lg px-3 py-2 cursor-pointer ${
+                        item.id === conversationId
+                          ? "bg-blue-100 dark:bg-zinc-800"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      }`}
                     >
-                      {item.title || "Untitled Chat"}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteConversation(item.id);
-                      }}
-                      className="text-red-500 opacity-0 group-hover:opacity-100 ml-2 transition"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+                      <span
+                        onClick={() => {
+                          switchConversation(item.id);
+                          setSidebarOpen(false);
+                        }}
+                        className="truncate flex-1 text-sm font-medium"
+                      >
+                        {item.title || "Untitled Chat"}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(item.id);
+                        }}
+                        className="text-red-500 opacity-0 group-hover:opacity-100 ml-2 transition"
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
+          )}
 
           {/* MAIN CHAT UI */}
-          <main>
+          <main className="overflow-hidden">
             <Thread
               sidebarOpen={sidebarOpen}
               setSidebarOpen={setSidebarOpen}
