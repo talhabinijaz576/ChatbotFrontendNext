@@ -10,12 +10,14 @@ import { Thread } from "./thread";
 import { TooltipProvider } from "./ui/tooltip";
 
 export const AssistantModal: FC = ({ config }) => {
-  const [open, setOpen] = useState(false);
+   const [open, setOpen] = useState(config?.chat.isWidgetOpen);
 
   useEffect(() => {
-    // Open the modal on first render
-    setOpen(true);
-  }, []);
+    setOpen(config?.chat.isWidgetOpen);
+  }, [config?.chat.isWidgetOpen]);
+
+
+
   return (
     <AssistantModalPrimitive.Root open={open} onOpenChange={setOpen}>
       <AssistantModalPrimitive.Anchor className="fixed bottom-4 right-4 size-11">

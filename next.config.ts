@@ -17,8 +17,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['img.icons8.com', 'upload.wikimedia.org', 'cdn-icons-png.flaticon.com', 'www.logo.wine'], // add more as needed
-  },
+  remotePatterns: [
+    {
+      protocol: "https",
+      hostname: "**", // allow all
+    },
+  ],
+},
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

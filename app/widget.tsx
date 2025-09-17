@@ -205,12 +205,7 @@ export default function Widget({  }) {
       ]),
     },
   });
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    // Open the modal on first render
-    setOpen(true);
-  }, []);
+  
 
   if (!config) return <div>Loading config...</div>;
   return (

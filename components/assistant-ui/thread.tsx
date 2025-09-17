@@ -122,7 +122,7 @@ export const Thread: FC<ThreadProps> = ({
       )}
 
       {/* Mobile sidebar drawer */}
-      <div
+      {/* <div
         className={cn(
           "fixed inset-y-0 left-0 z-40 w-[75%] bg-white shadow-lg rounded-r-lg dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -240,7 +240,7 @@ export const Thread: FC<ThreadProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <ScrollArea
         className="flex-0 md:flex-1 w-full overflow-y-auto"
