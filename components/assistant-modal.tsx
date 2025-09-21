@@ -2,7 +2,7 @@
 
 import { BotIcon, ChevronDownIcon } from "lucide-react";
 
-import { type FC, forwardRef, useEffect, useState } from "react";
+import { type FC, forwardRef, useEffect, useRef, useState } from "react";
 import { AssistantModalPrimitive } from "@assistant-ui/react";
 
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
@@ -10,17 +10,29 @@ import { Thread } from "./thread";
 import { TooltipProvider } from "./ui/tooltip";
 
 export const AssistantModal: FC = ({ config }) => {
-   const [open, setOpen] = useState(config?.chat.isWidgetOpen);
-
+  const [open, setOpen] = useState(config?.chat.isWidgetOpen);
+  const parentRef = useRef(null);
   useEffect(() => {
     setOpen(config?.chat.isWidgetOpen);
   }, [config?.chat.isWidgetOpen]);
 
-
+  function onOpenChange(value) {
+    setOpen(value);
+   
+    if (value) {
+      window.parent.postMessage("widget:open", "*");
+    } else {
+      window.parent.postMessage("widget:close", "*");
+    }
+  }
 
   return (
-    <AssistantModalPrimitive.Root open={open} onOpenChange={setOpen}>
-      <AssistantModalPrimitive.Anchor className="fixed bottom-4 right-4 size-11">
+    <AssistantModalPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <AssistantModalPrimitive.Anchor
+        className="fixed bottom-4 right-4 size-11"
+        id="assistant-modal-anchor"
+        ref={parentRef}
+      >
         <AssistantModalPrimitive.Trigger asChild>
           <AssistantModalButton />
         </AssistantModalPrimitive.Trigger>
@@ -49,25 +61,25 @@ const AssistantModalButton = forwardRef<
 
   return (
     <TooltipProvider>
-    <TooltipIconButton
-      variant="default"
-      tooltip={tooltip}
-      side="left"
-      {...rest}
-      className="size-full rounded-full shadow transition-transform hover:scale-110 active:scale-90"
-      ref={ref}
-    >
-      <BotIcon
-        data-state={state}
-        className="absolute size-6 transition-all data-[state=closed]:rotate-0 data-[state=open]:rotate-90 data-[state=closed]:scale-100 data-[state=open]:scale-0"
-      />
+      <TooltipIconButton
+        variant="default"
+        tooltip={tooltip}
+        side="left"
+        {...rest}
+        className="size-full rounded-full shadow transition-transform hover:scale-110 active:scale-90"
+        ref={ref}
+      >
+        <BotIcon
+          data-state={state}
+          className="absolute size-6 transition-all data-[state=closed]:rotate-0 data-[state=open]:rotate-90 data-[state=closed]:scale-100 data-[state=open]:scale-0"
+        />
 
-      <ChevronDownIcon
-        data-state={state}
-        className="absolute size-6 transition-all data-[state=closed]:-rotate-90 data-[state=open]:rotate-0 data-[state=closed]:scale-0 data-[state=open]:scale-100"
-      />
-      {/* <span className="aui-sr-only">{tooltip}</span> */}
-    </TooltipIconButton>
+        <ChevronDownIcon
+          data-state={state}
+          className="absolute size-6 transition-all data-[state=closed]:-rotate-90 data-[state=open]:rotate-0 data-[state=closed]:scale-0 data-[state=open]:scale-100"
+        />
+        {/* <span className="aui-sr-only">{tooltip}</span> */}
+      </TooltipIconButton>
     </TooltipProvider>
   );
 });

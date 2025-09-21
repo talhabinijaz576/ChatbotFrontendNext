@@ -209,7 +209,10 @@ export default function Widget({  }) {
 
   if (!config) return <div>Loading config...</div>;
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime} options={{ 
+      threadVisibility: "hidden",
+      eventPointers: config.chat.isWidgetOpen ? "auto" : "none" // Dynamic based on widget state
+    }}>
       <AssistantModal config={config} />
 
       <ActionModal

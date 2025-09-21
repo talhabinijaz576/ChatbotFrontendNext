@@ -1,23 +1,27 @@
 // server.js
-const express = require('express');
-const next = require('next');
-
-const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+import next from "next";
+import http from "http";
+import fs from "fs";
+import path from "path";
+const app = next({ dev: process.env.NODE_ENV !== "production" });
 const handle = app.getRequestHandler();
 
-const SOCKET_PATH = process.platform === 'win32'
-  ? process.env.WIN_PIPE || '\\\\.\\pipe\\assistant-app-pipe'
-  : process.env.PORT || '/tmp/assistant-app.sock';
+// Use .sock on Linux, Named Pipe on Windows
+const isWin = process.platform === "win32";
+const socketPath = isWin
+  ? `\\\\.\\pipe\\${process.env.APP_NAME || "nextapp"}`
+  : path.join("/tmp", `${process.env.APP_NAME || "nextapp"}.sock`);
+
+if (!isWin && fs.existsSync(socketPath)) {
+  fs.unlinkSync(socketPath);
+}
 
 app.prepare().then(() => {
-  const server = express();
-
-  server.all('*', (req, res) => {
-    return handle(req, res);
+  const server = http.createServer((req, res) => {
+    handle(req, res);
   });
 
-  server.listen(SOCKET_PATH, () => {
-    console.log(`✅ Server running on: ${SOCKET_PATH}`);
+  server.listen(socketPath, () => {
+    console.log(`> ${process.env.APP_NAME} running on ${socketPath}`);
   });
 });
