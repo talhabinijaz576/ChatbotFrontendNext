@@ -18,13 +18,41 @@ export const AssistantModal: FC = ({ config }) => {
 
   function onOpenChange(value) {
     setOpen(value);
-   
+
     if (value) {
       window.parent.postMessage("widget:open", "*");
     } else {
       window.parent.postMessage("widget:close", "*");
     }
   }
+
+  useEffect(() => {
+    const handleMessage = (event: any) => {
+      const { type } = event.data;
+
+      switch (type) {
+        case "OPEN_MODAL":
+          setOpen(true);
+          window.parent.postMessage("widget:open", "*");
+          break;
+
+        case "CLOSE_MODAL":
+          setOpen(false);
+          window.parent.postMessage("widget:close", "*");
+          break;
+
+        default:
+          console.warn("Unknown message:", event.data);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
 
   return (
     <AssistantModalPrimitive.Root open={open} onOpenChange={onOpenChange}>
