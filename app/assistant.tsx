@@ -449,7 +449,7 @@ export function Assistant({
           {config.chat.isSidebar && (
             <aside
               className={`
-      fixed top-0 left-0 z-50 h-full w-64 
+       top-0 left-0 z-50 h-full w-64 
       bg-white dark:bg-zinc-900 border-r dark:border-zinc-800
       transform transition-transform duration-300 ease-in-out
       ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
@@ -529,6 +529,7 @@ export function Assistant({
               disclaimer={config.app.disclaimer}
               colors={config.chat?.colors}
               messages={messages}
+              config={config}
             />
           </main>
         </div>

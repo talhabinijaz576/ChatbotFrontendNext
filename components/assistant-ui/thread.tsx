@@ -75,6 +75,7 @@ interface ThreadProps {
     };
   };
   messages: ThreadMessageLike[];
+  config: any;
 }
 
 export const Thread: FC<ThreadProps> = ({
@@ -87,6 +88,7 @@ export const Thread: FC<ThreadProps> = ({
   disclaimer,
   colors,
   messages,
+  config,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
@@ -270,6 +272,7 @@ export const Thread: FC<ThreadProps> = ({
           composerInputRef={
             composerInputRef as React.RefObject<HTMLTextAreaElement>
           }
+          config={config}
         />
       </div>
     </ThreadPrimitive.Root>
@@ -379,7 +382,7 @@ interface ComposerProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
 }
 
-const Composer: FC<ComposerProps> = ({ composerInputRef }) => {
+const Composer: FC<ComposerProps> = ({ composerInputRef, config }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
@@ -387,7 +390,7 @@ const Composer: FC<ComposerProps> = ({ composerInputRef }) => {
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
-        placeholder="Message to Mem0..."
+        placeholder={config.app.name || "..."}
         className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
         ref={composerInputRef}
       />
