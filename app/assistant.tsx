@@ -468,15 +468,9 @@ export function Assistant({
 
         {/* MAIN LAYOUT */}
 
-        <div
-  className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${
-    config.chat.isSidebar && sidebarOpen
-      ? "md:grid-cols-[260px_1fr]"
-      : "md:grid-cols-1"
-  }`}
->
+
 <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100dvh-4rem)]">
-<ThreadList isDarkMode={isDarkMode} />
+{config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />  }
     <Thread
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
@@ -493,7 +487,6 @@ export function Assistant({
       config={config}
             />
           </div>
-        </div>
 
         {/* JSON Viewer Modal */}
         <ActionModal
@@ -504,12 +497,6 @@ export function Assistant({
           onIframeError={iframe.onIframeError}
           onIframeLoad={iframe.onIframeLoad}
         />
-        {open && (
-          <div className="fixed top-1/2 left-1/2 bg-white p-4 border shadow-lg z-50 w-[60vw] max-h-[70vh] overflow-y-auto transform -translate-x-1/2 -translate-y-1/2">
-            <pre>{JSON.stringify(messages, null, 2)}</pre>
-            <button onClick={() => setOpen(false)}>Close</button>
-          </div>
-        )}
 
         <OtpModal
           open={otpModalOpen}

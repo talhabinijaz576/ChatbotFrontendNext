@@ -118,7 +118,7 @@ export const Thread: FC<ThreadProps> = ({
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          className="relative inset-0 bg-black/40 -z-1 md:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
