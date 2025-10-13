@@ -24,7 +24,7 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { MarkdownText } from "./markdown-text";
 import { ComposerAddAttachment, ComposerAttachments, UserMessageAttachments } from "./attachment";
 
-export const Thread: FC = ({ defaultTitle, disclaimer, colors }) => {
+export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
   const [maxWidth, setMaxWidth] = useState("100%");
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors }) => {
 
         <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
-          <Composer />
+          <Composer config={config} />
         </div>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
@@ -129,7 +129,7 @@ const ThreadWelcomeSuggestions: FC = ({}) => {
   );
 };
 
-const Composer: FC = () => {
+const Composer: FC = ({ config }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-ring/20 flex w-full flex-wrap items-end rounded-lg border bg-inherit px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
@@ -137,7 +137,7 @@ const Composer: FC = () => {
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
-        placeholder="Write a message..."
+        placeholder={config.app.name || "..."}
         className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
       />
       <ComposerAction />

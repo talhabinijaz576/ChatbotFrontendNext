@@ -24,6 +24,9 @@ import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapte
 import { OtpModal } from "@/components/assistant-ui/otpModal";
 import { Box, Button, Modal, Typography } from "@mui/material";
 import { getCookie, setCookie } from "cookies-next";
+import { handleSelection } from "./utils/addOtpPhrase";
+import { useBindReducer } from "./utils/useThunkReducer";
+import { ThreadList } from "@/components/assistant-ui/thread-list";
 
 // === Utility Functions ===
 
@@ -91,6 +94,28 @@ export function Assistant({
   const [open, setOpen] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [lastMessageResponse, setlastMessageResponse] = useState(null);
+  const [openCookieModal, setOpenCookieModal] = useState(true);
+  const [cookieLoading, setCookieLoading] = useState(false);
+  // const [
+  //   {
+  //     conversationId,
+  //     messages,
+  //     history,
+  //     sidebarOpen,
+  //     isRunning,
+  //     config,
+  //     isDarkMode,
+  //   },
+  //   setStateData,
+  // ] = useBindReducer({
+  //   conversationId: initialConversationId,
+  //   messages: [],
+  //   history: getConversationHistory(),
+  //   sidebarOpen: true,
+  //   isRunning: false,
+  //   config: null,
+  //   isDarkMode: false,
+  // });
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -104,6 +129,11 @@ export function Assistant({
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
+        const cookieConsent = getCookie("cookieConsent");
+        console.log("🚀 ~ Assistant ~ cookieConsent:", cookieConsent);
+        if (cookieConsent) {
+          setOpenCookieModal(false);
+        }
         setConfig(data);
         initConversation(data);
         // call your logic here directly
@@ -439,99 +469,30 @@ export function Assistant({
         {/* MAIN LAYOUT */}
 
         <div
-          className={`grid grid-cols-1 h-[calc(100dvh-4rem)] ${
-            config.chat.isSidebar && sidebarOpen
-              ? "md:grid-cols-[260px_1fr]"
-              : "md:grid-cols-1"
-          }`}
-        >
-          {/* SIDEBAR */}
-          {config.chat.isSidebar && (
-            <aside
-              className={`
-       top-0 left-0 z-50 h-full w-64 
-      bg-white dark:bg-zinc-900 border-r dark:border-zinc-800
-      transform transition-transform duration-300 ease-in-out
-      ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-    `}
-            >
-              {/* MOBILE HEADER */}
-              <div className="h-16 px-4 flex items-center justify-between border-b dark:border-zinc-800">
-                <span className="font-semibold text-lg tracking-wide">
-                  Conversations
-                </span>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="text-gray-600 dark:text-gray-300 hover:text-red-500"
-                >
-                  ✖
-                </button>
-              </div>
-
-              {/* SIDEBAR CONTENT */}
-              <div className="p-4 space-y-4">
-                {config.chat.isNewChat && (
-                  <button
-                    onClick={createNewChat}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    ➕ New Chat
-                  </button>
-                )}
-                <ul className="space-y-1">
-                  {history.map((item) => (
-                    <li
-                      key={item.id}
-                      className={`group flex items-center justify-between rounded-lg px-3 py-2 cursor-pointer ${
-                        item.id === conversationId
-                          ? "bg-blue-100 dark:bg-zinc-800"
-                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      <span
-                        onClick={() => {
-                          switchConversation(item.id);
-                          setSidebarOpen(false);
-                        }}
-                        className="truncate flex-1 text-sm font-medium"
-                      >
-                        {item.title || "Untitled Chat"}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(item.id);
-                        }}
-                        className="text-red-500 opacity-0 group-hover:opacity-100 ml-2 transition"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          )}
-
-          {/* MAIN CHAT UI */}
-          <main className="overflow-hidden">
-            <Thread
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-              onResetUserId={() => {}}
-              isDarkMode={isDarkMode}
-              toggleDarkMode={() => {
-                setIsDarkMode((prev) => !prev);
-                document.documentElement.classList.toggle("dark", !isDarkMode);
-              }}
-              defaultTitle={config.app.title || "Mem0 Assistant"}
-              disclaimer={config.app.disclaimer}
-              colors={config.chat?.colors}
-              messages={messages}
-              config={config}
+  className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${
+    config.chat.isSidebar && sidebarOpen
+      ? "md:grid-cols-[260px_1fr]"
+      : "md:grid-cols-1"
+  }`}
+>
+<div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100dvh-4rem)]">
+<ThreadList isDarkMode={isDarkMode} />
+    <Thread
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
+      onResetUserId={() => {}}
+      isDarkMode={isDarkMode}
+      toggleDarkMode={() => {
+        setIsDarkMode((prev) => !prev);
+        document.documentElement.classList.toggle("dark", !isDarkMode);
+      }}
+      defaultTitle={config.app.title || "Mem0 Assistant"}
+      disclaimer={config.app.disclaimer}
+      colors={config.chat?.colors}
+      messages={messages}
+      config={config}
             />
-          </main>
+          </div>
         </div>
 
         {/* JSON Viewer Modal */}
@@ -581,6 +542,66 @@ export function Assistant({
           >
             {JSON.stringify(lastMessageResponse, null, 2)}
           </pre>
+        </Box>
+      </Modal>
+
+      <Modal open={openCookieModal}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            bgcolor: "background.paper",
+            p: 4,
+            borderRadius: 2,
+            boxShadow: 24,
+            width: 400,
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            🍪 Cookie Preferences
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 3 }}>
+            We use cookies to enhance your experience. Please accept or reject
+            cookies to continue.
+          </Typography>
+
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={cookieLoading}
+              onClick={() =>
+                handleSelection(
+                  config,
+                  "accept",
+                  conversationId,
+                  setCookieLoading,
+                  setOpenCookieModal
+                )
+              }
+            >
+              Accept
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={cookieLoading}
+              onClick={() =>
+                handleSelection(
+                  config,
+                  "reject",
+                  conversationId,
+                  setCookieLoading,
+                  setOpenCookieModal
+                )
+              }
+            >
+              Reject
+            </Button>
+          </Box>
         </Box>
       </Modal>
     </AssistantRuntimeProvider>

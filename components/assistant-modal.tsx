@@ -73,6 +73,7 @@ export const AssistantModal: FC = ({ config }) => {
           defaultTitle={config?.app.title || "Mem0 Assistant"}
           disclaimer={config?.app.disclaimer}
           colors={config?.chat?.colors}
+          config={config}
         />
       </AssistantModalPrimitive.Content>
     </AssistantModalPrimitive.Root>
