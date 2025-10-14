@@ -468,25 +468,30 @@ export function Assistant({
 
         {/* MAIN LAYOUT */}
 
-
-<div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-x-0 h-[calc(100dvh-4rem)]">
-{config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />  }
-    <Thread
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={setSidebarOpen}
-      onResetUserId={() => {}}
-      isDarkMode={isDarkMode}
-      toggleDarkMode={() => {
-        setIsDarkMode((prev) => !prev);
-        document.documentElement.classList.toggle("dark", !isDarkMode);
-      }}
-      defaultTitle={config.app.title || "Mem0 Assistant"}
-      disclaimer={config.app.disclaimer}
-      colors={config.chat?.colors}
-      messages={messages}
-      config={config}
-            />
-          </div>
+        <div
+          className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${
+            config.chat.isSidebar && sidebarOpen
+              ? "md:grid-cols-[260px_1fr]"
+              : "md:grid-cols-1"
+          }`}
+        >
+          {config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />}
+          <Thread
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            onResetUserId={() => {}}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={() => {
+              setIsDarkMode((prev) => !prev);
+              document.documentElement.classList.toggle("dark", !isDarkMode);
+            }}
+            defaultTitle={config.app.title || "Mem0 Assistant"}
+            disclaimer={config.app.disclaimer}
+            colors={config.chat?.colors}
+            messages={messages}
+            config={config}
+          />
+        </div>
 
         {/* JSON Viewer Modal */}
         <ActionModal
