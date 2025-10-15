@@ -270,8 +270,20 @@ export function Assistant({
   }, [config]);
 
   useEffect(() => {
-    if (conversationId && messages.length > 1)
-      saveMessages(conversationId, messages);
+    console.log("🚀 ~ Assistant ~ messages:", messages);
+    // const updatedArray = messages.map(msg => {
+    //   if (msg.attachments) {
+    //     const newMsg = { ...msg };
+    //     delete newMsg.attachments;
+    //     return newMsg;
+    //   }
+    //   return msg;
+    // });
+
+    if (conversationId && messages.length > 1) {
+      const updatedArray = messages.map(({ attachments, ...rest }) => rest);
+      saveMessages(conversationId, updatedArray);
+    }
   }, [messages]);
 
   useEffect(() => {
