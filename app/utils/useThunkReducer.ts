@@ -1,3 +1,4 @@
+"use client";
 import { useCallback, useReducer, useState } from "react";
 
 export function useThunkReducer(reducer: any, initialState: any) {

@@ -187,6 +187,17 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     em: ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => (
       <em {...props}>{processChildren(children)}</em>
     ),
+    a: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      <a 
+        href={href} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-blue-600 dark:text-blue-400 hover:underline"
+        {...props}
+      >
+        {processChildren(children)}
+      </a>
+    ),
     code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
       const match = /language-(\w+)/.exec(className || "");
       if (match) {

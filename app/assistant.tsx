@@ -96,26 +96,14 @@ export function Assistant({
   const [lastMessageResponse, setlastMessageResponse] = useState(null);
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
-  // const [
-  //   {
-  //     conversationId,
-  //     messages,
-  //     history,
-  //     sidebarOpen,
-  //     isRunning,
-  //     config,
-  //     isDarkMode,
-  //   },
-  //   setStateData,
-  // ] = useBindReducer({
-  //   conversationId: initialConversationId,
-  //   messages: [],
-  //   history: getConversationHistory(),
-  //   sidebarOpen: true,
-  //   isRunning: false,
-  //   config: null,
-  //   isDarkMode: false,
-  // });
+  const [
+    {
+      error,
+    },
+    setStateData,
+  ] = useBindReducer({
+    error: null,
+  });
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -405,6 +393,7 @@ export function Assistant({
         setMessages((currentConversation) => [...currentConversation, assRes]);
         setlastMessageResponse(assistantResponse);
       } catch (error) {
+        setStateData({ error: error });
         console.error("Error communicating with backend:", error);
       } finally {
         setIsRunning(false);
@@ -565,11 +554,10 @@ export function Assistant({
           }}
         >
           <Typography variant="h6" gutterBottom>
-            🍪 Cookie Preferences
+            {config.cookie.header}
           </Typography>
           <Typography variant="body2" sx={{ mb: 3 }}>
-            We use cookies to enhance your experience. Please accept or reject
-            cookies to continue.
+            {config.cookie.description}
           </Typography>
 
           <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
@@ -587,7 +575,7 @@ export function Assistant({
                 )
               }
             >
-              Accept
+              {config.cookie.acceptButton}
             </Button>
             <Button
               variant="outlined"
@@ -603,7 +591,7 @@ export function Assistant({
                 )
               }
             >
-              Reject
+              {config.cookie.rejectButton}
             </Button>
           </Box>
         </Box>
