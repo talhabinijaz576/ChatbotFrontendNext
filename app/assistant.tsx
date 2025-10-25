@@ -99,11 +99,14 @@ export function Assistant({
   const [
     {
       error,
+      quickMessages,
     },
     setStateData,
   ] = useBindReducer({
     error: null,
+    quickMessages: [],
   });
+      console.log("🚀 ~ Assistant ~ quickMessages:", quickMessages)
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -288,9 +291,15 @@ export function Assistant({
         setMessages((currentConversation) => [...currentConversation, incRes]);
       }
       if (incoming?.type === "event") {
-        incoming.event?.action === "open_url"
-          ? iframe.openIframe(incoming.event.url)
-          : iframe.closeIframe();
+        const action = incoming.event?.action;
+        if (action === "open_url") {
+          iframe.openIframe(incoming.event.url);
+        } else if (action === "close_url") {
+          iframe.closeIframe();
+        } else if (action === "display_suggestions") {
+          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
+          setStateData({ quickMessages: incoming.event });
+        }
       }
     });
     return () => {
@@ -437,7 +446,7 @@ export function Assistant({
         }`}
       >
         {/* HEADER */}
-        <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
+        <header className="h-16 border-b flex items- justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <ThemeAwareLogo
             width={120}
             height={40}
@@ -450,7 +459,7 @@ export function Assistant({
           >
             <AlignJustify size={24} />
           </button> */}
-          <div className="md:flex items-center hidden">
+          <div className="md:flex items- hidden">
             <button
               onClick={() => {
                 setIsDarkMode(!isDarkMode);
@@ -491,6 +500,7 @@ export function Assistant({
             colors={config.chat?.colors}
             messages={messages}
             config={config}
+            suggestedMessages={quickMessages}
           />
         </div>
 
@@ -550,7 +560,7 @@ export function Assistant({
             borderRadius: 2,
             boxShadow: 24,
             width: 400,
-            textAlign: "center",
+            textAlign: "",
           }}
         >
           <Typography variant="h6" gutterBottom>
@@ -560,7 +570,7 @@ export function Assistant({
             {config.cookie.description}
           </Typography>
 
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "", gap: 2 }}>
             <Button
               variant="contained"
               color="primary"

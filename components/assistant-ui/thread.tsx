@@ -9,6 +9,7 @@ import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useMessage,
+  useAssistantRuntime,
 } from "@assistant-ui/react";
 import type { FC } from "react";
 import {
@@ -89,6 +90,7 @@ export const Thread: FC<ThreadProps> = ({
   colors,
   messages,
   config,
+  suggestedMessages,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
@@ -123,127 +125,6 @@ export const Thread: FC<ThreadProps> = ({
         ></div>
       )}
 
-      {/* Mobile sidebar drawer */}
-      {/* <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[75%] bg-white shadow-lg rounded-r-lg dark:bg-zinc-900 transform transition-transform duration-300 ease-in-out md:hidden",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="h-full flex flex-col">
-          <div className="flex items-center justify-between border-b dark:text-white border-[#e2e8f0] dark:border-zinc-800 p-4">
-            <h2 className="font-medium">Settings</h2>
-            <div className="flex items-center gap-2">
-              {onResetUserId && (
-                <AlertDialog
-                  open={resetDialogOpen}
-                  onOpenChange={setResetDialogOpen}
-                >
-                  <AlertDialogTrigger asChild>
-                    <TooltipIconButton
-                      tooltip="Reset Memory"
-                      className="hover:text-[#4f46e5] text-[#475569] dark:text-zinc-300 dark:hover:text-[#6366f1] size-8 p-0"
-                      variant="ghost"
-                    >
-                      <RefreshCwIcon className="w-4 h-4" />
-                    </TooltipIconButton>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="bg-white dark:bg-zinc-900 border-[#e2e8f0] dark:border-zinc-800">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-[#1e293b] dark:text-white">
-                        Reset Memory
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="text-[#475569] dark:text-zinc-300">
-                        This will permanently delete all your chat history and
-                        memories. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800">
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => {
-                          onResetUserId();
-                          setResetDialogOpen(false);
-                        }}
-                        className="bg-[#4f46e5] hover:bg-[#4338ca] dark:bg-[#6366f1] dark:hover:bg-[#4f46e5] text-white"
-                      >
-                        Reset
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(false)}
-                className="text-[#475569] dark:text-zinc-300 hover:bg-[#eef2ff] dark:hover:bg-zinc-800 h-8 w-8 p-0"
-              >
-                ✕
-              </Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="flex flex-col justify-between items-stretch gap-1.5 h-full dark:text-white">
-              <ThreadListPrimitive.Root className="flex flex-col items-stretch gap-1.5 h-full dark:text-white">
-                <ThreadListPrimitive.New asChild>
-                  <div className="flex items-center flex-col gap-2 w-full">
-                    <Button
-                      className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-[#4f46e5] text-white dark:bg-[#6366f1]"
-                      variant="default"
-                    >
-                      <PlusIcon className="w-4 h-4" />
-                      New Thread
-                    </Button>
-                    <Button
-                      className="hover:bg-zinc-600 w-full dark:hover:bg-zinc-700 dark:data-[active]:bg-zinc-800 flex items-center justify-start gap-1 rounded-lg px-2.5 py-2 text-start bg-zinc-800 text-white"
-                      onClick={toggleDarkMode}
-                      aria-label="Toggle theme"
-                    >
-                      {isDarkMode ? (
-                        <div className="flex items-center gap-2">
-                          <Sun className="w-6 h-6" />
-                          <span>Toggle Light Mode</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Moon className="w-6 h-6" />
-                          <span>Toggle Dark Mode</span>
-                        </div>
-                      )}
-                    </Button>
-                    <GithubButton
-                      url="https://github.com/mem0ai/mem0/tree/main/examples"
-                      className="w-full rounded-lg h-9 pl-2 text-sm font-semibold bg-zinc-800 dark:border-zinc-800 dark:text-white text-white hover:bg-zinc-900"
-                      text="View on Github"
-                    />
-
-                    <Link
-                      href={"https://app.mem0.ai/"}
-                      target="_blank"
-                      className="py-2 px-4 w-full rounded-lg h-9 pl-3 text-sm font-semibold dark:bg-zinc-800 dark:hover:bg-zinc-700 bg-zinc-800 text-white hover:bg-zinc-900 dark:text-white"
-                    >
-                      <span className="flex items-center gap-2">
-                        <SaveIcon className="w-4 h-4" />
-                        Save Memories
-                      </span>
-                    </Link>
-                  </div>
-                </ThreadListPrimitive.New>
-                <div className="mt-4 mb-2">
-                  <h2 className="text-sm font-medium text-[#475569] dark:text-zinc-300 px-2.5">
-                    Recent Chats
-                  </h2>
-                </div>
-                <ThreadListPrimitive.Items components={{ ThreadListItem }} />
-              </ThreadListPrimitive.Root>
-            </div>
-          </div>
-        </div>
-      </div> */}
-
       <ScrollArea
         className="flex-0 md:flex-1 w-full overflow-y-auto"
         style={{ maxHeight: "80svh" }}
@@ -265,9 +146,11 @@ export const Thread: FC<ThreadProps> = ({
           </ThreadPrimitive.If>
         </div>
       </ScrollArea>
-
+      <div className="flex flex-col w-full items-center justify-center mt-16 mb-16 ">
+          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} suggestedMessages={suggestedMessages} config={config} />
+        </div>
       <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
-        <ThreadScrollToBottom />
+      <ThreadScrollToBottom />
         <Composer
           composerInputRef={
             composerInputRef as React.RefObject<HTMLTextAreaElement>
@@ -275,6 +158,7 @@ export const Thread: FC<ThreadProps> = ({
           config={config}
         />
       </div>
+
     </ThreadPrimitive.Root>
   );
 };
@@ -305,7 +189,6 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({
   disclaimer,
 }) => {
   return (
-    <ThreadPrimitive.Empty>
       <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
         <div className="flex w-full flex-grow flex-col items-center justify-start">
           <div className="flex flex-col items-center justify-center h-full">
@@ -325,55 +208,60 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({
           <ThreadWelcomeSuggestions composerInputRef={composerInputRef} />
         </div>
       </div>
-    </ThreadPrimitive.Empty>
   );
 };
 
 interface ThreadWelcomeSuggestionsProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
+  suggestedMessages: any;
+  config: any;
 }
 
 const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
   composerInputRef,
+  suggestedMessages,
+  config,
 }) => {
+  const runtime = useAssistantRuntime();
+
+  const handleSuggestionClick = async (message: any) => {
+    // Create a structured message with keyword and additional fields
+    const structuredMessage = {
+      content: message.message,
+      attachments: [],
+      keyword: message.keyword || message.label, // Use keyword from config or fallback to label
+      ...message.additionalFields, // Spread any additional fields from the message config
+    };
+
+    // Create an AppendMessage-like object
+    const appendMessage = {
+      content: [{ type: "text", text: structuredMessage.content }],
+      attachments: structuredMessage.attachments,
+      metadata: {
+        keyword: structuredMessage.keyword,
+        ...structuredMessage.additionalFields,
+      },
+    };
+
+    // Use the assistant runtime to append the message
+    if (runtime) {
+      await runtime.append(appendMessage);
+    }
+  };
+
   return (
     <div className="mt-3 flex flex-col md:flex-row w-full md:items-stretch justify-center gap-4 dark:text-white items-center">
-      <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
-        prompt="I like to travel to "
-        method="replace"
-        onClick={() => {
-          composerInputRef.current?.focus();
-        }}
-      >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          Travel
-        </span>
-      </ThreadPrimitive.Suggestion>
-      <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
-        prompt="I like to eat "
-        method="replace"
-        onClick={() => {
-          composerInputRef.current?.focus();
-        }}
-      >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          Food
-        </span>
-      </ThreadPrimitive.Suggestion>
-      <ThreadPrimitive.Suggestion
-        className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
-        prompt="I am working on "
-        method="replace"
-        onClick={() => {
-          composerInputRef.current?.focus();
-        }}
-      >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          Project details
-        </span>
-      </ThreadPrimitive.Suggestion>
+      {suggestedMessages?.buttons?.map((message: any) => (
+        <button
+          key={message.label}
+          className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+          onClick={() => handleSuggestionClick(message)}
+        >
+          <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+            {message.message}
+          </span>
+        </button>
+      ))}
     </div>
   );
 };

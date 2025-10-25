@@ -109,6 +109,11 @@ class ChatService {
             base64_content: base64Content,
           };
         }),
+        // Include metadata if present (for suggested messages with keywords)
+        ...(message.metadata && {
+          keyword: message.metadata.keyword,
+          ...message.metadata
+        }),
       },
     };
     

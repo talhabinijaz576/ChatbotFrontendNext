@@ -116,7 +116,7 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
     >
       <Box sx={style}>
         <Typography variant="h6" textAlign="center" fontWeight="bold">
-          OTP Verification
+          {config?.otp?.header}
         </Typography>
 
         {phone && (
@@ -125,7 +125,7 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
             textAlign="center"
             sx={{ mt: 1, color: "text.secondary" }}
           >
-            OTP has been sent to <b>{phone}</b>
+            {config?.otp?.description} <b>{phone}</b>
           </Typography>
         )}
 
@@ -177,7 +177,7 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
           {loading ? (
             <CircularProgress size={24} color="inherit" />
           ) : (
-            "Verify OTP"
+            config?.otp?.verifyButton
           )}
         </Button>
         </Stack>
