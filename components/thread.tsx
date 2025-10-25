@@ -17,6 +17,7 @@ import {
   RefreshCwIcon,
   SendHorizontalIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
   useEffect(() => {
     const updateWidth = () => {
       if (window.innerWidth <= 480) {
-        setMaxWidth("350px");
+        setMaxWidth("400px");
       } else {
         setMaxWidth("100%");
       }
@@ -42,13 +43,14 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
   }, []);
   return (
     <ThreadPrimitive.Root
-      className="bg-background box-border flex h-full flex-col overflow-hidden w-full s8:w-[380px] max-w-[300px] px-4 mx-auto"
+      className="bg-background box-border flex h-full flex-col overflow-hidden w-full s8:w-[380px] max-w-[300px]  mx-auto"
       style={{
         maxWidth,
         ["--thread-max-width" as string]: "42rem",
       }}
     >
-      <ThreadPrimitive.Viewport className="flex h-full flex-col items-center overflow-y-scroll scroll-smooth bg-inherit px-4 pt-8">
+      <ThreadHeader defaultTitle={defaultTitle} config={config} />
+      <ThreadPrimitive.Viewport className="flex h-full flex-col items-center overflow-y-scroll scroll-smooth bg-inherit px-1 sm:px-4 pt-1 sm:pt-4">
         <ThreadWelcome
           defaultTitle={defaultTitle}
           disclaimer={disclaimer}
@@ -58,7 +60,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
           components={{
             UserMessage: (props) => <UserMessage {...props} colors={colors} />,
             EditComposer: EditComposer,
-            AssistantMessage: AssistantMessage,
+            AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
           }}
         />
 
@@ -72,6 +74,24 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
         </div>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
+  );
+};
+
+const ThreadHeader: FC = ({ defaultTitle, config }) => {
+  const logoSrc =  config?.app?.lightLogo;
+  return (
+    <div className={`flex p-4 border-b-1 border-blue-500 ${config?.chat?.backgroundColor ?? "bg-blue-950"} text-white`}>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center">
+        <Image
+          src={logoSrc}
+          alt="Jazee.ai"
+          width={120}
+          height={40}
+        />
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -133,7 +153,7 @@ const Composer: FC = ({ config }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-ring/20 flex w-full flex-wrap items-end rounded-lg border bg-inherit px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
-      <ComposerAddAttachment />
+      <ComposerAddAttachment config={config}/>
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
@@ -225,12 +245,26 @@ const EditComposer: FC = () => {
   );
 };
 
-const AssistantMessage: FC = () => {
+const AssistantMessage: FC = ({config}) => {
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
-      <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
+      <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-2xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
         <MessageError />
+      </div>
+
+      {/* Assistant Avatar - positioned at bottom left */}
+      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
+        <Image
+          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+          alt="Assistant Avatar"
+          width={20}
+          height={20}
+          className="invert brightness-0 saturate-0 contrast-200"
+        />
+      </div>
+
       </div>
 
       {/* <AssistantActionBar /> */}

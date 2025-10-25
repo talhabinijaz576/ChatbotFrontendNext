@@ -190,12 +190,12 @@ export const ComposerAttachments: FC = () => {
   );
 };
 
-export const ComposerAddAttachment: FC = () => {
+export const ComposerAddAttachment: FC = ({ config }) => {
   return (
     <ComposerPrimitive.AddAttachment asChild>
       <TooltipIconButton
         className="my-2.5 size-8 p-2 transition-opacity ease-in"
-        tooltip="Add Attachment"
+        tooltip={config?.chat?.attachment?.tooltip ?? "Add Attachment"}
         variant="ghost"
       >
         <PaperclipIcon />
