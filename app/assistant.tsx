@@ -329,7 +329,9 @@ export function Assistant({
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
-      setStateData({suggestedMessages: []});
+      if (suggestedMessages?.buttons?.length > 0 && suggestedMessages?.close_on_ignore === true) {
+        setStateData({suggestedMessages: []});
+      }
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
       const userMessage: ThreadMessageLike = {
