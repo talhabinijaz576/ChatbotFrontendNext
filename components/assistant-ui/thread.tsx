@@ -9,7 +9,7 @@ import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useMessage,
-  useAssistantRuntime,
+  useThreadRuntime,
 } from "@assistant-ui/react";
 import type { FC } from "react";
 import {
@@ -50,7 +50,7 @@ import GithubButton from "../mem0/github-button";
 import Link from "next/link";
 import { ScrollArea } from "../ui/scroll-area";
 import MarkdownRenderer from "../mem0/markdown";
-import type { ThreadMessageLike } from "@assistant-ui/react";
+import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 import {
   ComposerAddAttachment,
   ComposerAttachments,
@@ -59,7 +59,7 @@ import {
 
 interface ThreadProps {
   sidebarOpen: boolean;
-  setSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  setStateData: Dispatch<SetStateAction<any>>;
   onResetUserId?: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -77,20 +77,25 @@ interface ThreadProps {
   };
   messages: ThreadMessageLike[];
   config: any;
+  suggestedMessages: any;
+  runtime: any;
+  onNew: (message: AppendMessage) => void;
 }
 
 export const Thread: FC<ThreadProps> = ({
   sidebarOpen,
-  setSidebarOpen,
+  setStateData,
   onResetUserId,
   isDarkMode,
   toggleDarkMode,
   defaultTitle,
   disclaimer,
   colors,
+  onNew,
   messages,
   config,
   suggestedMessages,
+  runtime,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
@@ -121,7 +126,7 @@ export const Thread: FC<ThreadProps> = ({
       {sidebarOpen && (
         <div
           className="relative inset-0 bg-black/40 -z-1 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setStateData({sidebarOpen: false})}
         ></div>
       )}
 
@@ -146,16 +151,17 @@ export const Thread: FC<ThreadProps> = ({
           </ThreadPrimitive.If>
         </div>
       </ScrollArea>
-      <div className="flex flex-col w-full items-center justify-center mt-16 mb-16 ">
-          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} suggestedMessages={suggestedMessages} config={config} />
+      {suggestedMessages?.buttons?.length > 0 && (
+      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} suggestedMessages={suggestedMessages} config={config} runtime={runtime} onNew={onNew} messages={messages} setStateData={setStateData}/>
         </div>
+      )}
       <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
       <ThreadScrollToBottom />
         <Composer
-          composerInputRef={
-            composerInputRef as React.RefObject<HTMLTextAreaElement>
-          }
+          composerInputRef={composerInputRef as React.RefObject<HTMLTextAreaElement>}
           config={config}
+          suggestedMessages={suggestedMessages}
         />
       </div>
 
@@ -215,38 +221,27 @@ interface ThreadWelcomeSuggestionsProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
   suggestedMessages: any;
   config: any;
+  runtime: any;
+  onNew: (message: AppendMessage) => void;
+  messages: ThreadMessageLike[];
 }
 
 const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
   composerInputRef,
   suggestedMessages,
   config,
+  runtime,
+  onNew,
+  messages,
+  setStateData,
 }) => {
-  const runtime = useAssistantRuntime();
+  const handleSuggestionClick = async (message: any, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setStateData({suggestedMessages: []});
+    
+    console.log("🚀 ~ handleSuggestionClick ~ message:", message)
 
-  const handleSuggestionClick = async (message: any) => {
-    // Create a structured message with keyword and additional fields
-    const structuredMessage = {
-      content: message.message,
-      attachments: [],
-      keyword: message.keyword || message.label, // Use keyword from config or fallback to label
-      ...message.additionalFields, // Spread any additional fields from the message config
-    };
-
-    // Create an AppendMessage-like object
-    const appendMessage = {
-      content: [{ type: "text", text: structuredMessage.content }],
-      attachments: structuredMessage.attachments,
-      metadata: {
-        keyword: structuredMessage.keyword,
-        ...structuredMessage.additionalFields,
-      },
-    };
-
-    // Use the assistant runtime to append the message
-    if (runtime) {
-      await runtime.append(appendMessage);
-    }
+    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
   };
 
   return (
@@ -255,7 +250,7 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
         <button
           key={message.label}
           className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
-          onClick={() => handleSuggestionClick(message)}
+          onClick={(e) => handleSuggestionClick(message, e)}
         >
           <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
             {message.message}
@@ -268,9 +263,10 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
 
 interface ComposerProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
+  suggestedMessages: any;
 }
 
-const Composer: FC<ComposerProps> = ({ composerInputRef, config }) => {
+const Composer: FC<ComposerProps> = ({ composerInputRef, config, suggestedMessages }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
@@ -278,6 +274,7 @@ const Composer: FC<ComposerProps> = ({ composerInputRef, config }) => {
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
+        disabled={suggestedMessages?.disable_regular_message}
         placeholder={config.app.name || "..."}
         className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
         ref={composerInputRef}

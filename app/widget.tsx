@@ -15,6 +15,7 @@ import ActionModal from "@/components/mem0/ActionModal";
 import { chatService } from "./services/chatService";
 import { useSearchParams } from "next/navigation";
 import { AssistantModal } from "@/components/assistant-modal";
+import { useBindReducer } from "./utils/useThunkReducer";
 
 export default function Widget({  }) {
   const params = useSearchParams();
@@ -28,6 +29,14 @@ export default function Widget({  }) {
   const [config, setConfig] = useState<any>();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userId, setUserId] = useState(uuidv4);
+  const [
+    {
+      suggestedMessages,
+    },
+    setStateData,
+  ] = useBindReducer({
+    suggestedMessages: [],
+  });
 
   const iframe = useIframe();
   
@@ -156,8 +165,9 @@ export default function Widget({  }) {
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
-      const text =
-        userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
+      if (suggestedMessages?.buttons?.length > 0 && suggestedMessages?.close_on_ignore === true) {
+        setStateData({suggestedMessages: []});
+      }
       const userMessage: ThreadMessageLike = {
         role: "user",
         content: userAppendMessage.content,
@@ -213,7 +223,7 @@ export default function Widget({  }) {
       threadVisibility: "hidden",
       eventPointers: config.chat.isWidgetOpen ? "auto" : "none" // Dynamic based on widget state
     }}>
-      <AssistantModal config={config} />
+      <AssistantModal config={config} suggestedMessages={suggestedMessages} onNew={onNew} messages={messages} setStateData={setStateData} />
 
       <ActionModal
           open={iframe.showIframe}

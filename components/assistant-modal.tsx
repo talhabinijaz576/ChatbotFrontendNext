@@ -9,7 +9,7 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { Thread } from "./thread";
 import { TooltipProvider } from "./ui/tooltip";
 
-export const AssistantModal: FC = ({ config }) => {
+export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages, setStateData }) => {
   const [open, setOpen] = useState(config?.chat.isWidgetOpen);
   const parentRef = useRef(null);
   useEffect(() => {
@@ -67,13 +67,30 @@ export const AssistantModal: FC = ({ config }) => {
       </AssistantModalPrimitive.Anchor>
       <AssistantModalPrimitive.Content
         sideOffset={8}
-        className="bg-popover text-popover-foreground z-50 h-[500px] w-[350px] sm:h-[350px] sm:w-[300px] md:h-[400px] md:w-[350px] lg:h-[800px] lg:w-[600px] overflow-clip rounded-xl border-2 border-blue-500 p-0 shadow-md outline-none [&>.aui-thread-root]:bg-inherit data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out data-[state=open]:zoom-in data-[state=open]:slide-in-from-bottom-1/2 data-[state=open]:slide-in-from-right-1/2 data-[state=closed]:slide-out-to-bottom-1/2 data-[state=closed]:slide-out-to-right-1/2"
+        className="
+        bg-popover text-popover-foreground z-50 
+         w-[330px] h-[500px]
+        sm:max-w-[90vw] sm:h-auto sm:w-[320px] sm:max-h-[350px]
+        md:max-w-[400px] md:w-[360px] md:h-[400px] md:max-h-[400px]
+        lg:h-[600px] lg:w-[500px] lg:max-h-[600px]
+        overflow-clip rounded-xl border-2 border-blue-950 p-0 shadow-md outline-none
+        [&>.aui-thread-root]:bg-inherit
+        data-[state=closed]:animate-out data-[state=open]:animate-in
+        data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
+        data-[state=closed]:zoom-out data-[state=open]:zoom-in
+        data-[state=open]:slide-in-from-bottom-1/2 data-[state=open]:slide-in-from-right-1/2
+        data-[state=closed]:slide-out-to-bottom-1/2 data-[state=closed]:slide-out-to-right-1/2
+      "
       >
         <Thread
           defaultTitle={config?.app.title || "Mem0 Assistant"}
           disclaimer={config?.app.disclaimer}
           colors={config?.chat?.colors}
           config={config}
+          suggestedMessages={suggestedMessages}
+          onNew={onNew}
+          messages={messages}
+          setStateData={setStateData}
         />
       </AssistantModalPrimitive.Content>
     </AssistantModalPrimitive.Root>

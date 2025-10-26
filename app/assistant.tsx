@@ -84,10 +84,8 @@ export function Assistant({
   const router = useRouter();
   const iframe = useIframe();
 
-  const [conversationId, setConversationId] = useState(initialConversationId);
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [history, setHistory] = useState(() => getConversationHistory());
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [config, setConfig] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -99,14 +97,17 @@ export function Assistant({
   const [
     {
       error,
-      quickMessages,
+      suggestedMessages,
+      conversationId,
+      sidebarOpen
     },
     setStateData,
   ] = useBindReducer({
     error: null,
-    quickMessages: [],
+    suggestedMessages: [],
+    conversationId: initialConversationId,
+    sidebarOpen: true,
   });
-      console.log("🚀 ~ Assistant ~ quickMessages:", quickMessages)
 
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -121,7 +122,6 @@ export function Assistant({
       .then((res) => res.json())
       .then((data) => {
         const cookieConsent = getCookie("cookieConsent");
-        console.log("🚀 ~ Assistant ~ cookieConsent:", cookieConsent);
         if (cookieConsent) {
           setOpenCookieModal(false);
         }
@@ -132,14 +132,6 @@ export function Assistant({
   }, []);
 
   // Step 2: Load conversation/messages when config + conversationId are ready
-  // , {
-  //   method: 'GET',
-  //   headers: config2.api.headers,
-  //   body: JSON.stringify({
-  //     conversationId: conversationId,
-  //     passphrase: "sdjfsdfjsdfhsd"
-  //   }),
-  // }
 
   const initConversation = (config2: any) => {
     const otpPhrase = getCookie("otpPhrase");
@@ -164,7 +156,6 @@ export function Assistant({
       headers.set("passphrase", otpPhraseArray.passphrase);
     }
     const params = new URLSearchParams(searchParams).toString();
-    console.log("🚀 ~ initConversation ~ params:", params);
     fetch(
       `${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`,
       {
@@ -244,7 +235,6 @@ export function Assistant({
         }
       })
       .catch((e) => {
-        console.log("🚀 ~ e:", e);
         setMessages([
           {
             role: config2.chat.autoMessage.role,
@@ -261,7 +251,6 @@ export function Assistant({
   }, [config]);
 
   useEffect(() => {
-    console.log("🚀 ~ Assistant ~ messages:", messages);
     // const updatedArray = messages.map(msg => {
     //   if (msg.attachments) {
     //     const newMsg = { ...msg };
@@ -298,7 +287,7 @@ export function Assistant({
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
           console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
-          setStateData({ quickMessages: incoming.event });
+          setStateData({ suggestedMessages: incoming.event });
         }
       }
     });
@@ -317,7 +306,7 @@ export function Assistant({
   };
 
   const switchConversation = (id: string) => {
-    setConversationId(id);
+    setStateData({conversationId: id});
     // const data = loadMessages(id);
     // console.log("🚀 ~ switchConversation ~ data:", data);
     // setMessages(data);
@@ -338,39 +327,9 @@ export function Assistant({
     }
   };
 
-  //   const onNew = useCallback( async (message: AppendMessage) => {
-  //     const text = message.content.find((c) => c.type === "text")?.text ?? "";
-  //     const attachments = message.attachments ?? [];
-
-  //     if (!text && attachments.length === 0) return;
-
-  //     const userMessage = {
-  //       role: "user",
-  //       text,
-  //       attachments,
-  //     };
-
-  //     // Start new conversation if needed
-  //     if (!conversationId) {
-  //       const newId = uuidv4();
-  //       setConversationId(newId);
-  //       saveConversationToHistory(newId, ""); // temporary title
-  //       setHistory(getConversationHistory());
-  //       router.push(`/chat/${newId}`, undefined, { shallow: true });
-  //     }
-
-  //     setMessages((prev) => [...prev, userMessage]);
-  //     updateTitleIfNeeded(text);
-  //     setIsRunning(true);
-
-  //     const assistantMessage = await chatService.sendMessage(text, userId, conversationId!, attachments);
-  //     setMessages((prev) => [...prev, { role: assistantMessage.type, ...assistantMessage }]);
-  //     setIsRunning(false);
-  //   },[chatService, setMessages, setIsRunning]
-  // );
-
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
+      setStateData({suggestedMessages: []});
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
       const userMessage: ThreadMessageLike = {
@@ -488,7 +447,7 @@ export function Assistant({
           {config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />}
           <Thread
             sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
+            setStateData={setStateData}
             onResetUserId={() => {}}
             isDarkMode={isDarkMode}
             toggleDarkMode={() => {
@@ -498,9 +457,11 @@ export function Assistant({
             defaultTitle={config.app.title || "Mem0 Assistant"}
             disclaimer={config.app.disclaimer}
             colors={config.chat?.colors}
+            onNew={onNew}
             messages={messages}
             config={config}
-            suggestedMessages={quickMessages}
+            suggestedMessages={suggestedMessages}
+            runtime={runtime}
           />
         </div>
 

@@ -25,7 +25,7 @@ import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { MarkdownText } from "./markdown-text";
 import { ComposerAddAttachment, ComposerAttachments, UserMessageAttachments } from "./attachment";
 
-export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
+export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggestedMessages, onNew, messages, setStateData }) => {
   const [maxWidth, setMaxWidth] = useState("100%");
 
   useEffect(() => {
@@ -67,7 +67,11 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config }) => {
         <ThreadPrimitive.If empty={false}>
           <div className="min-h-8 flex-grow" />
         </ThreadPrimitive.If>
-
+        {suggestedMessages?.buttons?.length > 0 && (
+      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+          <ThreadWelcomeSuggestions  suggestedMessages={suggestedMessages} config={config} onNew={onNew} messages={messages} setStateData={setStateData} />
+        </div>
+      )}
         <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
           <Composer config={config} />
@@ -122,29 +126,28 @@ const ThreadWelcome: FC = ({  defaultTitle, disclaimer }) => {
   );
 };
 
-const ThreadWelcomeSuggestions: FC = ({}) => {
+const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setStateData}) => {
+  const handleSuggestionClick = async (message: any, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setStateData({suggestedMessages: []});
+    
+    console.log("🚀 ~ handleSuggestionClick ~ message:", message)
+
+    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
+  };
   return (
     <div className="mt-3 flex w-full items-stretch justify-center gap-4">
-      <ThreadPrimitive.Suggestion
-        className="hover:bg-muted/80 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border p-3 transition-colors ease-in"
-        prompt="What is the weather in Tokyo?"
-        method="replace"
-        autoSend
-      >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          What is the weather in Tokyo?
-        </span>
-      </ThreadPrimitive.Suggestion>
-      <ThreadPrimitive.Suggestion
-        className="hover:bg-muted/80 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border p-3 transition-colors ease-in"
-        prompt="What is assistant-ui?"
-        method="replace"
-        autoSend
-      >
-        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          What is assistant-ui?
-        </span>
-      </ThreadPrimitive.Suggestion>
+     {suggestedMessages?.buttons?.map((message: any) => (
+        <button
+          key={message.label}
+          className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+          onClick={(e) => handleSuggestionClick(message, e)}
+        >
+          <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+            {message.message}
+          </span>
+        </button>
+      ))}
     </div>
   );
 };
