@@ -409,8 +409,8 @@ export function Assistant({
         {/* HEADER */}
         <header className="h-16 border-b flex items- justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <ThemeAwareLogo
-            width={120}
-            height={40}
+            width={180}
+            height={30}
             isDarkMode={isDarkMode}
             config={config}
           />

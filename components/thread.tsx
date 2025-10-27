@@ -26,28 +26,10 @@ import { MarkdownText } from "./markdown-text";
 import { ComposerAddAttachment, ComposerAttachments, UserMessageAttachments } from "./attachment";
 
 export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggestedMessages, onNew, messages, setStateData }) => {
-  const [maxWidth, setMaxWidth] = useState("100%");
 
-  useEffect(() => {
-    const updateWidth = () => {
-      if (window.innerWidth <= 480) {
-        setMaxWidth("400px");
-      } else {
-        setMaxWidth("100%");
-      }
-    };
-    updateWidth(); // Initial check
-    window.addEventListener("resize", updateWidth);
-
-    return () => window.removeEventListener("resize", updateWidth);
-  }, []);
   return (
     <ThreadPrimitive.Root
-      className="bg-background box-border flex h-full flex-col overflow-hidden w-full s8:w-[380px] max-w-[300px]  mx-auto"
-      style={{
-        maxWidth,
-        ["--thread-max-width" as string]: "42rem",
-      }}
+      className="bg-background box-border flex h-full flex-col overflow-hidden "
     >
       <ThreadHeader defaultTitle={defaultTitle} config={config} />
       <ThreadPrimitive.Viewport className="flex h-full flex-col items-center overflow-y-scroll scroll-smooth bg-inherit px-1 sm:px-4 pt-1 sm:pt-4">
@@ -68,11 +50,11 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
           <div className="min-h-8 flex-grow" />
         </ThreadPrimitive.If>
         {suggestedMessages?.buttons?.length > 0 && (
-      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+      <div className="flex flex-col items-center justify-center mt-8 mb-8 ">
           <ThreadWelcomeSuggestions  suggestedMessages={suggestedMessages} config={config} onNew={onNew} messages={messages} setStateData={setStateData} />
         </div>
       )}
-        <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
+        <div className="sticky bottom-0 mt-3 flex max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
           <Composer config={config} />
         </div>

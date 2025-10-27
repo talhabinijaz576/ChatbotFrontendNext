@@ -68,18 +68,13 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
       <AssistantModalPrimitive.Content
         sideOffset={8}
         className="
-        bg-popover text-popover-foreground z-50 
-         w-[330px] h-[500px]
-        sm:max-w-[90vw] sm:h-auto sm:w-[320px] sm:max-h-[350px]
-        md:max-w-[400px] md:w-[360px] md:h-[400px] md:max-h-[400px]
-        lg:h-[600px] lg:w-[500px] lg:max-h-[600px]
-        overflow-clip rounded-xl border-2 border-blue-950 p-0 shadow-md outline-none
-        [&>.aui-thread-root]:bg-inherit
-        data-[state=closed]:animate-out data-[state=open]:animate-in
-        data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
-        data-[state=closed]:zoom-out data-[state=open]:zoom-in
-        data-[state=open]:slide-in-from-bottom-1/2 data-[state=open]:slide-in-from-right-1/2
-        data-[state=closed]:slide-out-to-bottom-1/2 data-[state=closed]:slide-out-to-right-1/2
+         bg-popover text-popover-foreground z-50
+          overflow-clip rounded-xl border-2 border-blue-950 p-0 shadow-md outline-none
+    w-[75vw] h-[75vh]          /* default for small devices */
+    sm:w-[400px] sm:h-[600px]  /* small tablets */
+    md:w-[600px] md:h-[700px]  /* tablets/laptops */
+    lg:w-[800px] lg:h-[80vh]   /* large screens */
+    xl:w-[1000px] xl:h-[85vh]   /* very large monitors */
       "
       >
         <Thread

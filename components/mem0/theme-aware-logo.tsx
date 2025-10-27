@@ -7,7 +7,7 @@ import Image from "next/image";
 
 export default function ThemeAwareLogo({
   width = 120,
-  height = 40,
+  height = 30,
   variant = "default",
   isDarkMode = false,
   config,
