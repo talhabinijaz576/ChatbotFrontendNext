@@ -115,7 +115,7 @@ const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setSt
     
     console.log("🚀 ~ handleSuggestionClick ~ message:", message)
 
-    onNew({ content: [{ type: "text", text: message.label }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
+    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
   };
   return (
     <div className="mt-3 flex w-full items-stretch justify-center gap-4">
