@@ -77,6 +77,7 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
     xl:w-[1000px] xl:h-[85vh]   /* very large monitors */
       "
       >
+        <div className="w-full h-full">
         <Thread
           defaultTitle={config?.app.title || "Mem0 Assistant"}
           disclaimer={config?.app.disclaimer}
@@ -87,6 +88,7 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
           messages={messages}
           setStateData={setStateData}
         />
+        </div>
       </AssistantModalPrimitive.Content>
     </AssistantModalPrimitive.Root>
   );
