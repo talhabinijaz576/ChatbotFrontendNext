@@ -71,10 +71,10 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
          bg-popover text-popover-foreground z-50
           overflow-clip rounded-xl border-2 border-blue-950 p-0 shadow-md outline-none
     w-[75vw] h-[75vh]          /* default for small devices */
-    sm:w-[400px] sm:h-[600px]  /* small tablets */
-    md:w-[500px] md:h-[700px]  /* tablets/laptops */
-    lg:w-[600px] lg:h-[70vh]   /* large screens */
-    xl:w-[650px] xl:h-[80vh]   /* very large monitors */
+    sm:w-[400px] sm:h-[500px]  /* small tablets */
+    md:w-[500px] md:h-[550px]  /* tablets/laptops */
+    lg:w-[550px] lg:h-[65vh]   /* large screens */
+    xl:w-[600px] xl:h-[70vh]   /* very large monitors */
       "
       >
         <Thread
