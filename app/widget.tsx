@@ -152,9 +152,15 @@ export default function Widget({  }) {
         setMessages((currentConversation) => [...currentConversation, incRes]);
       }
       if (incoming?.type === "event") {
-        incoming.event?.action === "open_url"
-          ? iframe.openIframe(incoming.event.url)
-          : iframe.closeIframe();
+        const action = incoming.event?.action;
+        if (action === "open_url") {
+          iframe.openIframe(incoming.event.url);
+        } else if (action === "close_url") {
+          iframe.closeIframe();
+        } else if (action === "display_suggestions") {
+          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
+          setStateData({ suggestedMessages: incoming.event });
+        }
       }
     });
     return () => {

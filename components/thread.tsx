@@ -115,7 +115,7 @@ const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setSt
     
     console.log("🚀 ~ handleSuggestionClick ~ message:", message)
 
-    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
+    onNew({ content: [{ type: "text", text: message.label }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
   };
   return (
     <div className="mt-3 flex w-full items-stretch justify-center gap-4">
@@ -126,7 +126,7 @@ const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setSt
           onClick={(e) => handleSuggestionClick(message, e)}
         >
           <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-            {message.message}
+            {message.label}
           </span>
         </button>
       ))}
@@ -145,18 +145,18 @@ const Composer: FC = ({ config }) => {
         placeholder={config.app.name || "..."}
         className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
       />
-      <ComposerAction />
+      <ComposerAction config={config}/>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+const ComposerAction: FC = ({config}) => {
   return (
     <>
       <ThreadPrimitive.If running={false}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton
-            tooltip="Send"
+            tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
             className="my-2.5 size-8 p-2 transition-opacity ease-in"
           >

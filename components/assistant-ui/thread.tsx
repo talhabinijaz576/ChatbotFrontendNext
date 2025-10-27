@@ -253,7 +253,7 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
           onClick={(e) => handleSuggestionClick(message, e)}
         >
           <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-            {message.message}
+            {message.label}
           </span>
         </button>
       ))}
@@ -279,18 +279,18 @@ const Composer: FC<ComposerProps> = ({ composerInputRef, config, suggestedMessag
         className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
         ref={composerInputRef}
       />
-      <ComposerAction />
+      <ComposerAction config={config} />
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = () => {
+const ComposerAction: FC = ({config}) => {
   return (
     <>
       <ThreadPrimitive.If running={false}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton
-            tooltip="Send"
+            tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
             className="my-2.5 size-8 p-2 transition-opacity ease-in bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-full"
           >
