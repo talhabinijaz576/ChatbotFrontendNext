@@ -50,11 +50,11 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
           <div className="min-h-8 flex-grow" />
         </ThreadPrimitive.If>
         {suggestedMessages?.buttons?.length > 0 && (
-      <div className="flex flex-col items-center justify-center mt-8 mb-8 ">
+      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
           <ThreadWelcomeSuggestions  suggestedMessages={suggestedMessages} config={config} onNew={onNew} messages={messages} setStateData={setStateData} />
         </div>
       )}
-        <div className="sticky bottom-0 mt-3 flex max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
+        <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
           <Composer config={config} />
         </div>

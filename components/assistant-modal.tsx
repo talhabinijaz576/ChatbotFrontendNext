@@ -72,12 +72,11 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
           overflow-clip rounded-xl border-2 border-blue-950 p-0 shadow-md outline-none
     w-[75vw] h-[75vh]          /* default for small devices */
     sm:w-[400px] sm:h-[600px]  /* small tablets */
-    md:w-[600px] md:h-[700px]  /* tablets/laptops */
-    lg:w-[800px] lg:h-[80vh]   /* large screens */
-    xl:w-[1000px] xl:h-[85vh]   /* very large monitors */
+    md:w-[500px] md:h-[700px]  /* tablets/laptops */
+    lg:w-[600px] lg:h-[70vh]   /* large screens */
+    xl:w-[650px] xl:h-[80vh]   /* very large monitors */
       "
       >
-        <div className="w-full h-full">
         <Thread
           defaultTitle={config?.app.title || "Mem0 Assistant"}
           disclaimer={config?.app.disclaimer}
@@ -88,7 +87,6 @@ export const AssistantModal: FC = ({ config, suggestedMessages, onNew, messages,
           messages={messages}
           setStateData={setStateData}
         />
-        </div>
       </AssistantModalPrimitive.Content>
     </AssistantModalPrimitive.Root>
   );
