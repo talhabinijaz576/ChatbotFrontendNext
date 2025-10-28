@@ -108,18 +108,28 @@ const ThreadWelcome: FC = ({  defaultTitle, disclaimer }) => {
   );
 };
 
-const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setStateData}) => {
+const ThreadWelcomeSuggestions: FC = ({ suggestedMessages, onNew, messages, setStateData }) => {
   const handleSuggestionClick = async (message: any, e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setStateData({suggestedMessages: []});
-    
-    console.log("🚀 ~ handleSuggestionClick ~ message:", message)
-
-    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
+    setStateData({ suggestedMessages: [] });
+    onNew({
+      content: [{ type: "text", text: message.message }],
+      attachments: [],
+      metadata: { keyword: message.keyword || message.label },
+      createdAt: new Date(),
+      role: "user",
+    });
   };
+
+  const isVertical = suggestedMessages?.buttons?.length > 1;
+
   return (
-    <div className="mt-3 flex w-full items-stretch justify-center gap-4">
-     {suggestedMessages?.buttons?.map((message: any) => (
+    <div
+      className={`mt-3 flex w-full items-stretch justify-center gap-4 ${
+        isVertical ? "flex-col" : "flex-row"
+      }`}
+    >
+      {suggestedMessages?.buttons?.map((message: any) => (
         <button
           key={message.label}
           className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
@@ -133,6 +143,7 @@ const ThreadWelcomeSuggestions: FC = ({suggestedMessages, onNew, messages, setSt
     </div>
   );
 };
+
 
 const Composer: FC = ({ config }) => {
   return (
