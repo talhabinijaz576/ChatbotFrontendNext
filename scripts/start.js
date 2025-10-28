@@ -1,7 +1,7 @@
 const fs = require("fs");
 const { exec } = require("child_process");
 
-const configPath = "../config/start.json";
+const configPath = "../config/config.json";
 
 // Default to port if not specified
 let port = 3000;
