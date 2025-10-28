@@ -95,12 +95,7 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [
-    {
-      error,
-      suggestedMessages,
-      conversationId,
-      sidebarOpen
-    },
+    { error, suggestedMessages, conversationId, sidebarOpen },
     setStateData,
   ] = useBindReducer({
     error: null,
@@ -286,7 +281,7 @@ export function Assistant({
         } else if (action === "close_url") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
-          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
+          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event);
           setStateData({ suggestedMessages: incoming.event });
         }
       }
@@ -306,7 +301,7 @@ export function Assistant({
   };
 
   const switchConversation = (id: string) => {
-    setStateData({conversationId: id});
+    setStateData({ conversationId: id });
     // const data = loadMessages(id);
     // console.log("🚀 ~ switchConversation ~ data:", data);
     // setMessages(data);
@@ -329,8 +324,11 @@ export function Assistant({
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
-      if (suggestedMessages?.buttons?.length > 0 && suggestedMessages?.close_on_ignore === true) {
-        setStateData({suggestedMessages: []});
+      if (
+        suggestedMessages?.buttons?.length > 0 &&
+        suggestedMessages?.close_on_ignore === true
+      ) {
+        setStateData({ suggestedMessages: [] });
       }
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
@@ -407,10 +405,10 @@ export function Assistant({
         }`}
       >
         {/* HEADER */}
-        <header className="h-16 border-b flex items- justify-between px-4 sm:px-6 bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
+        <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-blue-950 dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
           <ThemeAwareLogo
             width={180}
-            height={30}
+            height={10}
             isDarkMode={isDarkMode}
             config={config}
           />
@@ -420,7 +418,7 @@ export function Assistant({
           >
             <AlignJustify size={24} />
           </button> */}
-          <div className="md:flex items- hidden">
+          {/* <div className="md:flex items- hidden">
             <button
               onClick={() => {
                 setIsDarkMode(!isDarkMode);
@@ -434,7 +432,7 @@ export function Assistant({
                 <Moon className="w-6 h-6" />
               )}
             </button>
-          </div>
+          </div> */}
         </header>
 
         {/* MAIN LAYOUT */}

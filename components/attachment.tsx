@@ -53,7 +53,7 @@ const useAttachmentSrc = () => {
       const src = a.content?.filter((c) => c.type === "image")[0]?.image;
       if (!src) return {};
       return { src };
-    }),
+    })
   );
 
   return useFileSrc(file) ?? src;
@@ -91,7 +91,10 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
 
   return (
     <Dialog>
-      <DialogTrigger className="hover:bg-accent/50 cursor-pointer transition-colors" asChild>
+      <DialogTrigger
+        className="hover:bg-accent/50 cursor-pointer transition-colors"
+        asChild
+      >
         {children}
       </DialogTrigger>
       <AttachmentDialogContent>

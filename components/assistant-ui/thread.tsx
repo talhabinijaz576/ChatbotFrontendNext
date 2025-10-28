@@ -126,7 +126,7 @@ export const Thread: FC<ThreadProps> = ({
       {sidebarOpen && (
         <div
           className="relative inset-0 bg-black/40 -z-1 md:hidden"
-          onClick={() => setStateData({sidebarOpen: false})}
+          onClick={() => setStateData({ sidebarOpen: false })}
         ></div>
       )}
 
@@ -135,12 +135,12 @@ export const Thread: FC<ThreadProps> = ({
         style={{ maxHeight: "80svh" }}
       >
         <div className="flex flex-col w-full items-center px-4 pt-8 justify-end">
-          {!messages.length && (
-            <Loader />
-          )}
+          {!messages.length && <Loader />}
           <ThreadPrimitive.Messages
             components={{
-              UserMessage: (props) => <UserMessage {...props} colors={colors} />,
+              UserMessage: (props) => (
+                <UserMessage {...props} colors={colors} />
+              ),
               EditComposer: EditComposer,
               AssistantMessage: AssistantMessage,
             }}
@@ -152,19 +152,28 @@ export const Thread: FC<ThreadProps> = ({
         </div>
       </ScrollArea>
       {suggestedMessages?.buttons?.length > 0 && (
-      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
-          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} suggestedMessages={suggestedMessages} config={config} runtime={runtime} onNew={onNew} messages={messages} setStateData={setStateData}/>
+        <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+          <ThreadWelcomeSuggestions
+            composerInputRef={composerInputRef}
+            suggestedMessages={suggestedMessages}
+            config={config}
+            runtime={runtime}
+            onNew={onNew}
+            messages={messages}
+            setStateData={setStateData}
+          />
         </div>
       )}
       <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
-      <ThreadScrollToBottom />
+        <ThreadScrollToBottom />
         <Composer
-          composerInputRef={composerInputRef as React.RefObject<HTMLTextAreaElement>}
+          composerInputRef={
+            composerInputRef as React.RefObject<HTMLTextAreaElement>
+          }
           config={config}
           suggestedMessages={suggestedMessages}
         />
       </div>
-
     </ThreadPrimitive.Root>
   );
 };
@@ -195,25 +204,25 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({
   disclaimer,
 }) => {
   return (
-      <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
-        <div className="flex w-full flex-grow flex-col items-center justify-start">
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-[2rem] leading-[1] tracking-[-0.02em] md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2 text-center md:w-full w-5/6">
-              {defaultTitle} {/* || "Mem0 - ChatGPT with memory" */}
-            </div>
-            <p className="text-center text-md text-[#1e293b] dark:text-white mb-2 md:w-3/4 w-5/6">
-              {disclaimer ||
-                "A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories."}
-            </p>
+    <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
+      <div className="flex w-full flex-grow flex-col items-center justify-start">
+        <div className="flex flex-col items-center justify-center h-full">
+          <div className="text-[2rem] leading-[1] tracking-[-0.02em] md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2 text-center md:w-full w-5/6">
+            {defaultTitle} {/* || "Mem0 - ChatGPT with memory" */}
           </div>
-        </div>
-        <div className="flex flex-col items-center justify-center mt-16">
-          <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
-            How can I help you today?
+          <p className="text-center text-md text-[#1e293b] dark:text-white mb-2 md:w-3/4 w-5/6">
+            {disclaimer ||
+              "A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories."}
           </p>
-          <ThreadWelcomeSuggestions composerInputRef={composerInputRef} />
         </div>
       </div>
+      <div className="flex flex-col items-center justify-center mt-16">
+        <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
+          How can I help you today?
+        </p>
+        <ThreadWelcomeSuggestions composerInputRef={composerInputRef} />
+      </div>
+    </div>
   );
 };
 
@@ -235,13 +244,22 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
   messages,
   setStateData,
 }) => {
-  const handleSuggestionClick = async (message: any, e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSuggestionClick = async (
+    message: any,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
     e.preventDefault();
-    setStateData({suggestedMessages: []});
-    
-    console.log("🚀 ~ handleSuggestionClick ~ message:", message)
+    setStateData({ suggestedMessages: [] });
 
-    onNew({ content: [{ type: "text", text: message.message }], attachments: [], metadata: { keyword: message.keyword || message.label }, createdAt: new Date(), role: "user" });
+    console.log("🚀 ~ handleSuggestionClick ~ message:", message);
+
+    onNew({
+      content: [{ type: "text", text: message.message }],
+      attachments: [],
+      metadata: { keyword: message.keyword || message.label },
+      createdAt: new Date(),
+      role: "user",
+    });
   };
 
   return (
@@ -266,11 +284,15 @@ interface ComposerProps {
   suggestedMessages: any;
 }
 
-const Composer: FC<ComposerProps> = ({ composerInputRef, config, suggestedMessages }) => {
+const Composer: FC<ComposerProps> = ({
+  composerInputRef,
+  config,
+  suggestedMessages,
+}) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
-      <ComposerAddAttachment />
+      <ComposerAddAttachment config={config} />
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
@@ -284,7 +306,7 @@ const Composer: FC<ComposerProps> = ({ composerInputRef, config, suggestedMessag
   );
 };
 
-const ComposerAction: FC = ({config}) => {
+const ComposerAction: FC = ({ config }) => {
   return (
     <>
       <ThreadPrimitive.If running={false}>
