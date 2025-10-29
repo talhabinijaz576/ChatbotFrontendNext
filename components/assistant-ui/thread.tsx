@@ -56,6 +56,7 @@ import {
   ComposerAttachments,
   UserMessageAttachments,
 } from "../attachment";
+import Image from "next/image";
 
 interface ThreadProps {
   sidebarOpen: boolean;
@@ -142,7 +143,7 @@ export const Thread: FC<ThreadProps> = ({
                 <UserMessage {...props} colors={colors} />
               ),
               EditComposer: EditComposer,
-              AssistantMessage: AssistantMessage,
+              AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
             }}
           />
 
@@ -398,7 +399,7 @@ const EditComposer: FC = () => {
   );
 };
 
-const AssistantMessage: FC = () => {
+const AssistantMessage: FC = ({config}) => {
   const content = useMessage((m) => m.content);
   const markdownText = React.useMemo(() => {
     if (!content) return "";
@@ -421,6 +422,18 @@ const AssistantMessage: FC = () => {
       </div>
 
       {/* <AssistantActionBar /> */}
+      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
+        <Image
+          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+          alt="Assistant Avatar"
+          width={20}
+          height={20}
+          className="invert brightness-0 saturate-0 contrast-200"
+        />
+      </div>
+
+      </div>
 
       <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
     </MessagePrimitive.Root>

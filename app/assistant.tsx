@@ -95,7 +95,12 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [
-    { error, suggestedMessages, conversationId, sidebarOpen },
+    {
+      error,
+      suggestedMessages,
+      conversationId,
+      sidebarOpen
+    },
     setStateData,
   ] = useBindReducer({
     error: null,
@@ -281,7 +286,7 @@ export function Assistant({
         } else if (action === "close_url") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
-          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event);
+          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
           setStateData({ suggestedMessages: incoming.event });
         }
       }
@@ -301,7 +306,7 @@ export function Assistant({
   };
 
   const switchConversation = (id: string) => {
-    setStateData({ conversationId: id });
+    setStateData({conversationId: id});
     // const data = loadMessages(id);
     // console.log("🚀 ~ switchConversation ~ data:", data);
     // setMessages(data);
@@ -324,11 +329,8 @@ export function Assistant({
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
-      if (
-        suggestedMessages?.buttons?.length > 0 &&
-        suggestedMessages?.close_on_ignore === true
-      ) {
-        setStateData({ suggestedMessages: [] });
+      if (suggestedMessages?.buttons?.length > 0 && suggestedMessages?.close_on_ignore === true) {
+        setStateData({suggestedMessages: []});
       }
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
@@ -400,51 +402,26 @@ export function Assistant({
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <div
-        className={`bg-[#f8fafc] dark:bg-zinc-900 relative ${
-          isDarkMode ? "dark" : ""
-        }`}
+        className={`bg-[#f8fafc] dark:bg-zinc-900 relative`}
       >
         {/* HEADER */}
-        <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-blue-950 dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
-          <ThemeAwareLogo
-            width={180}
-            height={10}
-            isDarkMode={isDarkMode}
-            config={config}
-          />
-          {/* <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-[#475569] dark:text-zinc-300 md:hidden"
-          >
-            <AlignJustify size={24} />
-          </button> */}
-          {/* <div className="md:flex items- hidden">
-            <button
-              onClick={() => {
-                setIsDarkMode(!isDarkMode);
-                document.documentElement.classList.toggle("dark", !isDarkMode);
-              }}
-              className="p-2 rounded-full hover:bg-[#eef2ff] dark:hover:bg-zinc-800"
-            >
-              {isDarkMode ? (
-                <Sun className="w-6 h-6" />
-              ) : (
-                <Moon className="w-6 h-6" />
-              )}
-            </button>
-          </div> */}
-        </header>
+    
 
         {/* MAIN LAYOUT */}
 
         <div
-          className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${
-            config.chat.isSidebar && sidebarOpen
-              ? "md:grid-cols-[260px_1fr]"
-              : "md:grid-cols-1"
+          className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${"md:grid-cols-1"
           }`}
         >
-          {config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />}
+              <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-blue-950 dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
+          <ThemeAwareLogo
+            width={180}
+            height={30}
+            isDarkMode={isDarkMode}
+            config={config}
+          />
+        </header>
+          {/* {config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />} */}
           <Thread
             sidebarOpen={sidebarOpen}
             setStateData={setStateData}
