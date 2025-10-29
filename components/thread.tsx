@@ -56,7 +56,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
       )}
         <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
           <ThreadScrollToBottom />
-          <Composer config={config} />
+          <Composer config={config} suggestedMessages={suggestedMessages}/>
         </div>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
@@ -145,7 +145,7 @@ const ThreadWelcomeSuggestions: FC = ({ suggestedMessages, onNew, messages, setS
 };
 
 
-const Composer: FC = ({ config }) => {
+const Composer: FC = ({ config,suggestedMessages }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-ring/20 flex w-full flex-wrap items-end rounded-lg border bg-inherit px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
@@ -153,6 +153,7 @@ const Composer: FC = ({ config }) => {
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
+        disabled={suggestedMessages?.disable_regular_message}
         placeholder={config.app.name || "..."}
         className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
       />

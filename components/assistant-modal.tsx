@@ -68,7 +68,7 @@ export const AssistantModal: FC = ({
         ref={parentRef}
       >
         <AssistantModalPrimitive.Trigger asChild>
-          <AssistantModalButton />
+          <AssistantModalButton config={config}/>
         </AssistantModalPrimitive.Trigger>
       </AssistantModalPrimitive.Anchor>
       <AssistantModalPrimitive.Content
@@ -103,8 +103,8 @@ type AssistantModalButtonProps = { "data-state"?: "open" | "closed" };
 const AssistantModalButton = forwardRef<
   HTMLButtonElement,
   AssistantModalButtonProps
->(({ "data-state": state, ...rest }, ref) => {
-  const tooltip = state === "open" ? "Close Assistant" : "Open Assistant";
+>(({ config, "data-state": state, ...rest}, ref) => {
+  const tooltip = state === "open" ?  config?.widget?.close : config?.widget?.close;
 
   return (
     <TooltipProvider>

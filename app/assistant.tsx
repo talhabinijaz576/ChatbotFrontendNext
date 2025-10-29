@@ -401,49 +401,55 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div
-        className={`bg-[#f8fafc] dark:bg-zinc-900 relative`}
-      >
         {/* HEADER */}
     
 
         {/* MAIN LAYOUT */}
 
-        <div
-          className={`relative grid grid-cols-1 h-[calc(100dvh-4rem)] ${"md:grid-cols-1"
-          }`}
-        >
-              <header className="h-16 border-b flex items-center justify-between px-4 sm:px-6 bg-blue-950 dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
-          <ThemeAwareLogo
-            width={180}
-            height={30}
-            isDarkMode={isDarkMode}
-            config={config}
-          />
-        </header>
-          {/* {config.chat.isSidebar && <ThreadList isDarkMode={isDarkMode} />} */}
-          <Thread
-            sidebarOpen={sidebarOpen}
-            setStateData={setStateData}
-            onResetUserId={() => {}}
-            isDarkMode={isDarkMode}
-            toggleDarkMode={() => {
-              setIsDarkMode((prev) => !prev);
-              document.documentElement.classList.toggle("dark", !isDarkMode);
-            }}
-            defaultTitle={config.app.title || "Mem0 Assistant"}
-            disclaimer={config.app.disclaimer}
-            colors={config.chat?.colors}
-            onNew={onNew}
-            messages={messages}
-            config={config}
-            suggestedMessages={suggestedMessages}
-            runtime={runtime}
-          />
-        </div>
+        <div className="flex flex-col h-screen md:h-[100dvh]">
 
-        {/* JSON Viewer Modal */}
-        <ActionModal
+  <header
+    className="sticky top-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
+  >
+    <ThemeAwareLogo
+      width={180}
+      height={30}
+      isDarkMode={isDarkMode}
+      config={config}
+    />
+  </header>
+
+  <main className="flex-1 overflow-y-auto">
+    <Thread
+      sidebarOpen={sidebarOpen}
+      setStateData={setStateData}
+      onResetUserId={() => {}}
+      isDarkMode={isDarkMode}
+      toggleDarkMode={() => {
+        setIsDarkMode((prev) => !prev);
+        document.documentElement.classList.toggle("dark", !isDarkMode);
+      }}
+      defaultTitle={config.app.title || 'Mem0 Assistant'}
+      disclaimer={config.app.disclaimer}
+      colors={config.chat?.colors}
+      onNew={onNew}
+      messages={messages}
+      config={config}
+      suggestedMessages={suggestedMessages}
+      runtime={runtime}
+    />
+  </main>
+</div>
+
+
+       
+      {config.chat.isVisible && (
+        <Button variant="contained" onClick={handleModalOpen}>
+          Show JSON Message
+        </Button>
+      )}
+ {/* JSON Viewer Modal */}
+ <ActionModal
           open={iframe.showIframe}
           url={iframe.iframeUrl}
           iframeError={iframe.iframeError}
@@ -462,13 +468,6 @@ export function Assistant({
           config={config}
           // onVerify={(otp) => handleOtpVerification(otp)}
         />
-      </div>
-      {config.chat.isVisible && (
-        <Button variant="contained" onClick={handleModalOpen}>
-          Show JSON Message
-        </Button>
-      )}
-
       <Modal open={modalOpen} onClose={handleModalClose}>
         <Box sx={style}>
           <Typography variant="h6" mb={2}>
