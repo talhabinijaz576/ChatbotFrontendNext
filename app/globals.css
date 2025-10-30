@@ -131,6 +131,10 @@ main {
   }
 }
 
+input, textarea {
+  font-size: 16px; /* Prevents zoom on focus on iOS */
+}
+
 
       
       /* Make main content scrollable */

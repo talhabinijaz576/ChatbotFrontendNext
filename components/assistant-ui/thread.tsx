@@ -112,7 +112,7 @@ export const Thread: FC<ThreadProps> = ({
 
   return (
     <ThreadPrimitive.Root
-      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col relative h-[calc(100svh-4rem)] pb-4 md:h-full justify-end"
+      className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col relative pb-4 md:h-full justify-end"
       style={{
         ["--thread-max-width" as string]: "42rem",
         overscrollBehavior: "none",
@@ -133,9 +133,9 @@ export const Thread: FC<ThreadProps> = ({
 
       <ScrollArea
         className="flex-0 md:flex-1 w-full overflow-y-auto"
-        style={{ maxHeight: "80svh" }}
+        style={{ maxHeight: "90svh" }}
       >
-        <div className="flex flex-col w-full items-center px-4 pt-8 justify-end">
+        <div className="flex flex-col w-full items-center px-4 pt-8 pb-8 justify-end">
           {!messages.length && <Loader />}
           <ThreadPrimitive.Messages
             components={{
@@ -165,7 +165,7 @@ export const Thread: FC<ThreadProps> = ({
           />
         </div>
       )}
-      <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
+      {/* <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
         <ThreadScrollToBottom />
         <Composer
           composerInputRef={
@@ -174,12 +174,12 @@ export const Thread: FC<ThreadProps> = ({
           config={config}
           suggestedMessages={suggestedMessages}
         />
-      </div>
+      </div> */}
     </ThreadPrimitive.Root>
   );
 };
 
-const ThreadScrollToBottom: FC = () => {
+export const ThreadScrollToBottom: FC = () => {
   return (
     <ThreadPrimitive.ScrollToBottom asChild>
       <TooltipIconButton
@@ -285,7 +285,7 @@ interface ComposerProps {
   suggestedMessages: any;
 }
 
-const Composer: FC<ComposerProps> = ({
+export const Composer: FC<ComposerProps> = ({
   composerInputRef,
   config,
   suggestedMessages,

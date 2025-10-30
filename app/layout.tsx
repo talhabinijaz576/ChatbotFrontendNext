@@ -24,6 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+      <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="c56e461d-0677-4ac1-b078-fd84a7a62526" data-blockingmode="auto" type="text/javascript"></script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
