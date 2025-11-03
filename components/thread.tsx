@@ -50,7 +50,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
           <div className="min-h-8 flex-grow" />
         </ThreadPrimitive.If>
         {suggestedMessages?.buttons?.length > 0 && (
-      <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+      <div className="flex flex-col w-full items-center justify-center mb-6 ">
           <ThreadWelcomeSuggestions  suggestedMessages={suggestedMessages} config={config} onNew={onNew} messages={messages} setStateData={setStateData} />
         </div>
       )}
@@ -125,7 +125,7 @@ const ThreadWelcomeSuggestions: FC = ({ suggestedMessages, onNew, messages, setS
 
   return (
     <div
-      className={`mt-3 flex w-full items-stretch justify-center gap-4 ${
+      className={`flex w-full items-stretch justify-center gap-4 ${
         isVertical ? "flex-col" : "flex-row"
       }`}
     >
