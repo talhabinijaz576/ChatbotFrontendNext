@@ -22,7 +22,7 @@ export function addOtpPhrase(newEntry: any) {
   }
 
   export const handleSelection = async (config: any, consentData: any, conversationId: any, ) => {
-      fetch(`${config.api.baseUrl}/links/cookies/${conversationId}/`, {
+      await fetch(`${config.api.baseUrl}/links/cookies/${conversationId}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cookie_selection: consentData }),

@@ -13,7 +13,11 @@ import { v4 as uuidv4 } from "uuid";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, AlignJustify } from "lucide-react";
-import { Composer, Thread, ThreadScrollToBottom } from "@/components/assistant-ui/thread";
+import {
+  Composer,
+  Thread,
+  ThreadScrollToBottom,
+} from "@/components/assistant-ui/thread";
 import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 import ActionModal from "@/components/mem0/ActionModal";
 import { useIframe } from "./hooks/useIframe";
@@ -100,12 +104,7 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [
-    {
-      error,
-      suggestedMessages,
-      conversationId,
-      sidebarOpen
-    },
+    { error, suggestedMessages, conversationId, sidebarOpen },
     setStateData,
   ] = useBindReducer({
     error: null,
@@ -137,10 +136,10 @@ export function Assistant({
   }, []);
 
   useEffect(() => {
-    const handleConsentUpdate = () => {
+    const handleConsentUpdate = async () => {
       if (window.Cookiebot?.consent) {
         const consent = window.Cookiebot.consent;
-        console.log("🚀 ~ handleConsentUpdate ~ consent:", consent)
+        console.log("🚀 ~ handleConsentUpdate ~ consent:", consent);
 
         // Extract consent info
         const consentData = {
@@ -153,7 +152,7 @@ export function Assistant({
         };
 
         // Send it to your backend API
-        handleSelection(config, consentData, conversationId)
+        await handleSelection(config, consentData, conversationId);
       }
     };
 
@@ -324,7 +323,7 @@ export function Assistant({
         } else if (action === "close_url") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
-          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
+          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event);
           setStateData({ suggestedMessages: incoming.event });
         }
       }
@@ -344,7 +343,7 @@ export function Assistant({
   };
 
   const switchConversation = (id: string) => {
-    setStateData({conversationId: id});
+    setStateData({ conversationId: id });
     // const data = loadMessages(id);
     // console.log("🚀 ~ switchConversation ~ data:", data);
     // setMessages(data);
@@ -367,8 +366,11 @@ export function Assistant({
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {
-      if (suggestedMessages?.buttons?.length > 0 && suggestedMessages?.close_on_ignore === true) {
-        setStateData({suggestedMessages: []});
+      if (
+        suggestedMessages?.buttons?.length > 0 &&
+        suggestedMessages?.close_on_ignore === true
+      ) {
+        setStateData({ suggestedMessages: [] });
       }
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
@@ -443,7 +445,8 @@ export function Assistant({
     if (!viewport) return;
 
     const handleResize = () => {
-      const bottomOffset = window.innerHeight - viewport.height - viewport.offsetTop;
+      const bottomOffset =
+        window.innerHeight - viewport.height - viewport.offsetTop;
       setKeyboardHeight(bottomOffset > 0 ? bottomOffset : 0);
     };
 
@@ -461,75 +464,74 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-        {/* HEADER */}
-    
+      {/* HEADER */}
 
-        {/* MAIN LAYOUT */}
-        <div
-      className="flex flex-col bg-gray-50"
-      style={{
-        ["--thread-max-width" as string]: "42rem",
-        height: "100dvh", // dynamic viewport height (supports keyboard)
-        overflow: "hidden",
-      }}
-    >
-      {/* 🔸 Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
-      <ThemeAwareLogo
-      width={180}
-      height={30}
-      isDarkMode={isDarkMode}
-      config={config}
-    />
-    {/* <button
+      {/* MAIN LAYOUT */}
+      <div
+        className="flex flex-col bg-gray-50"
+        style={{
+          ["--thread-max-width" as string]: "42rem",
+          height: "100dvh", // dynamic viewport height (supports keyboard)
+          overflow: "hidden",
+        }}
+      >
+        {/* 🔸 Fixed Header */}
+        <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
+          <ThemeAwareLogo
+            width={180}
+            height={30}
+            isDarkMode={isDarkMode}
+            config={config}
+          />
+          {/* <button
       onClick={() => window?.Cookiebot?.renew?.()}
       className="mt-2 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
     >
       R
     </button> */}
-      </header>
+        </header>
 
-      {/* 🔸 Scrollable Messages */}
-      <Thread
-      sidebarOpen={sidebarOpen}
-      setStateData={setStateData}
-      onResetUserId={() => {}}
-      isDarkMode={isDarkMode}
-      toggleDarkMode={() => {
-        setIsDarkMode((prev) => !prev);
-        document.documentElement.classList.toggle("dark", !isDarkMode);
-      }}
-      defaultTitle={config.app.title || 'Mem0 Assistant'}
-      disclaimer={config.app.disclaimer}
-      colors={config.chat?.colors}
-      onNew={onNew}
-      messages={messages}
-      config={config}
-      suggestedMessages={suggestedMessages}
-      runtime={runtime}
-    />
-
-      {/* 🔸 Fixed Bottom Input (moves with keyboard) */}
-      <div
-        className="fixed left-0 right-0 z-50 transition-transform duration-200"
-        style={{
-          bottom: keyboardHeight,
-        }}
-      >
-        <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
-        <ThreadScrollToBottom />
-        <Composer
-          composerInputRef={
-            composerInputRef as React.RefObject<HTMLTextAreaElement>
-          }
+        {/* 🔸 Scrollable Messages */}
+        <Thread
+          sidebarOpen={sidebarOpen}
+          setStateData={setStateData}
+          onResetUserId={() => {}}
+          isDarkMode={isDarkMode}
+          toggleDarkMode={() => {
+            setIsDarkMode((prev) => !prev);
+            document.documentElement.classList.toggle("dark", !isDarkMode);
+          }}
+          defaultTitle={config.app.title || "Mem0 Assistant"}
+          disclaimer={config.app.disclaimer}
+          colors={config.chat?.colors}
+          onNew={onNew}
+          messages={messages}
           config={config}
           suggestedMessages={suggestedMessages}
+          runtime={runtime}
         />
+
+        {/* 🔸 Fixed Bottom Input (moves with keyboard) */}
+        <div
+          className="fixed left-0 right-0 z-50 transition-transform duration-200"
+          style={{
+            bottom: keyboardHeight,
+          }}
+        >
+          <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
+            <ThreadScrollToBottom />
+            <Composer
+              composerInputRef={
+                composerInputRef as React.RefObject<HTMLTextAreaElement>
+              }
+              config={config}
+              suggestedMessages={suggestedMessages}
+            />
+          </div>
         </div>
       </div>
-    </div>
 
-  {/* <main className="flex-1 overflow-y-auto">
+      {/* <main className="flex-1 overflow-y-auto">
     <Thread
       sidebarOpen={sidebarOpen}
       setStateData={setStateData}
@@ -550,33 +552,32 @@ export function Assistant({
     />
   </main> */}
 
-
-       
       {config.chat.isVisible && (
         <Button variant="contained" onClick={handleModalOpen}>
           Show JSON Message
         </Button>
       )}
- {/* JSON Viewer Modal */}
- <ActionModal
-          open={iframe.showIframe}
-          url={iframe.iframeUrl}
-          iframeError={iframe.iframeError}
-          onClose={iframe.closeIframe}
-          onIframeError={iframe.onIframeError}
-          onIframeLoad={iframe.onIframeLoad}
-        />
+      {/* JSON Viewer Modal */}
+      <ActionModal
+        config={config}
+        open={iframe.showIframe}
+        url={iframe.iframeUrl}
+        iframeError={iframe.iframeError}
+        onClose={iframe.closeIframe}
+        onIframeError={iframe.onIframeError}
+        onIframeLoad={iframe.onIframeLoad}
+      />
 
-        <OtpModal
-          open={otpModalOpen}
-          onOtpSuccess={() => {
-            setOtpModalOpen(false);
-            initConversation(config); // retry with new header
-          }}
-          conversationId={conversationId}
-          config={config}
-          // onVerify={(otp) => handleOtpVerification(otp)}
-        />
+      <OtpModal
+        open={otpModalOpen}
+        onOtpSuccess={() => {
+          setOtpModalOpen(false);
+          initConversation(config); // retry with new header
+        }}
+        conversationId={conversationId}
+        config={config}
+        // onVerify={(otp) => handleOtpVerification(otp)}
+      />
       <Modal open={modalOpen} onClose={handleModalClose}>
         <Box sx={style}>
           <Typography variant="h6" mb={2}>
