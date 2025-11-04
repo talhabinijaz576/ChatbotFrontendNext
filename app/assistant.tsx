@@ -137,36 +137,34 @@ export function Assistant({
 
   useEffect(() => {
     const handleConsentUpdate = async () => {
-      if (window.Cookiebot?.consent) {
-        const consent = window.Cookiebot.consent;
-        console.log("🚀 ~ handleConsentUpdate ~ consent:", consent);
-
-        // Extract consent info
-        const consentData = {
-          necessary: consent.necessary,
-          preferences: consent.preferences,
-          statistics: consent.statistics,
-          marketing: consent.marketing,
-          userId: conversationId, // optional: your logged-in user ID or session ID
-          consentedAt: new Date().toISOString(),
-        };
-
-        // Send it to your backend API
-        await handleSelection(config, consentData, conversationId);
+      if (!window.Cookiebot?.consent || !config?.api?.baseUrl) {
+        console.warn("Cookiebot or config not ready yet");
+        return;
       }
+  
+      const consent = window.Cookiebot.consent;
+      const consentData = {
+        necessary: consent.necessary,
+        preferences: consent.preferences,
+        statistics: consent.statistics,
+        marketing: consent.marketing,
+        userId: conversationId,
+        consentedAt: new Date().toISOString(),
+      };
+  
+      await handleSelection(config, consentData, conversationId);
     };
-
-    // Listen for Cookiebot event
+  
     window.addEventListener("CookiebotOnAccept", handleConsentUpdate);
     window.addEventListener("CookiebotOnDecline", handleConsentUpdate);
     window.addEventListener("CookiebotOnLoad", handleConsentUpdate);
-
+  
     return () => {
       window.removeEventListener("CookiebotOnAccept", handleConsentUpdate);
       window.removeEventListener("CookiebotOnDecline", handleConsentUpdate);
       window.removeEventListener("CookiebotOnLoad", handleConsentUpdate);
     };
-  }, []);
+  }, [config, conversationId]);
 
   // Step 2: Load conversation/messages when config + conversationId are ready
 
