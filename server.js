@@ -1,27 +1,36 @@
-// server.js
+import { createServer } from "http";
+import { parse } from "url";
 import next from "next";
-import http from "http";
 import fs from "fs";
-import path from "path";
-const app = next({ dev: process.env.NODE_ENV !== "production" });
+
+const dev = process.env.NODE_ENV !== "production";
+const app = next({ dev });
 const handle = app.getRequestHandler();
 
-// Use .sock on Linux, Named Pipe on Windows
-const isWin = process.platform === "win32";
-const socketPath = isWin
-  ? `\\\\.\\pipe\\${process.env.APP_NAME || "nextapp"}`
-  : path.join("/tmp", `${process.env.APP_NAME || "nextapp"}.sock`);
-
-if (!isWin && fs.existsSync(socketPath)) {
-  fs.unlinkSync(socketPath);
-}
+// Allow both SOCKET_PATH and PORT
+const socketPath = process.env.SOCKET_PATH;
+const port = process.env.PORT || 3000;
 
 app.prepare().then(() => {
-  const server = http.createServer((req, res) => {
-    handle(req, res);
+  const server = createServer((req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
   });
 
-  server.listen(socketPath, () => {
-    console.log(`> ${process.env.APP_NAME} running on ${socketPath}`);
-  });
+  if (socketPath) {
+    // remove old socket if it exists
+    if (fs.existsSync(socketPath)) {
+      fs.unlinkSync(socketPath);
+    }
+
+    server.listen(socketPath, () => {
+      fs.chmodSync(socketPath, "777");
+      console.log(`✅ Server running on socket: ${socketPath}`);
+    });
+  } else {
+    server.listen(port, (err) => {
+      if (err) throw err;
+      console.log(`🚀 Server running on http://localhost:${port}`);
+    });
+  }
 });
