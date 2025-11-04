@@ -146,14 +146,8 @@ export const Thread: FC<ThreadProps> = ({
               AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
             }}
           />
-
-          <ThreadPrimitive.If empty={false}>
-            <div className="min-h-8 flex-grow" ref={bottomRef} />
-          </ThreadPrimitive.If>
-        </div>
-      </ScrollArea>
-      {suggestedMessages?.buttons?.length > 0 && (
-        <div className="flex flex-col w-full items-center justify-center mt-8 mb-8 ">
+          {suggestedMessages?.buttons?.length > 0 && (
+        <div className="flex flex-col w-full items-center justify-center mt-2 mb-8 ">
           <ThreadWelcomeSuggestions
             composerInputRef={composerInputRef}
             suggestedMessages={suggestedMessages}
@@ -165,6 +159,13 @@ export const Thread: FC<ThreadProps> = ({
           />
         </div>
       )}
+
+          <ThreadPrimitive.If empty={false}>
+            <div className="min-h-8 flex-grow" ref={bottomRef} />
+          </ThreadPrimitive.If>
+        </div>
+      </ScrollArea>
+      
       {/* <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
         <ThreadScrollToBottom />
         <Composer

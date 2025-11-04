@@ -29,6 +29,11 @@ import { useBindReducer } from "./utils/useThunkReducer";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 
 // === Utility Functions ===
+declare global {
+  interface Window {
+    Cookiebot?: any;
+  }
+}
 
 const getOrCreateUserId = () => {
   let id = localStorage.getItem("userId1");
@@ -121,14 +126,47 @@ export function Assistant({
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
-        const cookieConsent = getCookie("cookieConsent");
-        if (cookieConsent) {
-          setOpenCookieModal(false);
-        }
+        // const cookieConsent = getCookie("cookieConsent");
+        // if (cookieConsent) {
+        //   setOpenCookieModal(false);
+        // }
         setConfig(data);
         initConversation(data);
         // call your logic here directly
       });
+  }, []);
+
+  useEffect(() => {
+    const handleConsentUpdate = () => {
+      if (window.Cookiebot?.consent) {
+        const consent = window.Cookiebot.consent;
+        console.log("🚀 ~ handleConsentUpdate ~ consent:", consent)
+
+        // Extract consent info
+        const consentData = {
+          necessary: consent.necessary,
+          preferences: consent.preferences,
+          statistics: consent.statistics,
+          marketing: consent.marketing,
+          userId: conversationId, // optional: your logged-in user ID or session ID
+          consentedAt: new Date().toISOString(),
+        };
+
+        // Send it to your backend API
+        handleSelection(config, consentData, conversationId)
+      }
+    };
+
+    // Listen for Cookiebot event
+    window.addEventListener("CookiebotOnAccept", handleConsentUpdate);
+    window.addEventListener("CookiebotOnDecline", handleConsentUpdate);
+    window.addEventListener("CookiebotOnLoad", handleConsentUpdate);
+
+    return () => {
+      window.removeEventListener("CookiebotOnAccept", handleConsentUpdate);
+      window.removeEventListener("CookiebotOnDecline", handleConsentUpdate);
+      window.removeEventListener("CookiebotOnLoad", handleConsentUpdate);
+    };
   }, []);
 
   // Step 2: Load conversation/messages when config + conversationId are ready
@@ -443,12 +481,12 @@ export function Assistant({
       isDarkMode={isDarkMode}
       config={config}
     />
-    <button
+    {/* <button
       onClick={() => window?.Cookiebot?.renew?.()}
       className="mt-2 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
     >
       R
-    </button>
+    </button> */}
       </header>
 
       {/* 🔸 Scrollable Messages */}
@@ -556,7 +594,7 @@ export function Assistant({
         </Box>
       </Modal>
 
-      <Modal open={openCookieModal}>
+      {/* <Modal open={openCookieModal}>
         <Box
           sx={{
             position: "absolute",
@@ -613,7 +651,7 @@ export function Assistant({
             </Button>
           </Box>
         </Box>
-      </Modal>
+      </Modal> */}
     </AssistantRuntimeProvider>
   );
 }

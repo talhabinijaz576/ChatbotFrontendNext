@@ -21,33 +21,23 @@ export function addOtpPhrase(newEntry: any) {
     );
   }
 
-  export const handleSelection = async (config: any, selection: any, conversationId: any, setCookieLoading: any, setOpenCookieModal: any) => {
-      setCookieLoading(true);
+  export const handleSelection = async (config: any, consentData: any, conversationId: any, ) => {
       fetch(`${config.api.baseUrl}/cookies/${conversationId}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cookie_selection: selection }),
+        body: JSON.stringify({ cookie_selection: consentData }),
       })
         .then((res) => res.json())
         .then((data) => {
+            console.log("🚀 ~ handleSelection ~ data:", data)
             // Save to cookie as { conversationId, passphrase }
-            setCookie(
-              "cookieConsent",
-              JSON.stringify(data),
-              { maxAge: 60 * 60 * 24 * 7 } // 7 days
-            );
+          
         })
         .catch((e) => {
           console.error("Error sending cookie selection:", e);
         })
           .finally(() => {
-            setCookie(
-              "cookieConsent",
-              JSON.stringify(conversationId),
-              { maxAge: 60 * 60 * 24 * 7 } // 7 days
-            );
-            setCookieLoading(false);
-            setOpenCookieModal(false);
+        
           });
   };
   
