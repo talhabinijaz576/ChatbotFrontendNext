@@ -3,6 +3,7 @@
 import { use } from "react";
 import { Assistant } from "@/app/assistant";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import CookiebotLoader from "@/components/CookiebotLoader";
 
 
   
@@ -19,6 +20,7 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
   
     return (
       <TooltipProvider>
+        <CookiebotLoader />
       <Assistant
         initialConversationId={conversationId}
         searchParams={newParams} 

@@ -82,7 +82,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
             }}
           >
             <Image
-              src={config.app.extenalModalLogo}
+              src={config?.app?.extenalModalLogo}
               alt="Jazee.ai"
               width={120}
               height={30}

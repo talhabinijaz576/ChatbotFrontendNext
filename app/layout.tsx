@@ -13,9 +13,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jazee - ChatGPT with Memory",
-  description: "Jazee - ChatGPT with Memory is a personalized AI chat app powered by jazee that remembers your preferences, facts, and memories.",
+  title: "Jazee AI",
+  description: "Jazee - ChatGPT with Memory ...",
+  themeColor: "#ffffff",
+  icons: {
+    icon: "/avatar.svg",
+    apple: "/avatar.svg",
+  },
+  other: {
+    "mask-icon": "/avatar.svg",
+    "color": "#010a03", // Safari pinned tab color
+  },
 };
+
 
 export default function RootLayout({
   children,
@@ -24,9 +34,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-      <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="c56e461d-0677-4ac1-b078-fd84a7a62526" data-blockingmode="auto" type="text/javascript"></script>
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
