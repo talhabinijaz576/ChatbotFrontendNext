@@ -198,7 +198,7 @@ export const ComposerAddAttachment: FC = ({ config }) => {
     <ComposerPrimitive.AddAttachment asChild>
       <TooltipIconButton
         tooltip={config?.chat?.attachment?.tooltip ?? "Add Attachment"}
-        tooltipColor={config?.widget?.bgColor}
+        tooltipColor={`${config?.widget?.bgColor }|| #0f172a`}
         variant="ghost"
         className="my-2.5 size-8 p-2 transition-opacity ease-in"
       >

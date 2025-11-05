@@ -229,7 +229,7 @@ export default function Widget({  }) {
             assRes,
             conversationId: conversationId
           }),
-          { maxAge: 60 * config?.app?.time } // expires after 3 minutes (180 seconds)
+          { maxAge: 60 * config?.app?.time || 60 } // expires after 3 minutes (180 seconds)
         );        
       } catch (error) {
         console.error("Error communicating with backend:", error);

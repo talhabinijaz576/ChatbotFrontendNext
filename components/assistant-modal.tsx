@@ -69,7 +69,7 @@ export const AssistantModal: FC = ({
         ref={parentRef}
       >
         <AssistantModalPrimitive.Trigger asChild>
-          <AssistantModalButton config={config}/>
+          <AssistantModalButton config={config} />
         </AssistantModalPrimitive.Trigger>
       </AssistantModalPrimitive.Anchor>
       <AssistantModalPrimitive.Content
@@ -104,8 +104,9 @@ type AssistantModalButtonProps = { "data-state"?: "open" | "closed" };
 const AssistantModalButton = forwardRef<
   HTMLButtonElement,
   AssistantModalButtonProps
->(({ config, "data-state": state, ...rest}, ref) => {
-  const tooltip = state === "open" ?  config?.widget?.close : config?.widget?.open;
+>(({ config, "data-state": state, ...rest }, ref) => {
+  const tooltip =
+    state === "open" ? config?.widget?.close : config?.widget?.open;
 
   return (
     <TooltipProvider>
@@ -115,16 +116,29 @@ const AssistantModalButton = forwardRef<
         side="left"
         tooltipColor={config?.widget?.bgColor}
         {...rest}
-        className={`size-full rounded-full bg-[${config?.widget?.bgColor}] shadow transition-transform hover:scale-110 active:scale-90 hover:bg-[${config?.widget?.hoverColor}]`} 
+        className={`size-full rounded-full shadow transition-transform hover:scale-110 active:scale-90`}
+        style={{
+          backgroundColor: config?.widget?.bgColor || "#0f172a",
+        }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            config?.widget?.hoverColor || "#172554")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.backgroundColor =
+            config?.widget?.bgColor || "#0f172a")
+        }
         ref={ref}
       >
-         {state !== "open" && <Image
-          src={config?.widget?.icon ?? ""}
-          alt="Assistant Avatar"
-          width={40}
-          height={40}
-          className="absolute size-6 transition-all data-[state=closed]:rotate-0 data-[state=open]:rotate-90 data-[state=closed]:scale-100 data-[state=open]:scale-0 invert brightness-0 saturate-0 contrast-200"
-        />}
+        {state !== "open" && (
+          <Image
+            src={config?.widget?.icon ?? ""}
+            alt="Assistant Avatar"
+            width={40}
+            height={40}
+            className="absolute size-6 transition-all data-[state=closed]:rotate-0 data-[state=open]:rotate-90 data-[state=closed]:scale-100 data-[state=open]:scale-0 invert brightness-0 saturate-0 contrast-200"
+          />
+        )}
         {/* <BotIcon
           data-state={state}
           className="absolute size-6 transition-all data-[state=closed]:rotate-0 data-[state=open]:rotate-90 data-[state=closed]:scale-100 data-[state=open]:scale-0"
