@@ -16,6 +16,7 @@ import { chatService } from "./services/chatService";
 import { useSearchParams } from "next/navigation";
 import { AssistantModal } from "@/components/assistant-modal";
 import { useBindReducer } from "./utils/useThunkReducer";
+import { getCookie, setCookie } from "cookies-next";
 
 export default function Widget({  }) {
   const params = useSearchParams();
@@ -52,53 +53,74 @@ export default function Widget({  }) {
   }, []);
 
   const initConversation = (config2) => {
-    fetch(`${config2.api.baseUrl}/conversation/${conversationId}/view`)
+    // ✅ Get cookie
+    const lastMessageCookie = getCookie("lastMessage");
+  
+    let selectedConversationId = conversationId; // fallback default
+  
+    try {
+      if (lastMessageCookie) {
+        const parsed = JSON.parse(lastMessageCookie);
+        console.log("🚀 ~ initConversation ~ parsed:", parsed)
+  
+        // ✅ Check if content.conversationId exists
+        if (parsed?.conversationId) {
+          selectedConversationId = parsed.conversationId;
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to parse lastMessage cookie:", err);
+    }
+  
+    // ✅ Use the selected conversationId
+    fetch(`${config2.api.baseUrl}/conversation/${selectedConversationId}/view`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           console.log("🚀 ~ initConversation ~ data.messages:", data.messages);
           const converted = data.messages.map((item) => {
             let contentArray;
-          
+  
             if (item.type === "user") {
               try {
-                // Try to parse the text as JSON (handles "[{'type': 'text', 'text': 'Hello'}]" format)
-                const normalized = item.text.replace(/'/g, '"'); // Replace single quotes with double quotes
+                const normalized = item.text.replace(/'/g, '"');
                 const parsed = JSON.parse(normalized);
-                contentArray = Array.isArray(parsed) ? parsed : [{ type: "text", text: item.text }];
+                contentArray = Array.isArray(parsed)
+                  ? parsed
+                  : [{ type: "text", text: item.text }];
               } catch (err) {
-                // If parsing fails, use the text as is
                 contentArray = [{ type: "text", text: item.text }];
               }
             } else {
-              // Assistant messages are plain text
               contentArray = [{ type: "text", text: item.text }];
             }
-          
+  
             return {
-              role: item.type, // "user" or "assistant"
+              role: item.type,
               content: contentArray,
               id: `${item.type}-message-${item.id}`,
               createdAt: new Date(),
             };
           });
+  
           const autoMessage = {
             role: config2.chat.autoMessage.role,
             content: [{ ...config2.chat.autoMessage, type: "text" }],
-            id: "user-message-" + conversationId,
+            id: "user-message-" + selectedConversationId,
             createdAt: new Date(),
           };
+  
           setMessages([autoMessage, ...converted]);
         } else {
           const existingMessage = JSON.parse(
-            localStorage.getItem(`conversation:${conversationId}`) || "[]"
+            localStorage.getItem(`conversation:${selectedConversationId}`) || "[]"
           );
-
+  
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
               role: item.role,
               content: [{ text: item.text, type: "text" }],
-              id: "user-message-" + conversationId,
+              id: "user-message-" + selectedConversationId,
               createdAt: new Date(),
             }));
             setMessages(parsedMessages);
@@ -107,7 +129,7 @@ export default function Widget({  }) {
               {
                 role: config2.chat.autoMessage.role,
                 content: [{ ...config2.chat.autoMessage, type: "text" }],
-                id: "user-message-" + conversationId,
+                id: "user-message-" + selectedConversationId,
                 createdAt: new Date(),
               },
             ]);
@@ -117,8 +139,9 @@ export default function Widget({  }) {
       .catch((e) => {
         console.log("🚀 ~ e:", e);
         const existingMessage = JSON.parse(
-          localStorage.getItem(`conversation:${conversationId}`) || "[]"
+          localStorage.getItem(`conversation:${selectedConversationId}`) || "[]"
         );
+  
         if (existingMessage.length > 1) {
           setMessages(existingMessage);
         } else {
@@ -126,7 +149,7 @@ export default function Widget({  }) {
             {
               role: config2.chat.autoMessage.role,
               content: [{ ...config2.chat.autoMessage, type: "text" }],
-              id: "user-message-" + conversationId,
+              id: "user-message-" + selectedConversationId,
               createdAt: new Date(),
             },
           ]);
@@ -200,6 +223,14 @@ export default function Widget({  }) {
           createdAt: new Date(),
         };
         setMessages((currentConversation) => [...currentConversation, assRes]);
+        setCookie(
+          "lastMessage",
+          JSON.stringify({
+            assRes,
+            conversationId: conversationId
+          }),
+          { maxAge: 60 * config?.app?.time } // expires after 3 minutes (180 seconds)
+        );        
       } catch (error) {
         console.error("Error communicating with backend:", error);
       } finally {
