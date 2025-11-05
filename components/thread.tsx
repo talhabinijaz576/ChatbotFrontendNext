@@ -108,8 +108,16 @@ const ThreadWelcome: FC = ({  defaultTitle, disclaimer }) => {
   );
 };
 
-const ThreadWelcomeSuggestions: FC = ({ suggestedMessages, onNew, messages, setStateData }) => {
-  const handleSuggestionClick = async (message: any, e: React.MouseEvent<HTMLButtonElement>) => {
+const ThreadWelcomeSuggestions: FC = ({
+  suggestedMessages,
+  onNew,
+  messages,
+  setStateData,
+}) => {
+  const handleSuggestionClick = async (
+    message: any,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
     e.preventDefault();
     setStateData({ suggestedMessages: [] });
     onNew({
@@ -125,24 +133,25 @@ const ThreadWelcomeSuggestions: FC = ({ suggestedMessages, onNew, messages, setS
 
   return (
     <div
-      className={`flex w-full items-stretch justify-center gap-4 ${
+      className={`flex w-full justify-center gap-4 ${
         isVertical ? "flex-col" : "flex-row"
       }`}
     >
-      {suggestedMessages?.buttons?.map((message: any) => (
-        <button
-          key={message.label}
-          className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
-          onClick={(e) => handleSuggestionClick(message, e)}
-        >
-          <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-            {message.label}
-          </span>
-        </button>
-      ))}
+     {suggestedMessages?.buttons?.map((message: any) => (
+    <button
+      key={message.label}
+      onClick={(e) => handleSuggestionClick(message, e)}
+      className="flex h-14 flex-1 items-center justify-center rounded-[2rem] border border-[#e2e8f0] p-3
+                 text-center text-sm font-semibold transition-colors ease-in
+                 hover:bg-[#eef2ff] dark:border-zinc-700 dark:hover:bg-zinc-800"
+    >
+      <span className="text-center leading-tight">{message.label}</span>
+    </button>
+  ))}
     </div>
   );
 };
+
 
 
 const Composer: FC = ({ config,suggestedMessages }) => {

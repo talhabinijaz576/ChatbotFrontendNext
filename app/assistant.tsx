@@ -31,6 +31,7 @@ import { getCookie, setCookie } from "cookies-next";
 import { handleSelection } from "./utils/addOtpPhrase";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
+import CookiebotLoader from "@/components/CookiebotLoader";
 
 // === Utility Functions ===
 declare global {
@@ -462,6 +463,7 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+        <CookiebotLoader config={config} />
       {/* HEADER */}
 
       {/* MAIN LAYOUT */}
