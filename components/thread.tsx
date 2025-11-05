@@ -179,7 +179,8 @@ const ComposerAction: FC = ({config}) => {
           <TooltipIconButton
             tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
-            className="my-2.5 size-8 p-2 transition-opacity ease-in"
+            tooltipColor={config?.widget?.bgColor}
+            className={`my-2.5 size-8 bg-[${config?.widget?.bgColor}] p-2 transition-opacity ease-in hover:bg-[${config?.widget?.hoverColor}]`}
           >
             <SendHorizontalIcon />
           </TooltipIconButton>

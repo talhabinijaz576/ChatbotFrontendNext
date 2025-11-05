@@ -13,24 +13,18 @@ import { cn } from "@/lib/utils";
 export type TooltipIconButtonProps = ComponentPropsWithoutRef<typeof Button> & {
   tooltip: string;
   side?: "top" | "bottom" | "left" | "right";
+  tooltipColor?: any
 };
 
 export const TooltipIconButton = forwardRef<HTMLButtonElement, TooltipIconButtonProps>(
-  ({ tooltip, side, children, ...props }, ref) => (
+  ({ tooltip, tooltipColor = "black", side, children, ...props }, ref) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button ref={ref} {...props}>
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side={side}>{tooltip}</TooltipContent>
-{/* 
-      <TooltipTrigger asChild>
-      <Button ref={ref} {...props}>
-        {children}
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent side={side}>{tooltip}</TooltipContent> */}
+      <TooltipContent side={side} style={{ backgroundColor: tooltipColor }}>{tooltip}</TooltipContent>
     </Tooltip>
   )
 );
