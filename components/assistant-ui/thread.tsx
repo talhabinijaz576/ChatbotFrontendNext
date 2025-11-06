@@ -166,7 +166,7 @@ export const Thread: FC<ThreadProps> = ({
         </div>
       </ScrollArea>
       
-      {/* <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
+      <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
         <ThreadScrollToBottom />
         <Composer
           composerInputRef={
@@ -175,7 +175,7 @@ export const Thread: FC<ThreadProps> = ({
           config={config}
           suggestedMessages={suggestedMessages}
         />
-      </div> */}
+      </div>
     </ThreadPrimitive.Root>
   );
 };

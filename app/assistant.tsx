@@ -10,13 +10,9 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { Sun, Moon, AlignJustify } from "lucide-react";
+import { useEffect,useState } from "react";
 import {
-  Composer,
   Thread,
-  ThreadScrollToBottom,
 } from "@/components/assistant-ui/thread";
 import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 import ActionModal from "@/components/mem0/ActionModal";
@@ -435,30 +431,8 @@ export function Assistant({
       ]),
     },
   });
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  useEffect(() => {
-    // Detect visual viewport changes when keyboard opens
-    const viewport = window.visualViewport;
-
-    if (!viewport) return;
-
-    const handleResize = () => {
-      const bottomOffset =
-        window.innerHeight - viewport.height - viewport.offsetTop;
-      setKeyboardHeight(bottomOffset > 0 ? bottomOffset : 0);
-    };
-
-    viewport.addEventListener("resize", handleResize);
-    viewport.addEventListener("scroll", handleResize);
-
-    return () => {
-      viewport.removeEventListener("resize", handleResize);
-      viewport.removeEventListener("scroll", handleResize);
-    };
-  }, []);
-  const composerInputRef = useRef<HTMLTextAreaElement>(null);
-
+ 
   if (!config) return <div>Loading config...</div>;
 
   return (
@@ -467,69 +441,41 @@ export function Assistant({
       {/* HEADER */}
 
       {/* MAIN LAYOUT */}
-      <div
-        className="flex flex-col bg-gray-50"
-        style={{
-          ["--thread-max-width" as string]: "42rem",
-          height: "100dvh", // dynamic viewport height (supports keyboard)
-          overflow: "hidden",
-        }}
-      >
-        {/* 🔸 Fixed Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white">
-          <ThemeAwareLogo
-            width={180}
-            height={30}
-            isDarkMode={isDarkMode}
-            config={config}
-          />
-          {/* <button
-      onClick={() => window?.Cookiebot?.renew?.()}
-      className="mt-2 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
-    >
-      R
-    </button> */}
-        </header>
+      <div className="flex flex-col h-screen md:h-[100dvh]">
 
-        {/* 🔸 Scrollable Messages */}
-        <Thread
-          sidebarOpen={sidebarOpen}
-          setStateData={setStateData}
-          onResetUserId={() => {}}
-          isDarkMode={isDarkMode}
-          toggleDarkMode={() => {
-            setIsDarkMode((prev) => !prev);
-            document.documentElement.classList.toggle("dark", !isDarkMode);
-          }}
-          defaultTitle={config.app.title || "Mem0 Assistant"}
-          disclaimer={config.app.disclaimer}
-          colors={config.chat?.colors}
-          onNew={onNew}
-          messages={messages}
-          config={config}
-          suggestedMessages={suggestedMessages}
-          runtime={runtime}
-        />
+<header
+  className="sticky top-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
+>
+  <ThemeAwareLogo
+    width={180}
+    height={30}
+    isDarkMode={isDarkMode}
+    config={config}
+  />
+</header>
 
-        {/* 🔸 Fixed Bottom Input (moves with keyboard) */}
-        <div
-          className="fixed left-0 right-0 z-50 transition-transform duration-200"
-          style={{
-            bottom: keyboardHeight,
-          }}
-        >
-          <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
-            <ThreadScrollToBottom />
-            <Composer
-              composerInputRef={
-                composerInputRef as React.RefObject<HTMLTextAreaElement>
-              }
-              config={config}
-              suggestedMessages={suggestedMessages}
-            />
-          </div>
-        </div>
-      </div>
+<main className="flex-1 overflow-y-auto">
+  <Thread
+    sidebarOpen={sidebarOpen}
+    setStateData={setStateData}
+    onResetUserId={() => {}}
+    isDarkMode={isDarkMode}
+    toggleDarkMode={() => {
+      setIsDarkMode((prev) => !prev);
+      document.documentElement.classList.toggle("dark", !isDarkMode);
+    }}
+    defaultTitle={config.app.title || 'Mem0 Assistant'}
+    disclaimer={config.app.disclaimer}
+    colors={config.chat?.colors}
+    onNew={onNew}
+    messages={messages}
+    config={config}
+    suggestedMessages={suggestedMessages}
+    runtime={runtime}
+  />
+</main>
+</div>
+
 
       {/* <main className="flex-1 overflow-y-auto">
     <Thread

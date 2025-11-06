@@ -229,7 +229,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       >
         {(isStreaming ? processedTextRef.current : safeMarkdownText)}
       </Markdown>
-      {(isStreaming || (!isStreaming && !processedTextRef.current)) && <span className="markdown-cursor">▋</span>}
+      {/* {(isStreaming || (!processedTextRef.current)) && <span className="markdown-cursor">▋</span>} */}
     </div>
   );
 };
