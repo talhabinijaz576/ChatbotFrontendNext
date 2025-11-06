@@ -25,6 +25,7 @@ class ChatService {
   private isIntentionalDisconnect: boolean = false;
   private pendingResolve: ((response: any) => void) | null = null;
   private config: any = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     // Initial connection will be made when first chat is loaded
@@ -35,6 +36,7 @@ class ChatService {
       this.config = await this.fetchConfig();
       this.connect(userId);
     }
+    this.startAutoReconnect(userId);
   }
 
   private async fetchConfig(): Promise<any> {
@@ -87,6 +89,16 @@ class ChatService {
         setTimeout(() => this.connect(userId), this.config.websocket.reconnectInterval);
       }
     };
+  }
+
+  private startAutoReconnect(userId: string) {
+    // Clear any existing timer before setting a new one
+    if (this.reconnectTimer) clearInterval(this.reconnectTimer);
+  
+    this.reconnectTimer = setInterval(() => {
+      console.log("🔄 Auto-reconnecting WebSocket after 5 minutes...");
+      this.connect(userId);
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }): Promise<any> {

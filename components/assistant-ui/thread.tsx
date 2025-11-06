@@ -135,7 +135,7 @@ export const Thread: FC<ThreadProps> = ({
         className="flex-0 md:flex-1 w-full overflow-y-auto"
         style={{ maxHeight: "90svh" }}
       >
-        <div className="flex flex-col w-full items-center px-4 pt-8 pb-8 justify-end">
+        <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
           {!messages.length && <Loader />}
           <ThreadPrimitive.Messages
             components={{
