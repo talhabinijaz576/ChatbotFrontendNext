@@ -98,7 +98,7 @@ class ChatService {
     this.reconnectTimer = setInterval(() => {
       console.log("🔄 Auto-reconnecting WebSocket after 5 minutes...");
       this.connect(userId);
-    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+    }, 9000); // 5 minutes in milliseconds
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }): Promise<any> {
