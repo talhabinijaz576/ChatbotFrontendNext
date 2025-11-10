@@ -154,12 +154,10 @@ export function Assistant({
   
     window.addEventListener("CookiebotOnAccept", handleConsentUpdate);
     window.addEventListener("CookiebotOnDecline", handleConsentUpdate);
-    window.addEventListener("CookiebotOnLoad", handleConsentUpdate);
   
     return () => {
       window.removeEventListener("CookiebotOnAccept", handleConsentUpdate);
       window.removeEventListener("CookiebotOnDecline", handleConsentUpdate);
-      window.removeEventListener("CookiebotOnLoad", handleConsentUpdate);
     };
   }, [config, conversationId]);
 
