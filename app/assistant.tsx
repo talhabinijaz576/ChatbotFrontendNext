@@ -134,7 +134,8 @@ export function Assistant({
 
   useEffect(() => {
     const handleConsentUpdate = async () => {
-      if (!window.Cookiebot?.consent || !config?.api?.baseUrl) {
+      console.log("🚀 ~ handleConsentUpdate ~ window.Cookiebot?.consent:", window.Cookiebot)
+      if (!window.Cookiebot?.consent || !window.Cookiebot?.hasResponse || !config?.api?.baseUrl) {
         console.warn("Cookiebot or config not ready yet");
         return;
       }

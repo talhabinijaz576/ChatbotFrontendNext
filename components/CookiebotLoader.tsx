@@ -8,7 +8,7 @@ export default function CookiebotLoader({config}) {
       id="cookiebot-script"
       src="https://consent.cookiebot.com/uc.js"
       data-cbid={config?.app?.dataCbid}
-      data-blockingmode="auto"
+      data-blockingmode="manual"
       strategy="afterInteractive" // Load after hydration
       onLoad={() => {
         console.log("✅ Cookiebot loaded");
