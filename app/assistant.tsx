@@ -134,20 +134,21 @@ export function Assistant({
 
   useEffect(() => {
     const handleConsentUpdate = async (event) => {
-      console.log("🚀 ~ handleConsentUpdate ~ event:", event)
-      if (!window.Cookiebot?.consent || !config?.api?.baseUrl) return;
+      console.log("🚀 Cookiebot event:", event.type);
   
-      // 🚫 Ignore automatic accept on initial load (not user-triggered)
+      // Wait until Cookiebot is fully ready
+      if (!window.Cookiebot || !window.Cookiebot.consent) {
+        console.log("⚠️ Cookiebot not ready yet");
+        return;
+      }
+  
+      // Ignore the automatic event fired during initialization
       if (
-        event.type === "CookiebotOnAccept" &&
-        !event.isTrusted &&                     // Not a real user event
-        window.Cookiebot.hasResponse &&         // Consent already stored
-        !window.Cookiebot.consent.userConsent   // Not a fresh user action
+        !event.isTrusted && // not a real user event
+        window.Cookiebot.hasResponse &&
+        !window.Cookiebot?.consent?.userConsent // not user-triggered
       ) {
-        window.Cookiebot.renew(); // Forces the banner to show again
-        window.Cookiebot.show();  // Manually displays the banner
-
-        console.log("⚠️ Ignoring automatic Cookiebot accept on load");
+        console.log("⚠️ Ignoring auto Cookiebot accept on load");
         return;
       }
   
@@ -464,6 +465,12 @@ export function Assistant({
     isDarkMode={isDarkMode}
     config={config}
   />
+   <button
+      onClick={() => window?.Cookiebot?.renew?.()}
+      className="mt-2 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
+    >
+      R
+    </button> 
 </header>
 
 <main className="flex-1 overflow-y-auto">
