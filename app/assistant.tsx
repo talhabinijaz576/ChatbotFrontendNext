@@ -133,10 +133,13 @@ export function Assistant({
   }, []);
 
   useEffect(() => {
-    const handleConsentUpdate = async () => {
-      console.log("🚀 ~ handleConsentUpdate ~ window.Cookiebot?.consent:", window.Cookiebot)
-      if (!window.Cookiebot?.consent || !window.Cookiebot?.hasResponse || !config?.api?.baseUrl) {
-        console.warn("Cookiebot or config not ready yet");
+    const handleConsentUpdate = async (event) => {
+      console.log("🚀 ~ handleConsentUpdate ~ event:", event)
+      if (!window.Cookiebot?.consent || !config?.api?.baseUrl) return;
+  
+      // 🚫 Ignore automatic triggers on load
+      if (event?.type === "CookiebotOnAccept" && window.Cookiebot.hasResponse && !window.Cookiebot.consent.userConsent) {
+        console.log("Ignoring auto Cookiebot accept on load");
         return;
       }
   
@@ -161,7 +164,8 @@ export function Assistant({
       window.removeEventListener("CookiebotOnDecline", handleConsentUpdate);
     };
   }, [config, conversationId]);
-
+  
+  
   // Step 2: Load conversation/messages when config + conversationId are ready
 
   const initConversation = (config2: any) => {
