@@ -137,9 +137,17 @@ export function Assistant({
       console.log("🚀 ~ handleConsentUpdate ~ event:", event)
       if (!window.Cookiebot?.consent || !config?.api?.baseUrl) return;
   
-      // 🚫 Ignore automatic triggers on load
-      if (event?.type === "CookiebotOnAccept" && window.Cookiebot.hasResponse && !window.Cookiebot.consent.userConsent) {
-        console.log("Ignoring auto Cookiebot accept on load");
+      // 🚫 Ignore automatic accept on initial load (not user-triggered)
+      if (
+        event.type === "CookiebotOnAccept" &&
+        !event.isTrusted &&                     // Not a real user event
+        window.Cookiebot.hasResponse &&         // Consent already stored
+        !window.Cookiebot.consent.userConsent   // Not a fresh user action
+      ) {
+        window.Cookiebot.renew(); // Forces the banner to show again
+        window.Cookiebot.show();  // Manually displays the banner
+
+        console.log("⚠️ Ignoring automatic Cookiebot accept on load");
         return;
       }
   
@@ -164,6 +172,7 @@ export function Assistant({
       window.removeEventListener("CookiebotOnDecline", handleConsentUpdate);
     };
   }, [config, conversationId]);
+  
   
   
   // Step 2: Load conversation/messages when config + conversationId are ready
