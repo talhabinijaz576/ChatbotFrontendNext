@@ -143,14 +143,14 @@ export function Assistant({
       }
   
       // Ignore the automatic event fired during initialization
-      if (
-        !event.isTrusted && // not a real user event
-        window.Cookiebot.hasResponse &&
-        !window.Cookiebot?.consent?.userConsent // not user-triggered
-      ) {
-        console.log("⚠️ Ignoring auto Cookiebot accept on load");
-        return;
-      }
+      // if (
+      //   !event.isTrusted && // not a real user event
+      //   window.Cookiebot.hasResponse &&
+      //   !window.Cookiebot?.consent?.userConsent // not user-triggered
+      // ) {
+      //   console.log("⚠️ Ignoring auto Cookiebot accept on load");
+      //   return;
+      // }
   
       const consent = window.Cookiebot.consent;
       const consentData = {
@@ -450,7 +450,7 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-        <CookiebotLoader config={config} />
+        {/* <CookiebotLoader config={config} /> */}
       {/* HEADER */}
 
       {/* MAIN LAYOUT */}
