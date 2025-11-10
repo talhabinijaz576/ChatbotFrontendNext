@@ -324,7 +324,7 @@ export function Assistant({
       }
     });
     return () => {
-      chatService.disconnect();
+      // chatService.disconnect();
       unsubscribe();
     };
   }, [conversationId]);

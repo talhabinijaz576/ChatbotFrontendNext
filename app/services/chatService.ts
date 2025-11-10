@@ -1,8 +1,4 @@
 
-interface Message {
-  content: string;
-}
-
 interface ApiResponse {
   id: number;
   conversation: {
@@ -25,7 +21,7 @@ class ChatService {
   private isIntentionalDisconnect: boolean = false;
   private pendingResolve: ((response: any) => void) | null = null;
   private config: any = null;
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     // Initial connection will be made when first chat is loaded
@@ -36,7 +32,6 @@ class ChatService {
       this.config = await this.fetchConfig();
       this.connect(userId);
     }
-    this.startAutoReconnect(userId);
   }
 
   private async fetchConfig(): Promise<any> {
@@ -58,6 +53,12 @@ class ChatService {
       this.isIntentionalDisconnect = true;
       this.ws.close();
     }
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+  
   
     this.currentUserId = userId;
     this.ws = new WebSocket(`${this.config.websocket.baseUrl}/ws/user/${userId}/`);
@@ -80,25 +81,30 @@ class ChatService {
     };
   
     this.ws.onerror = (error) => {
-      console.error('WebSocket Error:', error);
+      console.error("⚠️ WebSocket Error:", error);
+      // Reconnect after 5 minutes on error
+      this.scheduleReconnect(userId);
     };
+
   
-    this.ws.onclose = () => {
-      console.log('WebSocket Disconnected');
+    this.ws.onclose = (event) => {
+      console.log(`🔌 WebSocket Disconnected (code: ${event.code})`);
       if (!this.isIntentionalDisconnect) {
-        setTimeout(() => this.connect(userId), this.config.websocket.reconnectInterval);
+        // Reconnect after 5 minutes on disconnect
+        this.scheduleReconnect(userId);
       }
     };
   }
 
-  private startAutoReconnect(userId: string) {
-    // Clear any existing timer before setting a new one
-    if (this.reconnectTimer) clearInterval(this.reconnectTimer);
+  private scheduleReconnect(userId: string) {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
   
-    this.reconnectTimer = setInterval(() => {
-      console.log("🔄 Auto-reconnecting WebSocket after 5 minutes...");
+    console.log("⏳ Reconnecting WebSocket in 9 sec...");
+    this.reconnectTimeout = setTimeout(() => {
       this.connect(userId);
-    }, 9000); // 5 minutes in milliseconds
+    }, 9000); // 5 minutes = 300,000 ms
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }): Promise<any> {
