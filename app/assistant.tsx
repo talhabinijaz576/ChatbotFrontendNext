@@ -465,12 +465,12 @@ export function Assistant({
     isDarkMode={isDarkMode}
     config={config}
   />
-   <button
+   {/* <button
       onClick={() => window?.Cookiebot?.renew?.()}
       className="mt-2 px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
     >
       R
-    </button> 
+    </button>  */}
 </header>
 
 <main className="flex-1 overflow-y-auto">
