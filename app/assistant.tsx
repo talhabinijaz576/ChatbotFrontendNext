@@ -142,16 +142,6 @@ export function Assistant({
         return;
       }
   
-      // Ignore the automatic event fired during initialization
-      // if (
-      //   !event.isTrusted && // not a real user event
-      //   window.Cookiebot.hasResponse &&
-      //   !window.Cookiebot?.consent?.userConsent // not user-triggered
-      // ) {
-      //   console.log("⚠️ Ignoring auto Cookiebot accept on load");
-      //   return;
-      // }
-  
       const consent = window.Cookiebot.consent;
       const consentData = {
         necessary: consent.necessary,
