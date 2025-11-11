@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jazee AI",
+  title: "Prestitech - Vera A.I Chatbot",
   description: "Jazee - ChatGPT with Memory ...",
   themeColor: "#ffffff",
   icons: {
@@ -38,7 +38,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
-      <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="c56e461d-0677-4ac1-b078-fd84a7a62526" data-blockingmode="auto" type="text/javascript"></script>
+      <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="4670ae65-a0e8-4bfd-9efa-b72b4da126fe" data-blockingmode="auto" type="text/javascript"></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
