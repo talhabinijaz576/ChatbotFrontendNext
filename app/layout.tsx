@@ -27,11 +27,14 @@ export const metadata: Metadata = {
 };
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // const res = await fetch(`/api/config`);
+  // const config = await res.json();
+  // console.log("🚀 ~ RootLayout ~ config:", config)
   return (
     <html lang="en">
       <head>
