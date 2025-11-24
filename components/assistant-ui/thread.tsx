@@ -98,6 +98,7 @@ export const Thread: FC<ThreadProps> = ({
   suggestedMessages,
   runtime,
 }) => {
+  console.log("🚀 ~ Thread ~ messages:", messages)
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -138,14 +139,15 @@ export const Thread: FC<ThreadProps> = ({
         <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
           {!messages.length && <Loader />}
           <ThreadPrimitive.Messages
-            components={{
-              UserMessage: (props) => (
-                <UserMessage {...props} colors={colors} />
-              ),
-              EditComposer: EditComposer,
-              AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
-            }}
-          />
+          components={{
+            UserMessage: (props) => (
+              <UserMessage {...props} colors={colors} />
+            ),
+            EditComposer: EditComposer,
+            AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
+          }}
+        />  
+          
           {suggestedMessages?.buttons?.length > 0 && (
         <div className="flex flex-col w-full items-center justify-center mt-2 mb-8 ">
           <ThreadWelcomeSuggestions
@@ -337,10 +339,21 @@ const ComposerAction: FC = ({ config }) => {
   );
 };
 
-const UserMessage: FC = ({ colors }) => {
+const UserMessage: FC = ({ colors}) => {
+  const content = useMessage((m) => {
+    return m.content;
+  });
+  const timestamp = content?.[0]?.created_at 
+  ? new Date(content[0].created_at).toLocaleString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : "";
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
-      {/* <UserActionBar /> */}
       <UserMessageAttachments />
       <div
         style={{
@@ -350,14 +363,15 @@ const UserMessage: FC = ({ colors }) => {
         className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2"
       >
         <MessagePrimitive.Content />
-      </div>
+        <AssistantActionBar timestamp={timestamp} type="user" />
+        </div>
 
       <BranchPicker className="col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
     </MessagePrimitive.Root>
   );
 };
 
-const UserActionBar: FC = () => {
+const UserActionBar: FC = ({ timestamp }) => {
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -401,7 +415,18 @@ const EditComposer: FC = () => {
 };
 
 const AssistantMessage: FC = ({config}) => {
-  const content = useMessage((m) => m.content);
+  const content = useMessage((m) => {
+    return m.content;
+  });
+  const timestamp = content?.[0]?.created_at 
+  ? new Date(content[0].created_at).toLocaleString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : "";
   const markdownText = React.useMemo(() => {
     if (!content) return "";
     if (typeof content === "string") return content;
@@ -420,9 +445,9 @@ const AssistantMessage: FC = ({config}) => {
           showCopyButton={true}
           isDarkMode={document.documentElement.classList.contains("dark")}
         />
+      <AssistantActionBar timestamp={timestamp} type="assistant" />
       </div>
 
-      {/* <AssistantActionBar /> */}
       <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
       <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
         <Image
@@ -441,37 +466,35 @@ const AssistantMessage: FC = ({config}) => {
   );
 };
 
-const AssistantActionBar: FC = () => {
+const AssistantActionBar: FC = ({ timestamp, type }) => {
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohideFloat="single-branch"
-      className="text-[#475569] dark:text-zinc-300 flex gap-1 col-start-3 row-start-2 ml-1 data-[floating]:bg-white data-[floating]:dark:bg-zinc-800 data-[floating]:absolute data-[floating]:rounded-md data-[floating]:border data-[floating]:border-[#e2e8f0] data-[floating]:dark:border-zinc-700 data-[floating]:p-1 data-[floating]:shadow-sm"
+      className="text-[#475569] dark:text-zinc-300 flex gap-1 col-start-3 row-start-2
+        data-[floating]:bg-white data-[floating]:dark:bg-zinc-800
+        data-[floating]:absolute data-[floating]:rounded-md
+        data-[floating]:border data-[floating]:border-[#e2e8f0]
+        data-[floating]:dark:border-zinc-700 data-[floating]:p-1
+        data-[floating]:shadow-sm"
     >
-      <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton
-          tooltip="Copy"
-          className="hover:text-[#4f46e5] dark:hover:text-[#6366f1] hover:bg-[#eef2ff] dark:hover:bg-zinc-700"
-        >
-          <MessagePrimitive.If copied>
-            <CheckIcon />
-          </MessagePrimitive.If>
-          <MessagePrimitive.If copied={false}>
-            <CopyIcon />
-          </MessagePrimitive.If>
-        </TooltipIconButton>
-      </ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton
-          tooltip="Refresh"
-          className="hover:text-[#4f46e5] dark:hover:text-[#6366f1] hover:bg-[#eef2ff] dark:hover:bg-zinc-700"
-        >
-          <RefreshCwIcon />
-        </TooltipIconButton>
-      </ActionBarPrimitive.Reload>
+
+      {/* Date + Time (Right aligned) */}
+      <div
+        className={`ml-auto text-[10px] px-1 
+          ${
+            type === "user"
+              ? "text-white dark:text-white"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+      >
+        {timestamp}
+      </div>
     </ActionBarPrimitive.Root>
   );
 };
+
+
 
 const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
   className,

@@ -128,6 +128,7 @@ export function Assistant({
         // }
         setConfig(data);
         initConversation(data);
+        window?.Cookiebot?.renew?.();
         // call your logic here directly
       });
   }, []);
@@ -215,17 +216,17 @@ export function Assistant({
                 // Replace single quotes with double quotes for valid JSON parsing
                 // const normalized = item.text.replace(/'/g, '"');
                 // const parsed = JSON.parse(normalized);
-                contentArray = [{ type: "text", text: item.text }];
+                contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
               } catch (err) {
                 console.warn(
                   "Failed to parse user message text, using fallback:",
                   item.text
                 );
-                contentArray = [{ type: "text", text: item.text }];
+                contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
               }
             } else {
               // Assistant messages are plain text
-              contentArray = [{ type: "text", text: item.text }];
+              contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
             }
 
             return {
@@ -233,6 +234,7 @@ export function Assistant({
               content: contentArray,
               id: `${item.type}-message-${item.id}`,
               createdAt: new Date(), // You can use item.timestamp if available
+              created_at: item.created_at,
             };
           });
           const autoMessage = {

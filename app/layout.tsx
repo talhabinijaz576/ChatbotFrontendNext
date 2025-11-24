@@ -39,11 +39,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
          <Script
-          id="cookiebot"
+          id="Cookiebot"
           src="https://consent.cookiebot.com/uc.js"
           data-cbid="4670ae65-a0e8-4bfd-9efa-b72b4da126fe"
           data-blockingmode="auto"
-          strategy="afterInteractive"
           type="text/javascript"
         />
         {children}
