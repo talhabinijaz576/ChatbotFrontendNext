@@ -87,12 +87,12 @@ export default function Widget({  }) {
                 const parsed = JSON.parse(normalized);
                 contentArray = Array.isArray(parsed)
                   ? parsed
-                  : [{ type: "text", text: item.text }];
+                  : [{ type: "text", text: item.text, created_at: item.created_at }];
               } catch (err) {
-                contentArray = [{ type: "text", text: item.text }];
+                contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
               }
             } else {
-              contentArray = [{ type: "text", text: item.text }];
+              contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
             }
   
             return {
@@ -105,9 +105,10 @@ export default function Widget({  }) {
   
           const autoMessage = {
             role: config2.chat.autoMessage.role,
-            content: [{ ...config2.chat.autoMessage, type: "text" }],
+            content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
             id: "user-message-" + selectedConversationId,
             createdAt: new Date(),
+            created_at: new Date(),
           };
   
           setMessages([autoMessage, ...converted]);
@@ -128,7 +129,7 @@ export default function Widget({  }) {
             setMessages([
               {
                 role: config2.chat.autoMessage.role,
-                content: [{ ...config2.chat.autoMessage, type: "text" }],
+                content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
                 id: "user-message-" + selectedConversationId,
                 createdAt: new Date(),
               },
@@ -218,7 +219,7 @@ export default function Widget({  }) {
         );
         const assRes: ThreadMessageLike = {
           role: assistantResponse.type,
-          content: [{ text: assistantResponse.text, type: "text" }],
+          content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
           id: `user-message-${Date.now()}`,
           createdAt: new Date(),
         };

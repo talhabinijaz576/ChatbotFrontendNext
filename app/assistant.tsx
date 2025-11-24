@@ -239,9 +239,10 @@ export function Assistant({
           });
           const autoMessage = {
             role: config2.chat.autoMessage.role,
-            content: [{ ...config2.chat.autoMessage, type: "text" }],
+            content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
             id: "user-message-" + conversationId,
             createdAt: new Date(),
+            created_at: new Date(),
           };
 
           setMessages([autoMessage, ...converted]);
@@ -263,7 +264,7 @@ export function Assistant({
             setMessages([
               {
                 role: config2.chat.autoMessage.role,
-                content: [{ ...config2.chat.autoMessage, type: "text" }],
+                content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
                 id: "user-message-" + conversationId,
                 createdAt: new Date(),
               },
@@ -394,9 +395,10 @@ export function Assistant({
           conversationId!,
           searchParams
         );
+        console.log("🚀 ~ Assistant ~ assistantResponse:", assistantResponse)
         const assRes: ThreadMessageLike = {
           role: assistantResponse.type,
-          content: [{ text: assistantResponse.text, type: "text" }],
+          content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
           id: `user-message-${Date.now()}`,
           createdAt: new Date(),
         };

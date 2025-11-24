@@ -5,6 +5,7 @@ import {
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useMessage,
 } from "@assistant-ui/react";
 import { useEffect, useState, type FC } from "react";
 import {
@@ -202,6 +203,24 @@ const ComposerAction: FC = ({config}) => {
 };
 
 const UserMessage: FC = ({colors}) => {
+  const content = useMessage((m) => {
+    return m;
+  });
+  const timestamp = content?.content[0]?.created_at 
+  ? new Date(content.content[0].created_at).toLocaleString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : new Date(content.createdAt).toLocaleString([], {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       {/* <UserActionBar /> */}
@@ -212,6 +231,8 @@ const UserMessage: FC = ({colors}) => {
         }}
         className="bg-muted text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
         <MessagePrimitive.Content />
+      
+        <AssistantActionBar timestamp={timestamp} type="user" />
       </div>
 
       <BranchPicker className="col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
@@ -253,11 +274,30 @@ const EditComposer: FC = () => {
 };
 
 const AssistantMessage: FC = ({config}) => {
+  const content = useMessage((m) => {
+    return m;
+  });
+  const timestamp = content?.content[0]?.created_at 
+  ? new Date(content.content[0].created_at).toLocaleString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : new Date(content.created_at).toLocaleString([], {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words leading-7 col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-2xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
         <MessageError />
+        <AssistantActionBar timestamp={timestamp} type="assistant" /> 
       </div>
 
       {/* Assistant Avatar - positioned at bottom left */}
@@ -291,32 +331,33 @@ const MessageError: FC = () => {
   );
 };
 
-const AssistantActionBar: FC = () => {
+const AssistantActionBar: FC = ({ timestamp, type }) => {
   return (
     <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide="not-last"
       autohideFloat="single-branch"
-      className="text-muted-foreground flex gap-1 col-start-3 row-start-2 -ml-1 data-[floating]:bg-background data-[floating]:absolute data-[floating]:rounded-md data-[floating]:border data-[floating]:p-1 data-[floating]:shadow-sm"
+      className="text-[#475569] dark:text-zinc-300 flex gap-1 col-start-3 row-start-2
+        data-[floating]:bg-white data-[floating]:dark:bg-zinc-800
+        data-[floating]:absolute data-[floating]:rounded-md
+        data-[floating]:border data-[floating]:border-[#e2e8f0]
+        data-[floating]:dark:border-zinc-700 data-[floating]:p-1
+        data-[floating]:shadow-sm"
     >
-      <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
-          <MessagePrimitive.If copied>
-            <CheckIcon />
-          </MessagePrimitive.If>
-          <MessagePrimitive.If copied={false}>
-            <CopyIcon />
-          </MessagePrimitive.If>
-        </TooltipIconButton>
-      </ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton tooltip="Refresh">
-          <RefreshCwIcon />
-        </TooltipIconButton>
-      </ActionBarPrimitive.Reload>
+
+      {/* Date + Time (Right aligned) */}
+      <div
+        className={`ml-auto text-[10px] px-1 
+          ${
+            type === "user"
+              ? "text-white dark:text-white"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+      >
+        {timestamp}
+      </div>
     </ActionBarPrimitive.Root>
   );
 };
+
 
 const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
   className,
