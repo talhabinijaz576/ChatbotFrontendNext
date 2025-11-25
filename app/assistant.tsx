@@ -28,6 +28,7 @@ import { handleSelection } from "./utils/addOtpPhrase";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import CookiebotLoader from "@/components/CookiebotLoader";
+import { getClientIp } from "./utils/get-ip";
 
 // === Utility Functions ===
 declare global {
@@ -101,13 +102,14 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [
-    { error, suggestedMessages, conversationId, sidebarOpen },
+    { error, suggestedMessages, conversationId, sidebarOpen, ipAddress },
     setStateData,
   ] = useBindReducer({
     error: null,
     suggestedMessages: [],
     conversationId: initialConversationId,
     sidebarOpen: true,
+    ipAddress: "",
   });
 
   const userId = getOrCreateUserId();
@@ -126,6 +128,12 @@ export function Assistant({
         // if (cookieConsent) {
         //   setOpenCookieModal(false);
         // }
+        fetch("/api/getip")
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("🚀 ~ useEffect ~ data:", data)
+          setStateData({ ipAddress: data });
+        })
         setConfig(data);
         initConversation(data);
         window?.Cookiebot?.renew?.();
@@ -373,6 +381,7 @@ export function Assistant({
       ) {
         setStateData({ suggestedMessages: [] });
       }
+ 
       const text =
         userAppendMessage.content.find((c) => c.type === "text")?.text ?? "";
       const userMessage: ThreadMessageLike = {
@@ -393,9 +402,9 @@ export function Assistant({
           userAppendMessage,
           userId,
           conversationId!,
-          searchParams
+          searchParams,
+          ipAddress
         );
-        console.log("🚀 ~ Assistant ~ assistantResponse:", assistantResponse)
         const assRes: ThreadMessageLike = {
           role: assistantResponse.type,
           content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],

@@ -490,7 +490,7 @@ const AssistantActionBar: FC = ({ timestamp, type }) => {
     >
 
       {/* Date + Time (Right aligned) */}
-      <div
+      {timestamp !== "Invalid Date" && <div
         className={`ml-auto text-[10px] px-1 
           ${
             type === "user"
@@ -499,7 +499,7 @@ const AssistantActionBar: FC = ({ timestamp, type }) => {
           }`}
       >
         {timestamp}
-      </div>
+      </div>}
     </ActionBarPrimitive.Root>
   );
 };

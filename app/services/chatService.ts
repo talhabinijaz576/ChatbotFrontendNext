@@ -107,7 +107,7 @@ class ChatService {
     }, 9000); // 5 minutes = 300,000 ms
   }
   
-  public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }): Promise<any> {
+  public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }, ipAddress?: string): Promise<any> {
     console.log("🚀 ~ ChatService ~ sendMessage ~ searchParams:", searchParams)
     // Ensure WebSocket is connected
     this.initializeConnection(conversationId);
@@ -132,6 +132,7 @@ class ChatService {
           keyword: message.metadata.keyword,
           ...message.metadata
         }),
+        user_ip: ipAddress || "",
       },
     };
     
@@ -140,7 +141,7 @@ class ChatService {
       const params = new URLSearchParams(searchParams).toString();
       const response = await fetch(`${this.config.api.baseUrl}/conversation/${conversationId}/message?${params}`, {
         method: 'POST',
-        headers: this.config.api.headers,
+        headers: {...this.config.api.headers},
         body: JSON.stringify(payload),
       });
 
