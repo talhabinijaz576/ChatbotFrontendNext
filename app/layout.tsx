@@ -43,8 +43,9 @@ export default async function RootLayout({
           src="https://consent.cookiebot.com/uc.js"
           data-cbid="4670ae65-a0e8-4bfd-9efa-b72b4da126fe"
           data-blockingmode="auto"
-          type="text/javascript"
+          strategy="afterInteractive"   // 👍 THIS FIXES THE SLOW LOAD
         />
+
         {children}
       </body>
     </html>
