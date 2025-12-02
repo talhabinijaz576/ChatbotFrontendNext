@@ -102,14 +102,13 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [
-    { error, suggestedMessages, conversationId, sidebarOpen, ipAddress },
+    { error, suggestedMessages, conversationId, sidebarOpen },
     setStateData,
   ] = useBindReducer({
     error: null,
     suggestedMessages: [],
     conversationId: initialConversationId,
     sidebarOpen: true,
-    ipAddress: "",
   });
 
   const userId = getOrCreateUserId();
@@ -128,12 +127,6 @@ export function Assistant({
         // if (cookieConsent) {
         //   setOpenCookieModal(false);
         // }
-        fetch("/api/getip")
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("🚀 ~ useEffect ~ data:", data)
-          setStateData({ ipAddress: data });
-        })
         setConfig(data);
         initConversation(data);
         window?.Cookiebot?.renew?.();
@@ -402,8 +395,7 @@ export function Assistant({
           userAppendMessage,
           userId,
           conversationId!,
-          searchParams,
-          ipAddress
+          searchParams
         );
         const assRes: ThreadMessageLike = {
           role: assistantResponse.type,

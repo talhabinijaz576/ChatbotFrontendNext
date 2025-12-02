@@ -107,8 +107,7 @@ class ChatService {
     }, 9000); // 5 minutes = 300,000 ms
   }
   
-  public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }, ipAddress?: string): Promise<any> {
-    console.log("🚀 ~ ChatService ~ sendMessage ~ searchParams:", searchParams)
+  public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }): Promise<any> {
     // Ensure WebSocket is connected
     this.initializeConnection(conversationId);
     const payload = {
@@ -132,7 +131,6 @@ class ChatService {
           keyword: message.metadata.keyword,
           ...message.metadata
         }),
-        user_ip: ipAddress || "",
       },
     };
     
