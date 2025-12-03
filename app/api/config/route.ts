@@ -5,7 +5,6 @@ export async function GET() {
   const configPath = process.env.CONFIG_PATH;
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
-  console.log("🚀 ~ GET ~ config:", config);
 
   return new Response(JSON.stringify(config), {
     status: 200,
