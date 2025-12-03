@@ -16,14 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Prestitech - Vera A.I Chatbot",
   description: "Jazee - ChatGPT with Memory ...",
-  themeColor: "#ffffff",
   icons: {
     icon: "/avatar.svg",
     apple: "/avatar.svg",
-  },
-  other: {
-    "mask-icon": "/avatar.svg",
-    "color": "#010a03", // Safari pinned tab color
   },
 };
 

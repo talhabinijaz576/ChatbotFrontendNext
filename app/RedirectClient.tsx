@@ -12,9 +12,9 @@ export default function RedirectClient() {
   useEffect(() => {
     if (pathname === '/') {
       const newId = uuidv4()
-       const params = new URLSearchParams(searchParams);
-      params.set("conversationId", newId);
-      router.replace(`/chat?${params.toString()}`);
+      const params = new URLSearchParams(searchParams)
+      const queryString = params.toString()
+      router.replace(`/chat/${newId}${queryString ? `?${queryString}` : ''}`)
     } else {
       router.replace(`/widget/chat/`)
     }
