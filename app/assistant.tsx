@@ -112,6 +112,8 @@ export function Assistant({
     ipAddress: "",
   });
 
+  console.log("🚀 ~ Assistant ~ initialConversationId:", initialConversationId)
+  console.log("🚀 ~ Assistant ~ searchParams:", searchParams)
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
 

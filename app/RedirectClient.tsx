@@ -13,8 +13,11 @@ export default function RedirectClient() {
     if (pathname === '/') {
       const newId = uuidv4()
       const params = new URLSearchParams(searchParams)
-      const queryString = params.toString()
-      router.replace(`/chat/${newId}${queryString ? `?${queryString}` : ''}`)
+      const queryString = params.toString();
+      const new_url = `/chat/${newId}${queryString ? `?${queryString}` : ''}`;
+      console.log("🚀 ~ useEffect ~ new_url:", new_url)
+      window.location.href = new_url
+      //router.replace(new_url)
     } else {
       router.replace(`/widget/chat/`)
     }
