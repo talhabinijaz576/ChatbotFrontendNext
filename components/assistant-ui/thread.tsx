@@ -35,18 +35,6 @@ import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { MemoryUI } from "./memory-ui";
 import React from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import GithubButton from "../mem0/github-button";
 import Link from "next/link";
 import { ScrollArea } from "../ui/scroll-area";
 import MarkdownRenderer from "../mem0/markdown";
@@ -192,40 +180,6 @@ export const ThreadScrollToBottom: FC = () => {
         <ArrowDownIcon className="text-[#475569] dark:text-zinc-300" />
       </TooltipIconButton>
     </ThreadPrimitive.ScrollToBottom>
-  );
-};
-
-interface ThreadWelcomeProps {
-  composerInputRef: React.RefObject<HTMLTextAreaElement>;
-  defaultTitle?: string;
-  disclaimer?: string;
-}
-
-const ThreadWelcome: FC<ThreadWelcomeProps> = ({
-  composerInputRef,
-  defaultTitle,
-  disclaimer,
-}) => {
-  return (
-    <div className="flex w-full flex-grow flex-col mt-8 md:h-[calc(100vh-15rem)]">
-      <div className="flex w-full flex-grow flex-col items-center justify-start">
-        <div className="flex flex-col items-center justify-center h-full">
-          <div className="text-[2rem] leading-[1] tracking-[-0.02em] md:text-4xl font-bold text-[#1e293b] dark:text-white mb-2 text-center md:w-full w-5/6">
-            {defaultTitle} {/* || "Mem0 - ChatGPT with memory" */}
-          </div>
-          <p className="text-center text-md text-[#1e293b] dark:text-white mb-2 md:w-3/4 w-5/6">
-            {disclaimer ||
-              "A personalized AI chat app powered by Mem0 that remembers your preferences, facts, and memories."}
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-col items-center justify-center mt-16">
-        <p className="mt-4 font-medium text-[#1e293b] dark:text-white">
-          How can I help you today?
-        </p>
-        <ThreadWelcomeSuggestions composerInputRef={composerInputRef} />
-      </div>
-    </div>
   );
 };
 
@@ -376,25 +330,6 @@ const UserMessage: FC = ({ colors}) => {
   );
 };
 
-const UserActionBar: FC = ({ timestamp }) => {
-  return (
-    <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide="not-last"
-      className="flex flex-col items-end col-start-1 row-start-2 mr-3 mt-2.5"
-    >
-      <ActionBarPrimitive.Edit asChild>
-        <TooltipIconButton
-          tooltip="Edit"
-          className="text-[#475569] dark:text-zinc-300 hover:text-[#4f46e5] dark:hover:text-[#6366f1] hover:bg-[#eef2ff] dark:hover:bg-zinc-800"
-        >
-          <PencilIcon />
-        </TooltipIconButton>
-      </ActionBarPrimitive.Edit>
-    </ActionBarPrimitive.Root>
-  );
-};
-
 const EditComposer: FC = () => {
   return (
     <ComposerPrimitive.Root className="bg-[#eef2ff] dark:bg-zinc-800 my-4 flex w-full max-w-[var(--thread-max-width)] flex-col gap-2 rounded-xl">
@@ -446,12 +381,13 @@ const AssistantMessage: FC = ({config}) => {
     }
     return "";
   }, [content.content]);
+  const MemoMarkdown = React.memo(MarkdownRenderer);
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <MemoryUI />
-        <MarkdownRenderer
+        <MemoMarkdown
           markdownText={markdownText}
           showCopyButton={true}
           isDarkMode={document.documentElement.classList.contains("dark")}
@@ -553,27 +489,5 @@ const CircleStopIcon = () => {
     >
       <rect width="10" height="10" x="3" y="3" rx="2" />
     </svg>
-  );
-};
-
-// Component for reuse in mobile drawer
-const ThreadListItem: FC = () => {
-  return (
-    <ThreadListItemPrimitive.Root className="data-[active]:bg-[#eef2ff] hover:bg-[#eef2ff] dark:hover:bg-zinc-800 dark:data-[active]:bg-zinc-800 focus-visible:bg-[#eef2ff] dark:focus-visible:bg-zinc-800 focus-visible:ring-[#4f46e5] flex items-center gap-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2">
-      <ThreadListItemPrimitive.Trigger className="flex-grow px-3 py-2 text-start">
-        <p className="text-sm">
-          <ThreadListItemPrimitive.Title fallback="New Chat" />
-        </p>
-      </ThreadListItemPrimitive.Trigger>
-      <ThreadListItemPrimitive.Archive asChild>
-        <TooltipIconButton
-          className="hover:text-[#4f46e5] text-[#475569] dark:text-zinc-300 dark:hover:text-[#6366f1] ml-auto mr-3 size-4 p-0"
-          variant="ghost"
-          tooltip="Archive thread"
-        >
-          <ArchiveIcon />
-        </TooltipIconButton>
-      </ThreadListItemPrimitive.Archive>
-    </ThreadListItemPrimitive.Root>
   );
 };

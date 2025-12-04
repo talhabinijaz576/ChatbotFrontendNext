@@ -1,24 +1,12 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import dynamic from "next/dynamic";
-import { TooltipProvider } from "@radix-ui/react-tooltip";
+import AssistantLoader from "./assistant-loader";
 
-const Assistant = dynamic(() => import("@/app/assistant").then(m => m.Assistant), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-screen text-lg">
-      Loading chat…
-    </div>
-  ),
-});
-
-export default function ChatPage({ params, searchParams }: any) {
+export default function Page({ params, searchParams }: any) {
   return (
-    <TooltipProvider>
-      <Assistant
-        initialConversationId={params.conversationId}
-        searchParams={searchParams}
-      />
-    </TooltipProvider>
+    <AssistantLoader
+      conversationId={params.conversationId}
+      searchParams={searchParams}
+    />
   );
 }

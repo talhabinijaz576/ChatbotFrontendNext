@@ -28,14 +28,15 @@ import { getCookie, setCookie } from "cookies-next";
 import { handleSelection } from "./utils/addOtpPhrase";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { Loader } from "lucide-react"
-const Thread = dynamic(() => import("@/components/assistant-ui/thread").then(m => m.Thread), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-screen text-lg">
-      Please wait UI Loading…
-    </div>
-  ),
-});
+import { Thread } from "@/components/assistant-ui/thread";
+// const Thread = dynamic(() => import("@/components/assistant-ui/thread").then(m => m.Thread), {
+//   ssr: false,
+//   loading: () => (
+//     <div className="flex items-center justify-center h-screen text-lg">
+//       Please wait UI Loading…
+//     </div>
+//   ),
+// });
 // === Utility Functions ===
 declare global {
   interface Window {
@@ -118,7 +119,9 @@ export function Assistant({
       const data = await res.json();
       setConfig(data);
     };
-    load();
+    if(!config){
+      load();
+    }
   }, []);
 
   // ===========================================================
