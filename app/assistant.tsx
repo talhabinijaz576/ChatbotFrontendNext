@@ -218,19 +218,10 @@ export function Assistant({
         method: "POST",
         headers: headers,
         body: JSON.stringify(ipInfo),
-      }).then(res => res.json()).then(data => {
-        console.log("🚀 ~ useEffect ~ data:", data)
-      });
-      return data;
+      })
     }).catch(err => {
       console.log("🚀🚀🚀🚀 ~ useEffect ~ err:", err)
-      fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
-        method: "POST",
-        headers: headers,
-        body: "",
-      }).then(res => res.json()).then(data => {
-        console.log("🚀 ~ useEffect ~ data:", data)
-      });
+      
     });
 
 

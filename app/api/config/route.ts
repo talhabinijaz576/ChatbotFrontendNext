@@ -6,8 +6,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 export async function GET(req: NextApiRequest, res: NextApiResponse) {
   
-  let configPath: string = "C:\\Users\\talha\\Documents\\consulting\\fincontinuo\\6_Chatbot\\config_leadgen.json";
-  //configPath = process.env.CONFIG_PATH;
+  //let configPath: string = "C:\\Users\\talha\\Documents\\consulting\\fincontinuo\\6_Chatbot\\config_leadgen.json";
+  let configPath = process.env.CONFIG_PATH;
   // : path.resolve(process.cwd(), "../config/config.json");
 
   // const dest = path.resolve(process.cwd(), "../assistant-ui-mem0-starter/app/config/config.json");
