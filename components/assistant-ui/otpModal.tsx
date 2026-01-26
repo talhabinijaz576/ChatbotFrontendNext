@@ -9,23 +9,15 @@ import {
   CircularProgress,
   Stack,
   Alert,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { getCookie, setCookie } from "cookies-next";
 import { addOtpPhrase } from "@/app/utils/addOtpPhrase";
 
-const style = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: 400,
-  bgcolor: "background.paper",
-  border: "2px solid #000",
-  boxShadow: 24,
-  p: 4,
-};
-
 export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -114,7 +106,22 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
       open={open}
       disableEscapeKeyDown={loading}
     >
-      <Box sx={style}>
+      <Box
+        sx={{
+          position: "absolute",
+          top: isMobile ? "10%" : "50%",
+          left: "50%",
+          transform: isMobile ? "translate(-50%, 0)" : "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 400 },
+          maxWidth: 400,
+          bgcolor: "background.paper",
+          border: "2px solid #000",
+          boxShadow: 24,
+          p: 4,
+          maxHeight: { xs: "80vh", sm: "none" },
+          overflowY: "auto",
+        }}
+      >
         <Typography variant="h6" textAlign="center" fontWeight="bold">
           {config?.otp?.header}
         </Typography>
