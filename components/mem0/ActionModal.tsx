@@ -34,7 +34,13 @@ const ActionModal: React.FC<ActionModalProps> = ({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={(event, reason) => {
+        // Prevent closing on backdrop click or escape key
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          return;
+        }
+        onClose();
+      }}
       aria-labelledby="modal-title"
       aria-describedby="modal-description"
       BackdropProps={{ style: { backgroundColor: "transparent" } }} // or disable backdrop entirely
