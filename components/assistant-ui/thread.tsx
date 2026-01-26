@@ -81,6 +81,7 @@ interface ThreadProps {
   suggestedMessages: any;
   runtime: any;
   onNew: (message: AppendMessage) => void;
+  isIframeOpen?: boolean;
 }
 
 export const Thread: FC<ThreadProps> = ({
@@ -97,6 +98,7 @@ export const Thread: FC<ThreadProps> = ({
   config,
   suggestedMessages,
   runtime,
+  isIframeOpen = false,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
@@ -175,6 +177,7 @@ export const Thread: FC<ThreadProps> = ({
           }
           config={config}
           suggestedMessages={suggestedMessages}
+          isIframeOpen={isIframeOpen}
         />
       </div>
     </ThreadPrimitive.Root>
@@ -284,13 +287,16 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
 
 interface ComposerProps {
   composerInputRef: React.RefObject<HTMLTextAreaElement>;
+  config: any;
   suggestedMessages: any;
+  isIframeOpen?: boolean;
 }
 
 export const Composer: FC<ComposerProps> = ({
   composerInputRef,
   config,
   suggestedMessages,
+  isIframeOpen = false,
 }) => {
   return (
     <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
@@ -299,17 +305,27 @@ export const Composer: FC<ComposerProps> = ({
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
-        disabled={suggestedMessages?.disable_regular_message}
+        disabled={isIframeOpen}
         placeholder={config.app.name || "..."}
-        className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
+        className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-base outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
         ref={composerInputRef}
       />
-      <ComposerAction config={config} />
+      <ComposerAction config={config} suggestedMessages={suggestedMessages} isIframeOpen={isIframeOpen} />
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = ({ config }) => {
+interface ComposerActionProps {
+  config: any;
+  suggestedMessages?: any;
+  isIframeOpen?: boolean;
+}
+
+const ComposerAction: FC<ComposerActionProps> = ({ config, suggestedMessages, isIframeOpen = false }) => {
+  // Disable send button when buttons are displayed or iframe is open
+  const hasActiveButtons = suggestedMessages?.buttons?.length > 0;
+  const isDisabled = hasActiveButtons || isIframeOpen;
+  
   return (
     <>
       <ThreadPrimitive.If running={false}>
@@ -317,7 +333,8 @@ const ComposerAction: FC = ({ config }) => {
           <TooltipIconButton
             tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
-            className="my-2.5 size-8 p-2 transition-opacity ease-in bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-full"
+            disabled={isDisabled}
+            className="my-2.5 size-8 p-2 transition-opacity ease-in bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SendHorizontalIcon />
           </TooltipIconButton>

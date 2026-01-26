@@ -182,6 +182,9 @@ export function Assistant({
   const initConversation = (config2: any) => {
     const otpPhrase = getCookie("otpPhrase");
 
+    
+
+
     let parsedOtpPhrase = [];
     if (otpPhrase) {
       try {
@@ -202,6 +205,39 @@ export function Assistant({
       headers.set("passphrase", otpPhraseArray.passphrase);
     }
     const params = new URLSearchParams(searchParams).toString();
+
+    let ipInfo = 
+    
+    fetch('https://ipinfo.io/?callback=?',{
+      method: "GET",
+      headers: headers,
+    }).then(res => res?.text()).then(data => {
+      let ipInfo = data;
+      console.log("🚀🚀🚀🚀 ~ useEffect ~ ipInfo:", ipInfo)
+      fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(ipInfo),
+      }).then(res => res.json()).then(data => {
+        console.log("🚀 ~ useEffect ~ data:", data)
+      });
+      return data;
+    }).catch(err => {
+      console.log("🚀🚀🚀🚀 ~ useEffect ~ err:", err)
+      fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
+        method: "POST",
+        headers: headers,
+        body: "",
+      }).then(res => res.json()).then(data => {
+        console.log("🚀 ~ useEffect ~ data:", data)
+      });
+    });
+
+
+      
+        
+
+
     fetch(
       `${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`,
       {
@@ -496,6 +532,7 @@ export function Assistant({
     config={config}
     suggestedMessages={suggestedMessages}
     runtime={runtime}
+    isIframeOpen={iframe.showIframe}
   />
 </main>
 </div>

@@ -149,6 +149,7 @@ export const OtpModal = ({ open, onOtpSuccess, conversationId, config }) => {
               onChange={(e) => handleChange(e.target.value, i)}
               onKeyDown={(e) => handleKeyDown(e, i)}
               maxLength={1}
+              type="number"
               style={{
                 width: "45px",
                 height: "50px",
