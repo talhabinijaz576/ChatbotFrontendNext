@@ -52,20 +52,22 @@ const ActionModal: React.FC<ActionModalProps> = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        p: 2,
+        p: { xs: 0, md: 2 },
       }}
     >
       <Paper
         sx={{
-          width: "90vw",
-          height: "90vh",
+          width: { xs: "100vw", md: "90vw" },
+          height: { xs: "100vh", md: "90vh" },
+          maxWidth: { xs: "100vw", md: "none" },
+          maxHeight: { xs: "100vh", md: "none" },
           bgcolor: "#ffffff",
-          borderRadius: 3,
+          borderRadius: { xs: 0, md: 3 },
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          border: "1px solid #e2e8f0",
+          border: { xs: "none", md: "1px solid #e2e8f0" },
         }}
       >
         {/* Modal Header */}
