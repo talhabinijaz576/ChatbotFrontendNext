@@ -96,7 +96,20 @@ const ActionModal: React.FC<ActionModalProps> = ({
               height={30}
             />
           </Typography>
-          
+          <IconButton
+            onClick={onClose}
+            sx={{
+              color: "#e2e8f0",
+              "&:hover": {
+                bgcolor: "rgba(15, 23, 42, 0.6)",
+                color: "#f87171",
+              },
+              transition: "all 0.2s ease-in-out",
+            }}
+            aria-label="Close external content"
+          >
+            <CloseIcon />
+          </IconButton>
         </Box>
 
         {/* Modal Content - iFrame */}
