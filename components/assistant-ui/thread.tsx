@@ -105,15 +105,34 @@ export const Thread: FC<ThreadProps> = ({
   const viewportRef = useRef<HTMLElement | null>(null);
   const lastScrollTopRef = useRef<number>(0);
   
-  // CRITICAL: Memoize the components object to prevent component unmounting/remounting
-  // This prevents the avatar and entire message from reloading
+  // CRITICAL: Store config and colors in refs to prevent recreation
+  // This ensures components only recreate when values actually change, not when objects are recreated
+  const configRef = useRef(config);
+  const colorsRef = useRef(colors);
+  
+  // Update refs only when values actually change
+  React.useEffect(() => {
+    configRef.current = config;
+    colorsRef.current = colors;
+  }, [config, colors]);
+  
+  // CRITICAL: Use useCallback with refs to create truly stable component functions
+  // This prevents the avatar and entire message from reloading when new messages are sent
+  const UserMessageWrapper = React.useCallback((props: any) => (
+    <UserMessage {...props} colors={colorsRef.current} />
+  ), []); // Empty deps - always use latest from ref
+  
+  const AssistantMessageWrapper = React.useCallback((props: any) => (
+    <AssistantMessage {...props} config={configRef.current} />
+  ), []); // Empty deps - always use latest from ref
+  
+  // Memoize the components object - this will NEVER change after first render
+  // Components use refs to access latest config/colors, so they don't need to recreate
   const messageComponents = React.useMemo(() => ({
-    UserMessage: (props: any) => (
-      <UserMessage {...props} colors={colors} />
-    ),
+    UserMessage: UserMessageWrapper,
     EditComposer: EditComposer,
-    AssistantMessage: (props: any) => <AssistantMessage {...props} config={config} />,
-  }), [colors, config]);
+    AssistantMessage: AssistantMessageWrapper,
+  }), []); // Empty deps - create once and never change
 
   // Find and store viewport reference
   useEffect(() => {
@@ -836,18 +855,25 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
-      <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
-        <ThreadPrimitive.If running>
-          {isEmpty && messageId ? (
+      <ThreadPrimitive.If running>
+        {isEmpty && messageId ? (
+          // Loading state: just show dots without bubble
+          <div className="col-span-2 col-start-2 row-start-1 my-1.5 flex items-center">
             <LoadingDots />
-          ) : (
-            displayContent
-          )}
-        </ThreadPrimitive.If>
-        <ThreadPrimitive.If running={false}>
+          </div>
+        ) : (
+          // Content state: show bubble with content
+          <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
+            {displayContent}
+          </div>
+        )}
+      </ThreadPrimitive.If>
+      <ThreadPrimitive.If running={false}>
+        {/* Content state: show bubble with content */}
+        <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
           {displayContent}
-        </ThreadPrimitive.If>
-      </div>
+        </div>
+      </ThreadPrimitive.If>
 
       <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
       <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
