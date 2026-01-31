@@ -573,39 +573,66 @@ const EditComposer: FC = () => {
   );
 };
 
-const AssistantMessage: FC<{config: any}> = ({config}) => {
+const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
   const content = useMessage((m) => {
     return m;
   });
   
-  // Get stable message ID for memoization
+  // Get stable message ID for memoization - use a more stable key
   const messageId = React.useMemo(() => {
-    return content?.id || content?.createdAt?.toString() || '';
-  }, [content?.id, content?.createdAt]);
+    // Use id first, then createdAt, then a hash of content as fallback
+    if (content?.id) return String(content.id);
+    if (content?.createdAt) return String(content.createdAt);
+    // Create a stable hash from content for comparison
+    if (content?.content) {
+      const contentStr = typeof content.content === 'string' 
+        ? content.content 
+        : Array.isArray(content.content) && content.content[0]?.text
+        ? content.content[0].text
+        : '';
+      return contentStr ? String(contentStr.length) + contentStr.substring(0, 50) : '';
+    }
+    return '';
+  }, [content?.id, content?.createdAt, content?.content]);
   
-  const timestamp = content?.content[0]?.created_at 
-  ? new Date(content.content[0].created_at).toLocaleString([], {
-      day: "numeric",
-      month: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  : new Date(content.created_at).toLocaleString([], {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Memoize timestamp calculation
+  const timestamp = React.useMemo(() => {
+    if (!content) return '';
+    return content?.content?.[0]?.created_at 
+      ? new Date(content.content[0].created_at).toLocaleString([], {
+          day: "numeric",
+          month: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : content.created_at
+      ? new Date(content.created_at).toLocaleString([], {
+          day: "numeric",
+          month: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : '';
+  }, [content?.content?.[0]?.created_at, content?.created_at]);
+  
+  // Memoize markdown text extraction with stable comparison
   const markdownText = React.useMemo(() => {
-    if (!content.content) return "";
+    if (!content?.content) return "";
     if (typeof content.content === "string") return content.content;
     if (Array.isArray(content.content) && content.content.length > 0 && "text" in content.content[0]) {
       return content.content[0].text || "";
     }
     return "";
-  }, [content.content]);
+  }, [
+    // Use stable comparison - compare the actual text value, not the object reference
+    typeof content?.content === 'string' 
+      ? content.content 
+      : Array.isArray(content?.content) && content.content[0]?.text
+      ? content.content[0].text
+      : ''
+  ]);
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
@@ -637,6 +664,13 @@ const AssistantMessage: FC<{config: any}> = ({config}) => {
     </MessagePrimitive.Root>
   );
 };
+
+// Memoize AssistantMessage for production builds with stable comparison
+const AssistantMessage = React.memo(AssistantMessageComponent, (prevProps, nextProps) => {
+  // Only re-render if config actually changes
+  // The content comparison is handled by useMessage hook internally
+  return prevProps.config === nextProps.config;
+});
 
 const AssistantActionBar: FC = ({ timestamp, type }) => {
   return (

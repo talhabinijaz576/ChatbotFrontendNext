@@ -22,7 +22,7 @@ interface MarkdownRendererProps {
   isDarkMode?: boolean
 }
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ 
+const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ 
   markdownText = '',
   className, 
   style,
@@ -257,5 +257,16 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     </div>
   );
 };
+
+// Memoize MarkdownRenderer for production builds
+const MarkdownRenderer = React.memo(MarkdownRendererComponent, (prevProps, nextProps) => {
+  // Only re-render if markdownText, messageId, or isDarkMode actually change
+  return (
+    prevProps.markdownText === nextProps.markdownText &&
+    prevProps.messageId === nextProps.messageId &&
+    prevProps.isDarkMode === nextProps.isDarkMode &&
+    prevProps.showCopyButton === nextProps.showCopyButton
+  );
+});
 
 export default MarkdownRenderer;
