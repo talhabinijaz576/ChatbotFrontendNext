@@ -612,10 +612,10 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     markdownText: string;
     timestamp: string;
   } | null>(null);
-  const skipRenderRef = useRef(false);
+  const isInitializedRef = useRef(false); // Track if we've ever had real content
   
   // Extract stable values only when content actually changes
-  // CRITICAL: Never return empty values if we've already had content (prevents disappearing messages)
+  // CRITICAL: Once we have content, NEVER lose it - ignore empty content from useMessage
   const stableValues = React.useMemo(() => {
     // Extract text for comparison
     const currentText = !content?.content 
@@ -626,7 +626,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
       ? content.content[0].text
       : "";
     
-    // Extract message ID
+    // Extract message ID - this is the key identifier
     const currentMessageId = content?.id 
       ? String(content.id) 
       : content?.createdAt 
@@ -635,42 +635,62 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
       ? String(currentText.length) + currentText.substring(0, 50) 
       : '';
     
-    // CRITICAL FIX: Preserve previous content if current is empty
-    // This prevents previous messages from disappearing during re-renders
-    const hasCachedContent = stableValuesRef.current && stableValuesRef.current.messageId;
-    const hasCachedText = hasCachedContent && stableValuesRef.current?.markdownText;
-    
-    // If we have cached content and current is empty, preserve cached content
-    // This is especially important for previous messages that might get empty content during re-renders
-    if (!currentText && hasCachedText) {
-      // Current content is empty but we have cached content - preserve it
-      // This prevents previous messages from disappearing
-      return stableValuesRef.current;
+    // CRITICAL: Once initialized with content, NEVER lose it
+    // Ignore empty content from useMessage - it's just a re-render artifact
+    if (isInitializedRef.current && stableValuesRef.current) {
+      const cachedMessageId = stableValuesRef.current.messageId;
+      const cachedText = stableValuesRef.current.markdownText;
+      
+      // If we have cached content, preserve it aggressively
+      if (cachedText) {
+        // If current is empty, ALWAYS ignore it and keep cached
+        if (!currentText) {
+          return stableValuesRef.current;
+        }
+        
+        // Same message - only update if text increased (streaming)
+        if (currentMessageId === cachedMessageId || (!currentMessageId && cachedMessageId)) {
+          // Text increased - this is a streaming update, allow it
+          if (currentText.length > cachedText.length) {
+            prevContentRef.current = currentText;
+            // Continue to calculate new values
+          } else if (currentText === cachedText) {
+            // Text unchanged - keep cached
+            return stableValuesRef.current;
+          } else {
+            // Text decreased or changed but not increased - ignore, keep cached
+            return stableValuesRef.current;
+          }
+        } else if (currentMessageId && currentMessageId !== cachedMessageId) {
+          // Different message - this is a new message, update
+          if (currentText) {
+            prevContentRef.current = currentText;
+            prevMessageIdRef.current = currentMessageId;
+            isInitializedRef.current = true;
+          }
+        } else {
+          // No current messageId - keep cached
+          return stableValuesRef.current;
+        }
+      }
+    } else {
+      // Not initialized yet - initialize if we have content
+      if (currentText && currentMessageId) {
+        prevContentRef.current = currentText;
+        prevMessageIdRef.current = currentMessageId;
+        isInitializedRef.current = true;
+      } else if (currentText) {
+        // Have text but no messageId - still initialize
+        prevContentRef.current = currentText;
+        isInitializedRef.current = true;
+      }
     }
     
-    // Only update if content actually changed AND we have new content
-    const textChanged = currentText !== prevContentRef.current;
-    const idChanged = currentMessageId !== prevMessageIdRef.current;
-    
-    // If content hasn't changed, return cached values
-    if (!textChanged && !idChanged && stableValuesRef.current) {
-      return stableValuesRef.current;
-    }
-    
-    // Content changed - update refs only if we have actual content
-    if (currentText) {
-      prevContentRef.current = currentText;
-    }
-    if (currentMessageId) {
-      prevMessageIdRef.current = currentMessageId;
-    }
-    
-    // CRITICAL: Always preserve messageId and markdownText from cache if current is empty
-    // This ensures previous messages never lose their content
+    // Calculate new values - use current if available, otherwise preserve cached
     const messageId = currentMessageId || stableValuesRef.current?.messageId || '';
     const markdownText = currentText || stableValuesRef.current?.markdownText || '';
     
-    // Calculate timestamp - use current if available, otherwise preserve cached
+    // Calculate timestamp
     const timestamp = content?.content?.[0]?.created_at 
       ? new Date(content.content[0].created_at).toLocaleString([], {
           day: "numeric",
@@ -691,6 +711,10 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     
     const newStableValues = { messageId, markdownText, timestamp };
     stableValuesRef.current = newStableValues;
+    // Mark as initialized if we have content
+    if (markdownText) {
+      isInitializedRef.current = true;
+    }
     return newStableValues;
   }, [
     // Only depend on the actual content values, not object references
@@ -726,30 +750,47 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
   } | null>(null);
   
   // Memoize the message content to prevent re-renders when content hasn't changed
+  // CRITICAL: Once we render content, NEVER recalculate it unless content actually increases (streaming)
   const messageContent = React.useMemo(() => {
-    // If we have cached content and current content is empty (brief re-render), use cache
-    if (lastRenderedRef.current && 
-        lastRenderedRef.current.messageId === messageId) {
-      // If current content is empty but we have cached content, use cache
-      if (isEmpty && lastRenderedRef.current.markdownText) {
-        return lastRenderedRef.current.content;
-      }
-      // If content hasn't changed, return cached content
-      if (lastRenderedRef.current.markdownText === markdownText) {
+    // If we have cached content for this message, check if we should use it
+    if (lastRenderedRef.current) {
+      const cachedMessageId = lastRenderedRef.current.messageId;
+      const cachedText = lastRenderedRef.current.markdownText;
+      
+      // Same message - check if we should preserve cached content
+      if (cachedMessageId === messageId) {
+        // If current is empty but cached exists, ALWAYS use cached
+        if (isEmpty && cachedText) {
+          return lastRenderedRef.current.content;
+        }
+        // If text hasn't changed, use cached
+        if (markdownText === cachedText) {
+          return lastRenderedRef.current.content;
+        }
+        // If text increased (streaming update), we need to update
+        // But if text decreased or became empty, ignore it and keep cached
+        if (markdownText && markdownText.length < cachedText.length) {
+          // Text decreased - ignore, keep cached
+          return lastRenderedRef.current.content;
+        }
+      } else if (cachedMessageId && !messageId) {
+        // We have cached message but current is empty - keep cached
         return lastRenderedRef.current.content;
       }
     }
     
-    // Don't create content if message is empty (will be handled by ThreadPrimitive.If running)
+    // Only create new content if we have actual text OR it's a new message with loading state
     let content: React.ReactNode;
     if (isEmpty) {
       // Only show loading if we have a valid message ID (real message)
       if (hasValidMessage) {
         content = <LoadingDots />;
       } else {
-        return null;
+        // No message yet - return cached if available, otherwise null
+        return lastRenderedRef.current?.content ?? null;
       }
     } else {
+      // We have text - create content
       content = (
         <>
           <MemoryUI />
@@ -764,7 +805,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
       );
     }
     
-    // Cache the rendered content only if we have actual content
+    // Cache the rendered content - ALWAYS cache if we have content
     if (content) {
       lastRenderedRef.current = {
         markdownText,
