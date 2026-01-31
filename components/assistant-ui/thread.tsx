@@ -197,6 +197,42 @@ export const Thread: FC<ThreadProps> = ({
     return () => clearTimeout(timeout);
   }, [messages.length, isKeyboardOpen]);
 
+  // Handle iframe close - reset scroll and ensure input is visible
+  useEffect(() => {
+    if (!isIframeOpen && viewportRef.current && composerInputRef.current) {
+      // Iframe just closed - reset scroll position and ensure input is visible
+      const viewport = viewportRef.current;
+      const input = composerInputRef.current;
+      
+      // Blur the input to close keyboard if it's open
+      if (document.activeElement === input) {
+        input.blur();
+        setIsKeyboardOpen(false);
+      }
+      
+      // Reset scroll to show the input field
+      setTimeout(() => {
+        if (viewport && input) {
+          // Scroll to show the input at the bottom
+          const inputRect = input.getBoundingClientRect();
+          const viewportRect = viewport.getBoundingClientRect();
+          
+          // If input is below viewport or hidden, scroll it into view
+          if (inputRect.bottom > viewportRect.bottom || inputRect.top < viewportRect.top) {
+            input.scrollIntoView({
+              behavior: 'smooth',
+              block: 'end',
+              inline: 'nearest'
+            });
+          }
+          
+          // Reset the stored scroll position
+          lastScrollTopRef.current = viewport.scrollTop;
+        }
+      }, 100);
+    }
+  }, [isIframeOpen]);
+
   return (
     <ThreadPrimitive.Root
       className="bg-[#f8fafc] dark:bg-zinc-900 box-border flex flex-col relative pb-4 md:h-full justify-end"

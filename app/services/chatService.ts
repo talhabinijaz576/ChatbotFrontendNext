@@ -22,6 +22,9 @@ class ChatService {
   private pendingResolve: ((response: any) => void) | null = null;
   private config: any = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 200; // Maximum number of reconnect attempts
+  private reconnectDelay: number = 2000; // Retry every 2 seconds
 
   constructor() {
     // Initial connection will be made when first chat is loaded
@@ -59,13 +62,14 @@ class ChatService {
       this.reconnectTimeout = null;
     }
   
-  
+
     this.currentUserId = userId;
     this.ws = new WebSocket(`${this.config.websocket.baseUrl}/ws/user/${userId}/`);
   
     this.ws.onopen = () => {
-      console.log('WebSocket Connected');
+      console.log('✅ WebSocket Connected');
       this.isIntentionalDisconnect = false;
+      this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
     };
   
     this.ws.onmessage = (event) => {
@@ -82,16 +86,23 @@ class ChatService {
   
     this.ws.onerror = (error) => {
       console.error("⚠️ WebSocket Error:", error);
-      // Reconnect after 5 minutes on error
-      this.scheduleReconnect(userId);
+      // Don't reconnect on error - let onclose handle it
+      // This prevents double reconnection attempts
     };
 
   
     this.ws.onclose = (event) => {
       console.log(`🔌 WebSocket Disconnected (code: ${event.code})`);
       if (!this.isIntentionalDisconnect) {
-        // Reconnect after 5 minutes on disconnect
-        this.scheduleReconnect(userId);
+        // Only reconnect if we haven't exceeded max attempts
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.scheduleReconnect(userId);
+        } else {
+          console.error(`❌ Max reconnect attempts (${this.maxReconnectAttempts}) reached. Stopping reconnection.`);
+        }
+      } else {
+        // Reset attempts on intentional disconnect
+        this.reconnectAttempts = 0;
       }
     };
   }
@@ -100,11 +111,15 @@ class ChatService {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }
-  
-    console.log("⏳ Reconnecting WebSocket in 9 sec...");
+
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay; // Fixed 2 second delay
+
+    console.log(`⏳ Reconnecting WebSocket in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+    
     this.reconnectTimeout = setTimeout(() => {
       this.connect(userId);
-    }, 9000); // 5 minutes = 300,000 ms
+    }, delay);
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }, ipAddress?: string): Promise<any> {
@@ -360,6 +375,11 @@ class ChatService {
       this.ws.close();
       this.ws = null;
       this.currentUserId = null;
+      this.reconnectAttempts = 0; // Reset attempts on intentional disconnect
+    }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 
