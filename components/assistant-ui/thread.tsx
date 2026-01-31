@@ -615,6 +615,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
   const skipRenderRef = useRef(false);
   
   // Extract stable values only when content actually changes
+  // CRITICAL: Never return empty values if we've already had content (prevents disappearing messages)
   const stableValues = React.useMemo(() => {
     // Extract text for comparison
     const currentText = !content?.content 
@@ -634,24 +635,43 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
       ? String(currentText.length) + currentText.substring(0, 50) 
       : '';
     
-    // Only update if content actually changed
-    const textChanged = currentText !== prevContentRef.current;
-    const idChanged = currentMessageId !== prevMessageIdRef.current;
+    // CRITICAL FIX: Preserve previous content if current is empty
+    // This prevents previous messages from disappearing during re-renders
+    const hasCachedContent = stableValuesRef.current && stableValuesRef.current.messageId;
+    const hasCachedText = hasCachedContent && stableValuesRef.current?.markdownText;
     
-    if (!textChanged && !idChanged && stableValuesRef.current) {
-      // Content hasn't changed, return previous stable values
+    // If we have cached content and current is empty, preserve cached content
+    // This is especially important for previous messages that might get empty content during re-renders
+    if (!currentText && hasCachedText) {
+      // Current content is empty but we have cached content - preserve it
+      // This prevents previous messages from disappearing
       return stableValuesRef.current;
     }
     
-    // Content changed, calculate new values
-    prevContentRef.current = currentText;
-    prevMessageIdRef.current = currentMessageId;
+    // Only update if content actually changed AND we have new content
+    const textChanged = currentText !== prevContentRef.current;
+    const idChanged = currentMessageId !== prevMessageIdRef.current;
     
-    const messageId = currentMessageId;
-    const markdownText = currentText;
-    const timestamp = !content 
-      ? '' 
-      : content?.content?.[0]?.created_at 
+    // If content hasn't changed, return cached values
+    if (!textChanged && !idChanged && stableValuesRef.current) {
+      return stableValuesRef.current;
+    }
+    
+    // Content changed - update refs only if we have actual content
+    if (currentText) {
+      prevContentRef.current = currentText;
+    }
+    if (currentMessageId) {
+      prevMessageIdRef.current = currentMessageId;
+    }
+    
+    // CRITICAL: Always preserve messageId and markdownText from cache if current is empty
+    // This ensures previous messages never lose their content
+    const messageId = currentMessageId || stableValuesRef.current?.messageId || '';
+    const markdownText = currentText || stableValuesRef.current?.markdownText || '';
+    
+    // Calculate timestamp - use current if available, otherwise preserve cached
+    const timestamp = content?.content?.[0]?.created_at 
       ? new Date(content.content[0].created_at).toLocaleString([], {
           day: "numeric",
           month: "numeric",
@@ -659,7 +679,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : content.created_at
+      : content?.created_at
       ? new Date(content.created_at).toLocaleString([], {
           day: "numeric",
           month: "numeric",
@@ -667,7 +687,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : '';
+      : (stableValuesRef.current?.timestamp || '');
     
     const newStableValues = { messageId, markdownText, timestamp };
     stableValuesRef.current = newStableValues;
@@ -685,7 +705,10 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     content?.created_at
   ]);
   
-  const { messageId, markdownText, timestamp } = stableValues;
+  // Safely extract values with fallbacks to prevent null errors
+  const messageId = stableValues?.messageId || '';
+  const markdownText = stableValues?.markdownText || '';
+  const timestamp = stableValues?.timestamp || '';
   
   // Check if message is empty (loading state)
   const isEmpty = !markdownText || markdownText.trim() === '';
