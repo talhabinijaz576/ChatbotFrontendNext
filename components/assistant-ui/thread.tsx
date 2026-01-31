@@ -104,6 +104,16 @@ export const Thread: FC<ThreadProps> = ({
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const viewportRef = useRef<HTMLElement | null>(null);
   const lastScrollTopRef = useRef<number>(0);
+  
+  // CRITICAL: Memoize the components object to prevent component unmounting/remounting
+  // This prevents the avatar and entire message from reloading
+  const messageComponents = React.useMemo(() => ({
+    UserMessage: (props: any) => (
+      <UserMessage {...props} colors={colors} />
+    ),
+    EditComposer: EditComposer,
+    AssistantMessage: (props: any) => <AssistantMessage {...props} config={config} />,
+  }), [colors, config]);
 
   // Find and store viewport reference
   useEffect(() => {
@@ -288,13 +298,7 @@ export const Thread: FC<ThreadProps> = ({
         <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
           {!messages.length && <Loader />}
           <ThreadPrimitive.Messages
-          components={{
-            UserMessage: (props) => (
-              <UserMessage {...props} colors={colors} />
-            ),
-            EditComposer: EditComposer,
-            AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
-          }}
+          components={messageComponents}
         />  
 
           <ThreadPrimitive.If empty={false}>
