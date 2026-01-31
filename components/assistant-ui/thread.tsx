@@ -600,6 +600,10 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     return m;
   });
   
+  // Memoize config values that are actually used to prevent re-renders
+  const avatarUrl = React.useMemo(() => config?.chat?.colors?.assistantMessage?.avatar ?? "", [config?.chat?.colors?.assistantMessage?.avatar]);
+  const backgroundColor = React.useMemo(() => config?.chat?.backgroundColor ?? "bg-blue-950", [config?.chat?.backgroundColor]);
+  
   // Use refs to track previous values and prevent unnecessary re-renders
   const prevContentRef = useRef<string>('');
   const prevMessageIdRef = useRef<string>('');
@@ -608,6 +612,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     markdownText: string;
     timestamp: string;
   } | null>(null);
+  const skipRenderRef = useRef(false);
   
   // Extract stable values only when content actually changes
   const stableValues = React.useMemo(() => {
@@ -684,44 +689,97 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
   
   // Check if message is empty (loading state)
   const isEmpty = !markdownText || markdownText.trim() === '';
+  
+  // Only render if we have a valid message ID (real message)
+  // Don't render empty message boxes when content is briefly empty during re-renders
+  const hasValidMessage = messageId && messageId.trim() !== '';
+  const shouldRender = hasValidMessage;
+  
+  // Use ref to store last rendered content to prevent unnecessary re-renders
+  const lastRenderedRef = useRef<{
+    markdownText: string;
+    messageId: string;
+    content: React.ReactNode;
+  } | null>(null);
+  
+  // Memoize the message content to prevent re-renders when content hasn't changed
+  const messageContent = React.useMemo(() => {
+    // If we have cached content and current content is empty (brief re-render), use cache
+    if (lastRenderedRef.current && 
+        lastRenderedRef.current.messageId === messageId) {
+      // If current content is empty but we have cached content, use cache
+      if (isEmpty && lastRenderedRef.current.markdownText) {
+        return lastRenderedRef.current.content;
+      }
+      // If content hasn't changed, return cached content
+      if (lastRenderedRef.current.markdownText === markdownText) {
+        return lastRenderedRef.current.content;
+      }
+    }
+    
+    // Don't create content if message is empty (will be handled by ThreadPrimitive.If running)
+    let content: React.ReactNode;
+    if (isEmpty) {
+      // Only show loading if we have a valid message ID (real message)
+      if (hasValidMessage) {
+        content = <LoadingDots />;
+      } else {
+        return null;
+      }
+    } else {
+      content = (
+        <>
+          <MemoryUI />
+          <MarkdownRenderer
+            markdownText={markdownText}
+            messageId={messageId}
+            showCopyButton={true}
+            isDarkMode={document.documentElement.classList.contains("dark")}
+          />
+          <AssistantActionBar timestamp={timestamp} type="assistant" />
+        </>
+      );
+    }
+    
+    // Cache the rendered content only if we have actual content
+    if (content) {
+      lastRenderedRef.current = {
+        markdownText,
+        messageId,
+        content
+      };
+    }
+    
+    return content;
+  }, [markdownText, messageId, timestamp, isEmpty, hasValidMessage]);
+  
+  // Use cached content if current is empty but we have cache (prevents empty flash)
+  const displayContent = messageContent || (lastRenderedRef.current?.content ?? null);
+  
+  // Don't render the message box at all if we don't have a valid message and no content
+  if (!hasValidMessage && !displayContent) {
+    return null;
+  }
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <ThreadPrimitive.If running>
-          {isEmpty ? (
+          {isEmpty && hasValidMessage ? (
             <LoadingDots />
           ) : (
-            <>
-              <MemoryUI />
-              <MarkdownRenderer
-                markdownText={markdownText}
-                messageId={messageId}
-                showCopyButton={true}
-                isDarkMode={document.documentElement.classList.contains("dark")}
-              />
-              <AssistantActionBar timestamp={timestamp} type="assistant" />
-            </>
+            displayContent
           )}
         </ThreadPrimitive.If>
         <ThreadPrimitive.If running={false}>
-          <>
-            <MemoryUI />
-            <MarkdownRenderer
-              markdownText={markdownText}
-              messageId={messageId}
-              showCopyButton={true}
-              isDarkMode={document.documentElement.classList.contains("dark")}
-            />
-            <AssistantActionBar timestamp={timestamp} type="assistant" />
-          </>
+          {displayContent}
         </ThreadPrimitive.If>
       </div>
 
       <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
         <Image
-          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+          src={avatarUrl}
           alt="Assistant Avatar"
           width={20}
           height={20}
@@ -772,9 +830,18 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
 
 // Memoize AssistantMessage for production builds with stable comparison
 const AssistantMessage = React.memo(AssistantMessageComponent, (prevProps, nextProps) => {
-  // Only re-render if config actually changes
-  // The content comparison is handled by useMessage hook internally
-  return prevProps.config === nextProps.config;
+  // Compare actual config values that matter, not just the reference
+  const prevAvatar = prevProps.config?.chat?.colors?.assistantMessage?.avatar;
+  const nextAvatar = nextProps.config?.chat?.colors?.assistantMessage?.avatar;
+  const prevBgColor = prevProps.config?.chat?.backgroundColor;
+  const nextBgColor = nextProps.config?.chat?.backgroundColor;
+  
+  // Only re-render if config values that affect rendering actually changed
+  // The content comparison is handled by useMessage hook and internal refs
+  return (
+    prevAvatar === nextAvatar &&
+    prevBgColor === nextBgColor
+  );
 });
 
 const AssistantActionBar: FC = ({ timestamp, type }) => {
