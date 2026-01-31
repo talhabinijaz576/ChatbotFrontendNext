@@ -756,8 +756,13 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
   // Use cached content if current is empty but we have cache (prevents empty flash)
   const displayContent = messageContent || (lastRenderedRef.current?.content ?? null);
   
-  // Don't render the message box at all if we don't have a valid message and no content
-  if (!hasValidMessage && !displayContent) {
+  // Check if we've ever had a message (either current or cached)
+  // This prevents the flash - if we've rendered this message before, keep rendering
+  const hasEverHadMessage = messageId || lastRenderedRef.current?.messageId;
+  
+  // Only return null if we've never had a message at all
+  // If we have a cached message, always render (like UserMessage does)
+  if (!hasEverHadMessage) {
     return null;
   }
 
@@ -765,7 +770,7 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <ThreadPrimitive.If running>
-          {isEmpty && hasValidMessage ? (
+          {isEmpty && messageId ? (
             <LoadingDots />
           ) : (
             displayContent
