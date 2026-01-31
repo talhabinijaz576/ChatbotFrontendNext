@@ -19,7 +19,7 @@ import ActionModal from "@/components/mem0/ActionModal";
 import { useIframe } from "./hooks/useIframe";
 import { chatService } from "./services/chatService";
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { SimplePdfAttachmentAdapter } from "./services/SimplePdfAttachmentAdapter";
 import { OtpModal } from "@/components/assistant-ui/otpModal";
 import { Box, Button, Modal, Typography } from "@mui/material";
@@ -463,18 +463,24 @@ export function Assistant({
     }
   };
 
+  // Memoize adapters to prevent recreation on every render
+  const adapters = useMemo(() => ({
+    attachments: new CompositeAttachmentAdapter([
+      new SimpleImageAttachmentAdapter(),
+      new SimpleTextAttachmentAdapter(),
+      new SimplePdfAttachmentAdapter(),
+    ]),
+  }), []);
+
+  // Memoize convertMessage to prevent runtime recreation
+  const convertMessage = useCallback((m: any) => m, []);
+
   const runtime = useExternalStoreRuntime({
     isRunning,
     messages,
-    convertMessage: (m: any) => m,
+    convertMessage,
     onNew,
-    adapters: {
-      attachments: new CompositeAttachmentAdapter([
-        new SimpleImageAttachmentAdapter(),
-        new SimpleTextAttachmentAdapter(),
-        new SimplePdfAttachmentAdapter(),
-      ]),
-    },
+    adapters,
   });
 
  

@@ -537,10 +537,16 @@ const EditComposer: FC = () => {
   );
 };
 
-const AssistantMessage: FC = ({config}) => {
+const AssistantMessage: FC<{config: any}> = ({config}) => {
   const content = useMessage((m) => {
     return m;
   });
+  
+  // Get stable message ID for memoization
+  const messageId = React.useMemo(() => {
+    return content?.id || content?.createdAt?.toString() || '';
+  }, [content?.id, content?.createdAt]);
+  
   const timestamp = content?.content[0]?.created_at 
   ? new Date(content.content[0].created_at).toLocaleString([], {
       day: "numeric",
@@ -571,6 +577,7 @@ const AssistantMessage: FC = ({config}) => {
         <MemoryUI />
         <MarkdownRenderer
           markdownText={markdownText}
+          messageId={messageId}
           showCopyButton={true}
           isDarkMode={document.documentElement.classList.contains("dark")}
         />

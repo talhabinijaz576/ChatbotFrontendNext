@@ -36,6 +36,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const highlightBuffer = useRef<string[]>([]);
   const isCollecting = useRef(false);
   const processedTextRef = useRef<string>('');
+  const previousTextRef = useRef<string>('');
+  const previousMessageIdRef = useRef<string>('');
 
   const safeMarkdownText = React.useMemo(() => {
     return typeof markdownText === 'string' ? markdownText : '';
@@ -52,16 +54,38 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     });
   }, []);
 
-  // Reset streaming state when markdownText changes
+  // Only reset streaming state when text actually changes (new message or text update)
   React.useEffect(() => {
-    // Preprocess the text first
-    processedTextRef.current = preProcessText(safeMarkdownText);
-    setIsStreaming(true);
-    const timer = setTimeout(() => {
-      setIsStreaming(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [safeMarkdownText, preProcessText]);
+    const isNewMessage = messageId !== previousMessageIdRef.current;
+    const textChanged = safeMarkdownText !== previousTextRef.current;
+    const textIncreased = safeMarkdownText.length > previousTextRef.current.length;
+    
+    // Only reset streaming if:
+    // 1. It's a new message (different messageId), OR
+    // 2. The text actually changed and increased (streaming update)
+    if (isNewMessage || (textChanged && textIncreased)) {
+      processedTextRef.current = preProcessText(safeMarkdownText);
+      setIsStreaming(true);
+      const timer = setTimeout(() => {
+        setIsStreaming(false);
+      }, 500);
+      
+      previousTextRef.current = safeMarkdownText;
+      previousMessageIdRef.current = messageId;
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Text didn't change - this is a previous message that's already complete
+      // Ensure it's not in streaming state and shows full text
+      processedTextRef.current = preProcessText(safeMarkdownText);
+      setIsStreaming(false); // Ensure previous messages show full text
+      previousTextRef.current = safeMarkdownText;
+      // Only update messageId ref if it's actually different (first render)
+      if (isNewMessage) {
+        previousMessageIdRef.current = messageId;
+      }
+    }
+  }, [safeMarkdownText, preProcessText, messageId]);
 
   const copyToClipboard = async (code: string) => {
     await navigator.clipboard.writeText(code);
