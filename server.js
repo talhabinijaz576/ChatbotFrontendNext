@@ -28,9 +28,10 @@ app.prepare().then(() => {
       console.log(`✅ Server running on socket: ${socketPath}`);
     });
   } else {
-    server.listen(port, (err) => {
+    server.listen(port, '0.0.0.0', (err) => {
       if (err) throw err;
-      console.log(`🚀 Server running on http://localhost:${port}`);
+      console.log(`🚀 Server running on http://0.0.0.0:${port}`);
+      console.log(`📱 Access from your phone at: http://[YOUR_COMPUTER_IP]:${port}`);
     });
   }
 });

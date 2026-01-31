@@ -48,7 +48,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import GithubButton from "../mem0/github-button";
 import Link from "next/link";
-import { ScrollArea } from "../ui/scroll-area";
 import MarkdownRenderer from "../mem0/markdown";
 import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 import {
@@ -102,15 +101,101 @@ export const Thread: FC<ThreadProps> = ({
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const viewportRef = useRef<HTMLElement | null>(null);
+  const lastScrollTopRef = useRef<number>(0);
 
+  // Find and store viewport reference
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 1);
+    if (composerInputRef.current) {
+      const viewport = composerInputRef.current.closest('[data-radix-scroll-area-viewport]') || 
+                      composerInputRef.current.closest('.overflow-y-auto') ||
+                      document.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewportRef.current = viewport as HTMLElement;
+      }
+    }
+  }, []);
 
+  // Keep composer visible when keyboard opens, maintain position when keyboard is open
+  useEffect(() => {
+    const handleFocus = () => {
+      setIsKeyboardOpen(true);
+      if (composerInputRef.current && viewportRef.current) {
+        // Delay to let keyboard fully open
+        const timeout = setTimeout(() => {
+          const input = composerInputRef.current;
+          const viewport = viewportRef.current;
+          if (input && viewport) {
+            const inputRect = input.getBoundingClientRect();
+            const viewportRect = viewport.getBoundingClientRect();
+            const inputBottom = inputRect.bottom;
+            const viewportBottom = viewportRect.bottom;
+            
+            // Calculate desired scroll position to keep input above keyboard
+            const desiredSpace = 20; // Space between keyboard and input
+            const scrollAdjustment = inputBottom - viewportBottom + desiredSpace;
+            
+            if (scrollAdjustment > 0) {
+              const newScrollTop = viewport.scrollTop + scrollAdjustment;
+              lastScrollTopRef.current = newScrollTop;
+              viewport.scrollTo({
+                top: newScrollTop,
+                behavior: 'smooth'
+              });
+            } else {
+              // Store current position as target
+              lastScrollTopRef.current = viewport.scrollTop;
+            }
+          }
+        }, 300);
+        return () => clearTimeout(timeout);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsKeyboardOpen(false);
+    };
+
+    const input = composerInputRef.current;
+    if (input) {
+      input.addEventListener('focus', handleFocus);
+      input.addEventListener('blur', handleBlur);
+      return () => {
+        input.removeEventListener('focus', handleFocus);
+        input.removeEventListener('blur', handleBlur);
+      };
+    }
+  }, []);
+
+  // Prevent scroll jitter when keyboard is open - maintain stable scroll position
+  useEffect(() => {
+    if (!isKeyboardOpen || !viewportRef.current) return;
+
+    const viewport = viewportRef.current;
+    const targetScrollTop = lastScrollTopRef.current || viewport.scrollTop;
+    
+    // When messages change and keyboard is open, maintain scroll position
+    // Use requestAnimationFrame to restore position after any autoscroll
+    const restoreScroll = () => {
+      requestAnimationFrame(() => {
+        if (viewport && isKeyboardOpen) {
+          // Only restore if scroll changed significantly (more than 20px)
+          if (Math.abs(viewport.scrollTop - targetScrollTop) > 20) {
+            viewport.scrollTop = targetScrollTop;
+          } else {
+            // Update target if it's a small adjustment
+            lastScrollTopRef.current = viewport.scrollTop;
+          }
+        }
+      });
+    };
+    
+    // Restore scroll position after a short delay to let autoscroll complete
+    const timeout = setTimeout(restoreScroll, 100);
+    
     return () => clearTimeout(timeout);
-  }, [messages.length]);
+  }, [messages.length, isKeyboardOpen]);
 
   return (
     <ThreadPrimitive.Root
@@ -133,9 +218,14 @@ export const Thread: FC<ThreadProps> = ({
         ></div>
       )}
 
-      <ScrollArea
+      <ThreadPrimitive.Viewport 
         className="flex-0 md:flex-1 w-full overflow-y-auto"
-        style={{ maxHeight: "90svh" }}
+        style={{ 
+          maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
+          height: "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
+          scrollPaddingBottom: "calc(env(safe-area-inset-bottom) + 120px)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
       >
         <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
           {!messages.length && <Loader />}
@@ -148,9 +238,16 @@ export const Thread: FC<ThreadProps> = ({
             AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
           }}
         />  
-          
-          {suggestedMessages?.buttons?.length > 0 && (
-        <div className="flex flex-col w-full items-center justify-center mt-2 mb-8 ">
+
+          <ThreadPrimitive.If empty={false}>
+            <div className="min-h-8 flex-grow" />
+          </ThreadPrimitive.If>
+        </div>
+      </ThreadPrimitive.Viewport>
+      
+      {/* Suggestion bar - outside viewport so it doesn't interfere with composer */}
+      {suggestedMessages?.buttons?.length > 0 && (
+        <div className="flex flex-col w-full items-center justify-center px-4 pb-2 bg-inherit z-5">
           <ThreadWelcomeSuggestions
             composerInputRef={composerInputRef}
             suggestedMessages={suggestedMessages}
@@ -162,14 +259,18 @@ export const Thread: FC<ThreadProps> = ({
           />
         </div>
       )}
-
-          <ThreadPrimitive.If empty={false}>
-            <div className="min-h-8 flex-grow" ref={bottomRef} />
-          </ThreadPrimitive.If>
-        </div>
-      </ScrollArea>
       
-      <div className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto">
+      <div 
+        className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto"
+        style={{
+          paddingBottom: 'max(calc(1rem + env(safe-area-inset-bottom)), calc(env(safe-area-inset-bottom) + 0.5rem))',
+          marginBottom: 'env(safe-area-inset-bottom)',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 20,
+          backgroundColor: 'inherit',
+        }}
+      >
         <ThreadScrollToBottom />
         <Composer
           composerInputRef={

@@ -50,17 +50,18 @@ const ActionModal: React.FC<ActionModalProps> = ({
       keepMounted
       sx={{
         display: "flex",
-        alignItems: "center",
+        alignItems: { xs: "flex-start", md: "center" },
         justifyContent: "center",
         p: { xs: 0, md: 2 },
+        zIndex: { xs: 9999, md: 1300 }, // Higher than navbar z-50
       }}
     >
       <Paper
         sx={{
           width: { xs: "100vw", md: "90vw" },
-          height: { xs: "100vh", md: "90vh" },
+          height: { xs: "100dvh", md: "90vh" },
           maxWidth: { xs: "100vw", md: "none" },
-          maxHeight: { xs: "100vh", md: "none" },
+          maxHeight: { xs: "100dvh", md: "none" },
           bgcolor: "#ffffff",
           borderRadius: { xs: 0, md: 3 },
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
@@ -68,6 +69,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
           flexDirection: "column",
           overflow: "hidden",
           border: { xs: "none", md: "1px solid #e2e8f0" },
+          margin: { xs: 0, md: "auto" },
         }}
       >
         {/* Modal Header */}

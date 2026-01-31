@@ -486,7 +486,7 @@ export function Assistant({
       {/* HEADER */}
 
       {/* MAIN LAYOUT */}
-      <div className="flex flex-col h-screen md:h-[100dvh]">
+      <div className="flex flex-col h-[100dvh]">
 
 <header
   className="sticky top-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
@@ -505,7 +505,7 @@ export function Assistant({
     </button>  */}
 </header>
 
-<main className="flex-1 overflow-y-auto">
+<main className="flex-1 overflow-y-auto" style={{ height: 'calc(100dvh - 4rem)' }}>
   <Thread
     sidebarOpen={sidebarOpen}
     setStateData={setStateData}
