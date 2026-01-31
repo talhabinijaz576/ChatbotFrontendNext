@@ -132,20 +132,42 @@ export const Thread: FC<ThreadProps> = ({
             const inputBottom = inputRect.bottom;
             const viewportBottom = viewportRect.bottom;
             
+            // Find the first message element to ensure it stays visible
+            // Look for message containers in the viewport
+            const messageContainers = viewport.querySelectorAll('[class*="grid"][class*="auto-rows"]');
+            const firstMessage = messageContainers.length > 0 
+              ? messageContainers[0] 
+              : viewport.querySelector('div > div') || viewport.firstElementChild;
+            
+            let firstMessageTop = 0;
+            if (firstMessage && firstMessage !== viewport) {
+              const firstMessageRect = firstMessage.getBoundingClientRect();
+              const viewportTop = viewportRect.top;
+              firstMessageTop = firstMessageRect.top - viewportTop + viewport.scrollTop;
+            }
+            
             // Calculate desired scroll position to keep input above keyboard
             const desiredSpace = 20; // Space between keyboard and input
             const scrollAdjustment = inputBottom - viewportBottom + desiredSpace;
             
             if (scrollAdjustment > 0) {
               const newScrollTop = viewport.scrollTop + scrollAdjustment;
-              lastScrollTopRef.current = newScrollTop;
+              
+              // Ensure we don't scroll past the first message
+              // Keep at least the first message visible (with some padding)
+              const minScrollTop = Math.max(0, firstMessageTop - 20);
+              const finalScrollTop = Math.max(minScrollTop, newScrollTop);
+              
+              lastScrollTopRef.current = finalScrollTop;
               viewport.scrollTo({
-                top: newScrollTop,
+                top: finalScrollTop,
                 behavior: 'smooth'
               });
             } else {
-              // Store current position as target
-              lastScrollTopRef.current = viewport.scrollTop;
+              // Store current position as target, but ensure first message is visible
+              const currentScrollTop = viewport.scrollTop;
+              const minScrollTop = Math.max(0, firstMessageTop - 20);
+              lastScrollTopRef.current = Math.max(minScrollTop, currentScrollTop);
             }
           }
         }, 300);
@@ -578,27 +600,53 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
     return m;
   });
   
-  // Get stable message ID for memoization - use a more stable key
-  const messageId = React.useMemo(() => {
-    // Use id first, then createdAt, then a hash of content as fallback
-    if (content?.id) return String(content.id);
-    if (content?.createdAt) return String(content.createdAt);
-    // Create a stable hash from content for comparison
-    if (content?.content) {
-      const contentStr = typeof content.content === 'string' 
-        ? content.content 
-        : Array.isArray(content.content) && content.content[0]?.text
-        ? content.content[0].text
-        : '';
-      return contentStr ? String(contentStr.length) + contentStr.substring(0, 50) : '';
-    }
-    return '';
-  }, [content?.id, content?.createdAt, content?.content]);
+  // Use refs to track previous values and prevent unnecessary re-renders
+  const prevContentRef = useRef<string>('');
+  const prevMessageIdRef = useRef<string>('');
+  const stableValuesRef = useRef<{
+    messageId: string;
+    markdownText: string;
+    timestamp: string;
+  } | null>(null);
   
-  // Memoize timestamp calculation
-  const timestamp = React.useMemo(() => {
-    if (!content) return '';
-    return content?.content?.[0]?.created_at 
+  // Extract stable values only when content actually changes
+  const stableValues = React.useMemo(() => {
+    // Extract text for comparison
+    const currentText = !content?.content 
+      ? "" 
+      : typeof content.content === "string" 
+      ? content.content 
+      : Array.isArray(content.content) && content.content[0]?.text
+      ? content.content[0].text
+      : "";
+    
+    // Extract message ID
+    const currentMessageId = content?.id 
+      ? String(content.id) 
+      : content?.createdAt 
+      ? String(content.createdAt) 
+      : currentText 
+      ? String(currentText.length) + currentText.substring(0, 50) 
+      : '';
+    
+    // Only update if content actually changed
+    const textChanged = currentText !== prevContentRef.current;
+    const idChanged = currentMessageId !== prevMessageIdRef.current;
+    
+    if (!textChanged && !idChanged && stableValuesRef.current) {
+      // Content hasn't changed, return previous stable values
+      return stableValuesRef.current;
+    }
+    
+    // Content changed, calculate new values
+    prevContentRef.current = currentText;
+    prevMessageIdRef.current = currentMessageId;
+    
+    const messageId = currentMessageId;
+    const markdownText = currentText;
+    const timestamp = !content 
+      ? '' 
+      : content?.content?.[0]?.created_at 
       ? new Date(content.content[0].created_at).toLocaleString([], {
           day: "numeric",
           month: "numeric",
@@ -615,36 +663,59 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
           minute: "2-digit",
         })
       : '';
-  }, [content?.content?.[0]?.created_at, content?.created_at]);
-  
-  // Memoize markdown text extraction with stable comparison
-  const markdownText = React.useMemo(() => {
-    if (!content?.content) return "";
-    if (typeof content.content === "string") return content.content;
-    if (Array.isArray(content.content) && content.content.length > 0 && "text" in content.content[0]) {
-      return content.content[0].text || "";
-    }
-    return "";
+    
+    const newStableValues = { messageId, markdownText, timestamp };
+    stableValuesRef.current = newStableValues;
+    return newStableValues;
   }, [
-    // Use stable comparison - compare the actual text value, not the object reference
+    // Only depend on the actual content values, not object references
+    content?.id,
+    content?.createdAt,
     typeof content?.content === 'string' 
       ? content.content 
       : Array.isArray(content?.content) && content.content[0]?.text
       ? content.content[0].text
-      : ''
+      : '',
+    content?.content?.[0]?.created_at,
+    content?.created_at
   ]);
+  
+  const { messageId, markdownText, timestamp } = stableValues;
+  
+  // Check if message is empty (loading state)
+  const isEmpty = !markdownText || markdownText.trim() === '';
 
   return (
     <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
-        <MemoryUI />
-        <MarkdownRenderer
-          markdownText={markdownText}
-          messageId={messageId}
-          showCopyButton={true}
-          isDarkMode={document.documentElement.classList.contains("dark")}
-        />
-      <AssistantActionBar timestamp={timestamp} type="assistant" />
+        <ThreadPrimitive.If running>
+          {isEmpty ? (
+            <LoadingDots />
+          ) : (
+            <>
+              <MemoryUI />
+              <MarkdownRenderer
+                markdownText={markdownText}
+                messageId={messageId}
+                showCopyButton={true}
+                isDarkMode={document.documentElement.classList.contains("dark")}
+              />
+              <AssistantActionBar timestamp={timestamp} type="assistant" />
+            </>
+          )}
+        </ThreadPrimitive.If>
+        <ThreadPrimitive.If running={false}>
+          <>
+            <MemoryUI />
+            <MarkdownRenderer
+              markdownText={markdownText}
+              messageId={messageId}
+              showCopyButton={true}
+              isDarkMode={document.documentElement.classList.contains("dark")}
+            />
+            <AssistantActionBar timestamp={timestamp} type="assistant" />
+          </>
+        </ThreadPrimitive.If>
       </div>
 
       <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
@@ -662,6 +733,40 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
 
       <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
     </MessagePrimitive.Root>
+  );
+};
+
+// Three-dot loading animation component
+const LoadingDots: FC = () => {
+  return (
+    <div className="flex items-center gap-1.5 px-1">
+      <span className="w-2 h-2 bg-[#475569] dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></span>
+      <span className="w-2 h-2 bg-[#475569] dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '160ms', animationDuration: '1.4s' }}></span>
+      <span className="w-2 h-2 bg-[#475569] dark:bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '320ms', animationDuration: '1.4s' }}></span>
+    </div>
+  );
+};
+
+// Loading message component that appears when assistant is generating a response
+const LoadingMessage: FC<{config: any}> = ({config}) => {
+  return (
+    <div className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
+      <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
+        <LoadingDots />
+      </div>
+
+      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
+          <Image
+            src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+            alt="Assistant Avatar"
+            width={20}
+            height={20}
+            className="invert brightness-0 saturate-0 contrast-200"
+          />
+        </div>
+      </div>
+    </div>
   );
 };
 
