@@ -339,66 +339,69 @@ export function Assistant({
   useEffect(() => {
     chatService.initializeConnection(conversationId);
     const unsubscribe = chatService.onMessage((incoming) => {
-      if (incoming?.type === "assistant" && incoming.text) {
-        const messageId = incoming.pk || `assistant-message-${Date.now()}`;
+      // Fail silently if incoming is undefined or doesn't have required properties
+      if (!incoming || incoming?.type !== "assistant" || !incoming.text) {
+        return;
+      }
+      
+      const messageId = incoming.pk || `assistant-message-${Date.now()}`;
+      
+      const incRes: ThreadMessageLike = {
+        role: incoming.type || "assistant",
+        content: [{ text: incoming.text || "", type: "text", created_at: incoming.created_at }],
+        id: messageId,
+        createdAt: new Date(),
+      };
+      
+      // Update optimistic message or add new one
+      // The library creates optimistic messages with IDs starting with '__optimistic__'
+      // We should replace the last optimistic assistant message with the real one
+      setMessages((currentConversation) => {
+        // Check if message was already handled by API response
+        // API response updates optimistic message, so if there's no optimistic message,
+        // it means API already handled it
+        const exists = currentConversation.some(msg => {
+          // Check by content match (API response already updated the optimistic message)
+          return msg.role === "assistant" && 
+                 Array.isArray(msg.content) && 
+                 msg.content[0]?.text === incoming.text &&
+                 !String(msg.id).startsWith("__optimistic__");
+        });
         
-        const incRes: ThreadMessageLike = {
-          role: incoming.type,
-          content: [{ text: incoming.text, type: "text", created_at: incoming.created_at }],
-          id: messageId,
-          createdAt: new Date(),
-        };
-        
-        // Update optimistic message or add new one
-        // The library creates optimistic messages with IDs starting with '__optimistic__'
-        // We should replace the last optimistic assistant message with the real one
-        setMessages((currentConversation) => {
-          // Check if message was already handled by API response
-          // API response updates optimistic message, so if there's no optimistic message,
-          // it means API already handled it
-          const exists = currentConversation.some(msg => {
-            // Check by content match (API response already updated the optimistic message)
-            return msg.role === "assistant" && 
-                   Array.isArray(msg.content) && 
-                   msg.content[0]?.text === incoming.text &&
-                   !String(msg.id).startsWith("__optimistic__");
-          });
-          
-          if (exists) {
-            setIsRunning(false);
-            return currentConversation;
-          }
-          
-          // Find the last optimistic assistant message (created by the library)
-          let optimisticIndex = -1;
-          for (let i = currentConversation.length - 1; i >= 0; i--) {
-            const msg = currentConversation[i];
-            if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-              optimisticIndex = i;
-              break;
-            }
-          }
-          
-          if (optimisticIndex !== -1) {
-            // Update the optimistic message in place, keeping its ID but updating content
-            // This preserves the stable ID reference that the component already has
-            const optimisticId = currentConversation[optimisticIndex].id;
-            
-            const updated = [...currentConversation];
-            updated[optimisticIndex] = {
-              ...incRes,
-              id: optimisticId, // Keep the optimistic ID
-            };
-            
-            setIsRunning(false);
-            return updated;
-          }
-          
-          // No optimistic message found - API already handled it, just update isRunning
+        if (exists) {
           setIsRunning(false);
           return currentConversation;
-        });
-      }
+        }
+        
+        // Find the last optimistic assistant message (created by the library)
+        let optimisticIndex = -1;
+        for (let i = currentConversation.length - 1; i >= 0; i--) {
+          const msg = currentConversation[i];
+          if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+            optimisticIndex = i;
+            break;
+          }
+        }
+        
+        if (optimisticIndex !== -1) {
+          // Update the optimistic message in place, keeping its ID but updating content
+          // This preserves the stable ID reference that the component already has
+          const optimisticId = currentConversation[optimisticIndex].id;
+          
+          const updated = [...currentConversation];
+          updated[optimisticIndex] = {
+            ...incRes,
+            id: optimisticId, // Keep the optimistic ID
+          };
+          
+          setIsRunning(false);
+          return updated;
+        }
+        
+        // No optimistic message found - API already handled it, just update isRunning
+        setIsRunning(false);
+        return currentConversation;
+      });
       if (incoming?.type === "event") {
         const action = incoming.event?.action;
         if (action === "open_url") {
@@ -511,6 +514,24 @@ export function Assistant({
           ipAddress
         );
         
+        // Fail silently if response is empty, undefined, or invalid
+        if (!assistantResponse || !assistantResponse.type || !assistantResponse.text) {
+          // Remove optimistic message and stop running state
+          flushSync(() => {
+            setMessages((currentConversation) => {
+              // Remove optimistic messages
+              return currentConversation.filter((msg) => {
+                if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+                  return false;
+                }
+                return true;
+              });
+            });
+          });
+          setIsRunning(false);
+          return;
+        }
+        
         // Update the optimistic message with the real response
         // The library creates optimistic messages with IDs starting with '__optimistic__'
         // CRITICAL: Update both messages and isRunning atomically in the same flushSync
@@ -560,7 +581,6 @@ export function Assistant({
               // This ensures useMessage returns a message with the same ID,
               // which matches what the component's stable ID reference expects
               const targetId = currentConversation[targetIndex].id;
-              const isOptimisticId = String(targetId).startsWith("__optimistic__");
               
               const updated = [...currentConversation];
               
@@ -572,8 +592,8 @@ export function Assistant({
               // We'll delay setting isRunning=false to ensure the update renders first
               
               updated[targetIndex] = {
-                role: assistantResponse.type,
-                content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
+                role: assistantResponse.type || "assistant",
+                content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
                 id: targetId, // CRITICAL: Keep the optimistic ID so component's stable ref matches
                 createdAt: new Date(),
               };
@@ -599,8 +619,8 @@ export function Assistant({
             // No optimistic message found (shouldn't happen, but handle gracefully)
             
             const assRes: ThreadMessageLike = {
-              role: assistantResponse.type,
-              content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
+              role: assistantResponse.type || "assistant",
+              content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
               id: messageId,
               createdAt: new Date(),
             };
@@ -631,8 +651,18 @@ export function Assistant({
         
         setlastMessageResponse(assistantResponse);
       } catch (error) {
-        setStateData({ error: error });
-        // On error, stop the running state so optimistic message is removed
+        // Fail silently - remove optimistic message and stop running state
+        flushSync(() => {
+          setMessages((currentConversation) => {
+            // Remove optimistic messages
+            return currentConversation.filter((msg) => {
+              if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+                return false;
+              }
+              return true;
+            });
+          });
+        });
         setIsRunning(false);
       }
     },

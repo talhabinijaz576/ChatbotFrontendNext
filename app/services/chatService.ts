@@ -184,18 +184,25 @@ class ChatService {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Fail silently - return null instead of throwing
+        return null;
       }
       
       const data: ApiResponse[] = await response.json();
       // const res = this.proccessIncommingMessage(data)
       // this.handleIncomingMessage(data); 
+      
+      // Return null if response is empty array or first element is undefined
+      if (!data || data.length === 0 || !data[0]) {
+        return null;
+      }
+      
       return data[0];
       // Process the response and notify handlers
       
     } catch (error) {
-      console.error('API Error:', error);
-      // Notify handlers of the error
+      // Fail silently - return null instead of throwing
+      return null;
     }
 
     // Also send via WebSocket if connected
