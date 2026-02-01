@@ -721,8 +721,8 @@ const AssistantMessageComponent: FC = () => {
       contentId: content?.id,
       contentTextLength: typeof content?.content === 'string' 
         ? content.content.length 
-        : Array.isArray(content?.content) && content.content[0]?.text
-        ? content.content[0].text.length
+        : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
+        ? (content.content[0].text || '').length
         : 0,
       hasContent: !!content?.content,
       stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
@@ -792,12 +792,12 @@ const AssistantMessageComponent: FC = () => {
   // Extract stable values only when content actually changes
   // CRITICAL: Once we have content, NEVER lose it - ignore empty content from useMessage
   const stableValues = React.useMemo(() => {
-    // Extract text for comparison
+    // Extract text for comparison with defensive checks
     const currentText = !content?.content 
       ? "" 
       : typeof content.content === "string" 
       ? content.content 
-      : Array.isArray(content.content) && content.content[0]?.text
+      : Array.isArray(content.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
       ? content.content[0].text
       : "";
     
@@ -1016,8 +1016,8 @@ const AssistantMessageComponent: FC = () => {
     content?.createdAt,
     typeof content?.content === 'string' 
       ? content.content 
-      : Array.isArray(content?.content) && content.content[0]?.text
-      ? content.content[0].text
+      : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
+      ? content.content[0].text || ''
       : '',
     content?.content?.[0]?.created_at,
     content?.created_at
@@ -1275,13 +1275,22 @@ const AssistantMessageComponent: FC = () => {
     
     // If still no content, check raw message object (initial load)
     if (!calculatedContent && content?.content) {
-      const rawText = typeof content.content === "string" 
-        ? content.content 
-        : Array.isArray(content.content) && content.content[0]?.text
-        ? content.content[0].text
-        : "";
+      let rawText = "";
+      try {
+        rawText = typeof content.content === "string" 
+          ? content.content 
+          : Array.isArray(content.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
+          ? content.content[0].text || ""
+          : "";
+      } catch (error) {
+        console.warn('[DEBUG] displayContent - error reading raw content, failing silently', {
+          error,
+          messageId: messageIdForKey
+        });
+        rawText = "";
+      }
       // CRITICAL: Only use raw text if it has actual content (not empty string)
-      if (rawText && rawText.trim().length > 0) {
+      if (rawText && typeof rawText === 'string' && rawText.trim().length > 0) {
         console.log('[DEBUG] displayContent - using raw content from message object (initial load)', {
           rawTextLength: rawText.length,
           messageId: messageIdForKey
@@ -1340,43 +1349,46 @@ const AssistantMessageComponent: FC = () => {
     return null;
   }
 
-  // CRITICAL: Use the STABLE message ID for the key, not the current one
-  // This prevents unmounting/remounting when the library changes the message ID
-  const stableKey = messageIdForKey ? `assistant-msg-${String(messageIdForKey)}` : undefined;
-  
-  console.log('[DEBUG] AssistantMessageComponent returning JSX', {
-    stableMessageId: messageIdForKey,
-    currentMessageId: messageId,
-    stableKey,
-    hasEverHadMessage,
-    timestamp: Date.now()
-  });
+  // CRITICAL: Fail silently if there's an error reading message content
+  // Wrap in try-catch to prevent crashes from malformed messages
+  try {
+    // CRITICAL: Use the STABLE message ID for the key, not the current one
+    // This prevents unmounting/remounting when the library changes the message ID
+    const stableKey = messageIdForKey ? `assistant-msg-${String(messageIdForKey)}` : undefined;
+    
+    console.log('[DEBUG] AssistantMessageComponent returning JSX', {
+      stableMessageId: messageIdForKey,
+      currentMessageId: messageId,
+      stableKey,
+      hasEverHadMessage,
+      timestamp: Date.now()
+    });
 
-  // CRITICAL: Always render content when available, regardless of isRunning state
-  // This prevents flicker when isRunning changes - the content stays mounted
-  // Only show loading dots when isRunning is true AND content is empty
-  // CRITICAL: Only show bubble when cached rendered content has text
-  // This ensures content is fully processed and ready to display
-  // For new messages, don't show bubble until content is cached and ready
-  const hasActualContent = React.useMemo(() => {
-    // CRITICAL: Check if cached rendered content has text - this means content is fully processed
-    // Only show bubble if we have cached content with text, ensuring it's ready
-    const cachedHasText = cachedRenderedContent?.markdownText && cachedRenderedContent.markdownText.trim().length > 0;
+    // CRITICAL: Always render content when available, regardless of isRunning state
+    // This prevents flicker when isRunning changes - the content stays mounted
+    // Only show loading dots when isRunning is true AND content is empty
+    // CRITICAL: Only show bubble when cached rendered content has text
+    // This ensures content is fully processed and ready to display
+    // For new messages, don't show bubble until content is cached and ready
+    const hasActualContent = React.useMemo(() => {
+      // CRITICAL: Check if cached rendered content has text - this means content is fully processed
+      // Only show bubble if we have cached content with text, ensuring it's ready
+      const cachedHasText = cachedRenderedContent?.markdownText && cachedRenderedContent.markdownText.trim().length > 0;
+      
+      // For strings, check if displayContent has actual text
+      if (typeof displayContent === 'string') {
+        return displayContent.trim().length > 0;
+      }
+      
+      // For ReactNodes, ONLY show bubble if cached rendered content has text
+      // This ensures the content has been fully processed and is ready to display
+      // Don't show bubble just because source has text - wait for it to be processed
+      return cachedHasText && displayContent !== null && displayContent !== undefined;
+    }, [displayContent, cachedRenderedContent]);
     
-    // For strings, check if displayContent has actual text
-    if (typeof displayContent === 'string') {
-      return displayContent.trim().length > 0;
-    }
+    const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
     
-    // For ReactNodes, ONLY show bubble if cached rendered content has text
-    // This ensures the content has been fully processed and is ready to display
-    // Don't show bubble just because source has text - wait for it to be processed
-    return cachedHasText && displayContent !== null && displayContent !== undefined;
-  }, [displayContent, cachedRenderedContent]);
-  
-  const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
-  
-  return (
+    return (
     <MessagePrimitive.Root 
       key={stableKey}
       className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
@@ -1401,6 +1413,15 @@ const AssistantMessageComponent: FC = () => {
       </div>
     </MessagePrimitive.Root>
   );
+  } catch (error) {
+    // Fail silently - don't show message if there's an error reading content
+    console.warn('[DEBUG] AssistantMessageComponent - error reading message, failing silently', {
+      error,
+      messageId: messageIdForKey || messageId || 'unknown',
+      timestamp: Date.now()
+    });
+    return null;
+  }
 };
 
 // Three-dot loading animation component
