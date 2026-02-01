@@ -598,6 +598,24 @@ export function Assistant({
         conversationId,
         messageCount: messages.length
       });
+      
+      // CRITICAL: Manually add optimistic message to our state when isRunning becomes true
+      // The runtime also creates one internally, but we need it in our state to update it later
+      const optimisticId = `__optimistic__${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const optimisticMessage: ThreadMessageLike = {
+        role: "assistant",
+        content: [{ text: "", type: "text" }],
+        id: optimisticId,
+        createdAt: new Date(),
+      };
+      
+      console.log("🔵 [onNew] Adding optimistic message to state", {
+        timestamp: Date.now(),
+        optimisticId,
+        note: "Runtime will also create one internally, but we need it in our state"
+      });
+      
+      setMessages((currentConversation) => [...currentConversation, optimisticMessage]);
       setIsRunning(true);
       try {
         console.log("🔵 [onNew] Sending message to API", {
@@ -630,14 +648,13 @@ export function Assistant({
         // This prevents the runtime from seeing an inconsistent state in production
         const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
         
-        console.log("🔵 [onNew] Before flushSync - checking current messages", {
+        // CRITICAL: Don't use messages.length here - it's a stale closure value!
+        // We'll check inside setMessages callback where we have the current state
+        console.log("🔵 [onNew] Before flushSync - starting message update", {
           timestamp: Date.now(),
-          messageCount: messages.length,
-          optimisticMessages: messages.filter(m => String(m.id).startsWith("__optimistic__")).map(m => ({
-            id: m.id,
-            role: m.role,
-            hasContent: !!m.content?.[0]?.text
-          }))
+          messageId,
+          isRunningBefore: true,
+          note: "Will check messages inside setMessages callback to avoid stale closure"
         });
         
         flushSync(() => {
@@ -648,18 +665,25 @@ export function Assistant({
           });
           
           setMessages((currentConversation) => {
+            // CRITICAL: Use currentConversation (current state) not messages (stale closure)
             console.log("🔵 [onNew] setMessages callback - current conversation state", {
               timestamp: Date.now(),
               conversationLength: currentConversation.length,
               lastMessage: currentConversation[currentConversation.length - 1] ? {
                 id: currentConversation[currentConversation.length - 1].id,
                 role: currentConversation[currentConversation.length - 1].role,
-                hasContent: !!currentConversation[currentConversation.length - 1].content?.[0]?.text
+                hasContent: !!currentConversation[currentConversation.length - 1].content?.[0]?.text,
+                isOptimistic: String(currentConversation[currentConversation.length - 1].id).startsWith("__optimistic__")
               } : null,
-              allMessageIds: currentConversation.map(m => ({ id: m.id, role: m.role }))
+              allMessageIds: currentConversation.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") })),
+              optimisticMessages: currentConversation.filter(m => String(m.id).startsWith("__optimistic__")).map(m => ({
+                id: m.id,
+                role: m.role,
+                hasContent: !!m.content?.[0]?.text
+              }))
             });
             
-            // Find the last optimistic assistant message (created by the library)
+            // Find the last optimistic assistant message (we manually added it when isRunning became true)
             let optimisticIndex = -1;
             for (let i = currentConversation.length - 1; i >= 0; i--) {
               const msg = currentConversation[i];
@@ -669,7 +693,7 @@ export function Assistant({
               }
             }
             
-            console.log("🔵 [onNew] Optimistic message search result", {
+            console.log("🔵 [onNew] Searching for optimistic message we added", {
               timestamp: Date.now(),
               optimisticIndex,
               foundOptimistic: optimisticIndex !== -1,
@@ -701,29 +725,29 @@ export function Assistant({
                 createdAt: new Date(),
               };
               
-            console.log("🔵 [onNew] Message updated, verifying ID:", {
-              timestamp: Date.now(),
-              updatedMessageId: updated[optimisticIndex].id,
-              expectedId: optimisticId,
-              match: updated[optimisticIndex].id === optimisticId,
-              updatedContentLength: updated[optimisticIndex].content?.[0]?.text?.length || 0,
-              updatedMessageRole: updated[optimisticIndex].role,
-              updatedContentPreview: updated[optimisticIndex].content?.[0]?.text?.substring(0, 50) || ''
-            });
-            
-            console.log("🔵 [onNew] Returning updated conversation", {
-              timestamp: Date.now(),
-              updatedLength: updated.length,
-              updatedLastMessage: updated[updated.length - 1] ? {
-                id: updated[updated.length - 1].id,
-                role: updated[updated.length - 1].role,
-                contentLength: updated[updated.length - 1].content?.[0]?.text?.length || 0,
-                isOptimistic: String(updated[updated.length - 1].id).startsWith("__optimistic__")
-              } : null,
-              allUpdatedIds: updated.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") }))
-            });
-            
-            return updated;
+              console.log("🔵 [onNew] Message updated, verifying ID:", {
+                timestamp: Date.now(),
+                updatedMessageId: updated[optimisticIndex].id,
+                expectedId: optimisticId,
+                match: updated[optimisticIndex].id === optimisticId,
+                updatedContentLength: updated[optimisticIndex].content?.[0]?.text?.length || 0,
+                updatedMessageRole: updated[optimisticIndex].role,
+                updatedContentPreview: updated[optimisticIndex].content?.[0]?.text?.substring(0, 50) || ''
+              });
+              
+              console.log("🔵 [onNew] Returning updated conversation", {
+                timestamp: Date.now(),
+                updatedLength: updated.length,
+                updatedLastMessage: updated[updated.length - 1] ? {
+                  id: updated[updated.length - 1].id,
+                  role: updated[updated.length - 1].role,
+                  contentLength: updated[updated.length - 1].content?.[0]?.text?.length || 0,
+                  isOptimistic: String(updated[updated.length - 1].id).startsWith("__optimistic__")
+                } : null,
+                allUpdatedIds: updated.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") }))
+              });
+              
+              return updated;
             }
             
             // No optimistic message found (shouldn't happen, but handle gracefully)
