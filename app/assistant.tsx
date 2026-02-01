@@ -790,28 +790,28 @@ export function Assistant({
               
               const updated = [...currentConversation];
               
-              // CRITICAL: When isRunning becomes false, the runtime filters out optimistic messages
-              // This causes flickering because useMessage returns null/empty for optimistic messages
-              // Solution: Convert optimistic ID to real message ID when updating
-              // The component's stable ID ref will handle the ID change gracefully
-              const finalId = isOptimisticId ? messageId : targetId;
+              // CRITICAL: React 19 + Next.js 15.2 production has stricter automatic batching
+              // The component locks onto the optimistic ID via stable ref
+              // If we change the ID, useMessage might return a different message, causing unmount
+              // Solution: Keep the optimistic ID so the component's stable ref continues to match
+              // The message will have real content, so it won't be empty even if runtime filters optimistic messages
+              // We'll delay setting isRunning=false to ensure the update renders first
               
-              console.log("🔵 [onNew] Converting optimistic ID to real ID", {
+              console.log("🔵 [onNew] Keeping optimistic ID (React 19 + Next.js 15.2 production)", {
                 timestamp: Date.now(),
                 environment: process.env.NODE_ENV,
-                originalId: targetId,
+                targetId: targetId,
                 isOptimisticId: isOptimisticId,
-                finalId: finalId,
                 realMessageId: messageId,
                 note: isOptimisticId 
-                  ? "Converting optimistic ID to real ID to prevent runtime filtering"
+                  ? "Keeping optimistic ID - component's stable ref is locked onto it. Will delay isRunning=false to prevent runtime filtering"
                   : "Keeping original ID (not optimistic)"
               });
               
               updated[targetIndex] = {
                 role: assistantResponse.type,
                 content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-                id: finalId, // Use real ID if it was optimistic, otherwise keep original
+                id: targetId, // CRITICAL: Keep the optimistic ID so component's stable ref matches
                 createdAt: new Date(),
               };
               
@@ -824,7 +824,7 @@ export function Assistant({
                   console.log("🔵 [onNew] Removing old optimistic message", {
                     timestamp: Date.now(),
                     oldOptimisticId: msg.id,
-                    finalId: finalId
+                    targetId: targetId
                   });
                   return false;
                 }
@@ -845,17 +845,13 @@ export function Assistant({
                 timestamp: Date.now(),
                 environment: process.env.NODE_ENV,
                 updatedMessageId: updated[targetIndex].id,
-                originalId: targetId,
-                finalId: finalId,
-                match: updated[targetIndex].id === finalId,
-                idChanged: updated[targetIndex].id !== targetId,
+                expectedId: targetId,
+                match: updated[targetIndex].id === targetId,
                 updatedContentLength: updated[targetIndex].content?.[0]?.text?.length || 0,
                 updatedMessageRole: updated[targetIndex].role,
                 updatedContentPreview: updated[targetIndex].content?.[0]?.text?.substring(0, 50) || '',
                 isOptimisticId: String(updated[targetIndex].id).startsWith("__optimistic__"),
-                note: updated[targetIndex].id !== targetId 
-                  ? "ID converted from optimistic to real - component's stable ref will handle it"
-                  : "ID unchanged"
+                note: "ID kept as optimistic - component's stable ref matches. Content updated with real response."
               });
               
               console.log("🔵 [onNew] Returning updated conversation", {
