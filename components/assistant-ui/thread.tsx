@@ -878,17 +878,8 @@ const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
         </div>
       </ThreadPrimitive.If>
 
-      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
-        <Image
-          src={avatarUrl}
-          alt="Assistant Avatar"
-          width={20}
-          height={20}
-          className="invert brightness-0 saturate-0 contrast-200"
-        />
-      </div>
-
+      <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+        <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
       </div>
 
       <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
@@ -906,6 +897,27 @@ const LoadingDots: FC = () => {
     </div>
   );
 };
+
+// CRITICAL: Memoized avatar component to prevent Image reload
+// This component only re-renders when avatarUrl or backgroundColor actually change
+const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.memo(({avatarUrl, backgroundColor}) => {
+  return (
+    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
+      <Image
+        src={avatarUrl}
+        alt="Assistant Avatar"
+        width={20}
+        height={20}
+        className="invert brightness-0 saturate-0 contrast-200"
+      />
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if avatarUrl or backgroundColor actually changed
+  return prevProps.avatarUrl === nextProps.avatarUrl && 
+         prevProps.backgroundColor === nextProps.backgroundColor;
+});
+AssistantAvatar.displayName = 'AssistantAvatar';
 
 // Loading message component that appears when assistant is generating a response
 const LoadingMessage: FC<{config: any}> = ({config}) => {
