@@ -666,27 +666,57 @@ const AssistantMessageComponent: FC = () => {
     return m;
   });
   
-  // CRITICAL: Get message ID early for logging and key
-  const messageIdForKey = content?.id ? String(content.id) : content?.createdAt ? String(content.createdAt) : '';
+  // CRITICAL: Store the FIRST message ID we see in a ref and NEVER change it
+  // This prevents the component from unmounting/remounting when the library changes the message ID
+  const stableMessageIdRef = useRef<string>('');
+  const currentMessageId = content?.id ? String(content.id) : content?.createdAt ? String(content.createdAt) : '';
+  
+  // CRITICAL: Only set stable ID once - the FIRST time we see a message ID
+  // After that, NEVER change it, even if the library gives us a different ID
+  if (!stableMessageIdRef.current && currentMessageId) {
+    stableMessageIdRef.current = currentMessageId;
+    console.log('[DEBUG] AssistantMessageComponent - Setting stable message ID', {
+      stableId: stableMessageIdRef.current,
+      currentId: currentMessageId,
+      timestamp: Date.now()
+    });
+  } else if (stableMessageIdRef.current && currentMessageId && currentMessageId !== stableMessageIdRef.current) {
+    // Message ID changed - but we already have a stable one, NEVER change it
+    console.log('[DEBUG] AssistantMessageComponent - Message ID changed but keeping stable ID', {
+      stableId: stableMessageIdRef.current,
+      newId: currentMessageId,
+      timestamp: Date.now(),
+      action: 'KEEPING_STABLE_ID'
+    });
+  }
+  
+  // Use the stable message ID for the key - this NEVER changes once set
+  const messageIdForKey = stableMessageIdRef.current || currentMessageId;
   
   // Track mount/unmount
   React.useEffect(() => {
     console.log('[DEBUG] AssistantMessageComponent MOUNTED', {
-      messageId: messageIdForKey,
+      stableMessageId: stableMessageIdRef.current,
+      currentMessageId: currentMessageId,
+      messageIdForKey,
       timestamp: Date.now()
     });
     return () => {
       console.log('[DEBUG] AssistantMessageComponent UNMOUNTED', {
-        messageId: messageIdForKey,
+        stableMessageId: stableMessageIdRef.current,
+        currentMessageId: currentMessageId,
+        messageIdForKey,
         timestamp: Date.now()
       });
     };
-  }, [messageIdForKey]);
+  }, [messageIdForKey, currentMessageId]);
   
   console.log('[DEBUG] AssistantMessageComponent render', {
     hasConfig: !!actualConfig,
     configId: actualConfig ? Object.keys(actualConfig).join(',') : 'null',
-    messageId: messageIdForKey,
+    stableMessageId: stableMessageIdRef.current,
+    currentMessageId: currentMessageId,
+    messageIdForKey,
     contentId: content?.id,
     contentCreatedAt: content?.createdAt,
     timestamp: Date.now(),
@@ -780,7 +810,8 @@ const AssistantMessageComponent: FC = () => {
     }
     
     // Calculate new values - use current if available, otherwise preserve cached
-    const messageId = currentMessageId || stableValuesRef.current?.messageId || '';
+    // CRITICAL: Use stableMessageIdRef for messageId to prevent remounts
+    const messageId = stableMessageIdRef.current || currentMessageId || stableValuesRef.current?.messageId || '';
     const markdownText = currentText || stableValuesRef.current?.markdownText || '';
     
     // Calculate timestamp
@@ -923,12 +954,13 @@ const AssistantMessageComponent: FC = () => {
     return null;
   }
 
-  // CRITICAL: Use stable key based on messageId to prevent unmounting/remounting
-  // The library might be using this to determine component identity
-  const stableKey = messageId ? `assistant-msg-${String(messageId)}` : undefined;
+  // CRITICAL: Use the STABLE message ID for the key, not the current one
+  // This prevents unmounting/remounting when the library changes the message ID
+  const stableKey = messageIdForKey ? `assistant-msg-${String(messageIdForKey)}` : undefined;
   
   console.log('[DEBUG] AssistantMessageComponent returning JSX', {
-    messageId,
+    stableMessageId: messageIdForKey,
+    currentMessageId: messageId,
     stableKey,
     hasEverHadMessage,
     timestamp: Date.now()
