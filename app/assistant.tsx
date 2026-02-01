@@ -789,23 +789,73 @@ export function Assistant({
               });
               
               const updated = [...currentConversation];
+              
+              // CRITICAL: When isRunning becomes false, the runtime filters out optimistic messages
+              // This causes flickering because useMessage returns null/empty for optimistic messages
+              // Solution: Convert optimistic ID to real message ID when updating
+              // The component's stable ID ref will handle the ID change gracefully
+              const finalId = isOptimisticId ? messageId : targetId;
+              
+              console.log("🔵 [onNew] Converting optimistic ID to real ID", {
+                timestamp: Date.now(),
+                environment: process.env.NODE_ENV,
+                originalId: targetId,
+                isOptimisticId: isOptimisticId,
+                finalId: finalId,
+                realMessageId: messageId,
+                note: isOptimisticId 
+                  ? "Converting optimistic ID to real ID to prevent runtime filtering"
+                  : "Keeping original ID (not optimistic)"
+              });
+              
               updated[targetIndex] = {
                 role: assistantResponse.type,
                 content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-                id: targetId, // Keep the ID (might be optimistic) so component's stable ID matches
+                id: finalId, // Use real ID if it was optimistic, otherwise keep original
                 createdAt: new Date(),
               };
+              
+              // CRITICAL: Remove any OTHER optimistic messages (old ones from previous messages)
+              // This prevents multiple optimistic messages from accumulating
+              const cleaned = updated.filter((msg, idx) => {
+                if (idx === targetIndex) return true; // Keep the one we just updated
+                // Remove other optimistic assistant messages
+                if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+                  console.log("🔵 [onNew] Removing old optimistic message", {
+                    timestamp: Date.now(),
+                    oldOptimisticId: msg.id,
+                    finalId: finalId
+                  });
+                  return false;
+                }
+                return true;
+              });
+              
+              if (cleaned.length !== updated.length) {
+                console.log("🔵 [onNew] Cleaned old optimistic messages", {
+                  timestamp: Date.now(),
+                  beforeLength: updated.length,
+                  afterLength: cleaned.length,
+                  removedCount: updated.length - cleaned.length
+                });
+                return cleaned;
+              }
               
               console.log("🔵 [onNew] Message updated, verifying ID:", {
                 timestamp: Date.now(),
                 environment: process.env.NODE_ENV,
                 updatedMessageId: updated[targetIndex].id,
-                expectedId: targetId,
-                match: updated[targetIndex].id === targetId,
+                originalId: targetId,
+                finalId: finalId,
+                match: updated[targetIndex].id === finalId,
+                idChanged: updated[targetIndex].id !== targetId,
                 updatedContentLength: updated[targetIndex].content?.[0]?.text?.length || 0,
                 updatedMessageRole: updated[targetIndex].role,
                 updatedContentPreview: updated[targetIndex].content?.[0]?.text?.substring(0, 50) || '',
-                isOptimisticId: String(updated[targetIndex].id).startsWith("__optimistic__")
+                isOptimisticId: String(updated[targetIndex].id).startsWith("__optimistic__"),
+                note: updated[targetIndex].id !== targetId 
+                  ? "ID converted from optimistic to real - component's stable ref will handle it"
+                  : "ID unchanged"
               });
               
               console.log("🔵 [onNew] Returning updated conversation", {
@@ -839,13 +889,33 @@ export function Assistant({
             return [...currentConversation, assRes];
           });
           
-          // CRITICAL: Set isRunning to false in the same flushSync to ensure atomic update
-          console.log("🔵 [onNew] Setting isRunning to false inside flushSync", {
+          // CRITICAL: Don't set isRunning to false immediately
+          // The runtime filters optimistic messages when isRunning=false, causing flicker
+          // We'll set it to false after a delay to ensure the message update is fully rendered
+          // In production, React's batching is stricter, so we need explicit timing
+          console.log("🔵 [onNew] Delaying isRunning=false to prevent runtime filtering", {
             timestamp: Date.now(),
+            environment: process.env.NODE_ENV,
             isRunningBefore: true,
-            messageUpdateCommitted: true
+            messageUpdateCommitted: true,
+            note: "Will set isRunning=false after message update is rendered"
           });
-          setIsRunning(false);
+          
+          // Set isRunning to false after the message update is rendered
+          // This prevents the runtime from filtering the optimistic message before it's updated
+          if (process.env.NODE_ENV === 'production') {
+            // In production, use multiple requestAnimationFrame to ensure render completes
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                setIsRunning(false);
+              });
+            });
+          } else {
+            // In dev, single frame is usually enough
+            requestAnimationFrame(() => {
+              setIsRunning(false);
+            });
+          }
           
           console.log("🔵 [onNew] flushSync complete - both updates committed atomically", {
             timestamp: Date.now(),
