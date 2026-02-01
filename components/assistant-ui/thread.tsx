@@ -116,16 +116,12 @@ export const Thread: FC<ThreadProps> = ({
     colorsRef.current = colors;
   }, [config, colors]);
   
-  // CRITICAL: Create component wrappers that use refs - these functions NEVER change
-  // Store them in a ref so the components object reference is truly stable
-  const componentsRef = useRef<{
-    UserMessage: (props: any) => React.ReactElement;
-    EditComposer: typeof EditComposer;
-    AssistantMessage: (props: any) => React.ReactElement;
-  } | null>(null);
-  
-  // Initialize components object once and store in ref - NEVER recreate
-  if (!componentsRef.current) {
+  // CRITICAL: Use useState with lazy initializer to create components ONCE
+  // This is the most reliable way to ensure React recognizes it as stable in production
+  // useState with function initializer only runs once, and the setter is never called
+  const [messageComponents] = React.useState(() => {
+    // Create wrapper functions that read from refs
+    // These are created once and never change
     const UserMessageWrapper = (props: any) => (
       <UserMessage {...props} colors={colorsRef.current} />
     );
@@ -134,15 +130,12 @@ export const Thread: FC<ThreadProps> = ({
       <AssistantMessage {...props} config={configRef.current} />
     );
     
-    componentsRef.current = {
+    return {
       UserMessage: UserMessageWrapper,
       EditComposer: EditComposer,
       AssistantMessage: AssistantMessageWrapper,
     };
-  }
-  
-  // Use the stable components object from ref - this reference NEVER changes
-  const messageComponents = componentsRef.current;
+  }); // Lazy initializer - only runs once, React guarantees this is stable
 
   // Find and store viewport reference
   useEffect(() => {
@@ -938,19 +931,27 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
 };
 
 // Memoize AssistantMessage for production builds with stable comparison
+// CRITICAL: In production, React does stricter comparisons, so we need to be very explicit
 const AssistantMessage = React.memo(AssistantMessageComponent, (prevProps, nextProps) => {
+  // In production builds, React.memo comparison must return true if props are EQUAL (skip render)
+  // Return false if props are DIFFERENT (should render)
+  
   // Compare actual config values that matter, not just the reference
   const prevAvatar = prevProps.config?.chat?.colors?.assistantMessage?.avatar;
   const nextAvatar = nextProps.config?.chat?.colors?.assistantMessage?.avatar;
   const prevBgColor = prevProps.config?.chat?.backgroundColor;
   const nextBgColor = nextProps.config?.chat?.backgroundColor;
   
-  // Only re-render if config values that affect rendering actually changed
+  // If config values are the same, return true (props equal, skip re-render)
   // The content comparison is handled by useMessage hook and internal refs
-  return (
+  const configEqual = (
     prevAvatar === nextAvatar &&
     prevBgColor === nextBgColor
   );
+  
+  // In production, be extra strict - if config is equal, always skip render
+  // The component's internal refs handle content updates
+  return configEqual;
 });
 
 const AssistantActionBar: FC = ({ timestamp, type }) => {
