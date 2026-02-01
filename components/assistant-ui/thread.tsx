@@ -820,15 +820,14 @@ const AssistantMessageComponent: FC = () => {
       timestamp: Date.now()
     });
     
-    // CRITICAL: If we have cached content, ALWAYS check it first, regardless of initialization state
+    // CRITICAL: If we have cached values for this stable message, ALWAYS check it first
     // This prevents content from disappearing when useMessage returns different content
-    if (cachedValues && cachedValues.markdownText) {
+    // Check if currentMessageId matches our stable ID - if not, useMessage is returning wrong content
+    const isCurrentMessageForThisComponent = currentMessageId === stableId || currentMessageId === messageIdForKey;
+    
+    if (cachedValues && stableId === cachedValues.messageId) {
       const cachedMessageId = cachedValues.messageId;
-      const cachedText = cachedValues.markdownText;
-      
-      // CRITICAL: Check if currentMessageId matches our stable ID
-      // If not, useMessage is returning content for a different message - ignore it completely
-      const isCurrentMessageForThisComponent = currentMessageId === stableId || currentMessageId === messageIdForKey;
+      const cachedText = cachedValues.markdownText || '';
       
       // CRITICAL: Check if this is the SAME stable message (not current message ID)
       // If the stable ID matches our cached ID, this is the same message - preserve content
@@ -868,11 +867,19 @@ const AssistantMessageComponent: FC = () => {
             });
             prevContentRef.current = currentText;
             // Continue to calculate new values
+          } else if (!cachedText && currentText) {
+            // Cached is empty but we have current text - allow update (initial content arrival)
+            console.log('[DEBUG] Allowing update - cached empty, current has content', {
+              currentTextLength: currentText.length
+            });
+            prevContentRef.current = currentText;
+            // Continue to calculate new values
           } else if (!currentText || currentText === cachedText) {
             // Current is empty or unchanged - keep cached
             console.log('[DEBUG] Preserving cached content - empty or unchanged', {
               isEmpty: !currentText,
-              isUnchanged: currentText === cachedText
+              isUnchanged: currentText === cachedText,
+              cachedTextLength: cachedText.length
             });
             return cachedValues;
           } else {
