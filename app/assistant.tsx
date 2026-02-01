@@ -10,7 +10,7 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect,useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Thread,
 } from "@/components/assistant-ui/thread";
@@ -488,6 +488,9 @@ export function Assistant({
         
         // Update the optimistic message with the real response
         // The library creates optimistic messages with IDs starting with '__optimistic__'
+        // CRITICAL: Update message and set isRunning in the same batch to prevent runtime from creating new message
+        const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
+        
         setMessages((currentConversation) => {
           // Find the last optimistic assistant message (created by the library)
           let optimisticIndex = -1;
@@ -503,23 +506,28 @@ export function Assistant({
             // Update the optimistic message in place, keeping its optimistic ID
             // This ensures useMessage returns a message with the optimistic ID,
             // which matches what the component's stable ID reference expects
-            const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
+            const optimisticId = currentConversation[optimisticIndex].id;
             console.log("🚀 ~ Updating optimistic message with API response (keeping optimistic ID):", {
-              optimisticId: currentConversation[optimisticIndex].id,
-              realId: messageId
+              optimisticId: optimisticId,
+              realId: messageId,
+              willKeepId: optimisticId
             });
             const updated = [...currentConversation];
             updated[optimisticIndex] = {
               role: assistantResponse.type,
               content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-              id: currentConversation[optimisticIndex].id, // Keep the optimistic ID so component's stable ID matches
+              id: optimisticId, // Keep the optimistic ID so component's stable ID matches
               createdAt: new Date(),
             };
+            console.log("🚀 ~ Message updated, verifying ID:", {
+              updatedMessageId: updated[optimisticIndex].id,
+              expectedId: optimisticId,
+              match: updated[optimisticIndex].id === optimisticId
+            });
             return updated;
           }
           
           // No optimistic message found (shouldn't happen, but handle gracefully)
-          const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
           const assRes: ThreadMessageLike = {
             role: assistantResponse.type,
             content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
@@ -530,7 +538,13 @@ export function Assistant({
         });
         
         setlastMessageResponse(assistantResponse);
-        setIsRunning(false);
+        // CRITICAL: Set isRunning to false after the next frame to ensure message update is rendered first
+        // This prevents the runtime from seeing an inconsistent state and creating a new message
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setIsRunning(false);
+          });
+        });
       } catch (error) {
         setStateData({ error: error });
         console.error("Error communicating with backend:", error);
