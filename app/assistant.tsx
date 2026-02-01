@@ -346,13 +346,52 @@ export function Assistant({
     const unsubscribe = chatService.onMessage((incoming) => {
       console.log("🚀 ~ unsubscribe ~ incoming:", incoming);
       if (incoming?.type === "assistant" && incoming.text) {
+        const messageId = incoming.pk || `assistant-message-${Date.now()}`;
         const incRes: ThreadMessageLike = {
           role: incoming.type,
-          content: [{ text: incoming.text, type: "text" }],
-          id: incoming.pk,
+          content: [{ text: incoming.text, type: "text", created_at: incoming.created_at }],
+          id: messageId,
           createdAt: new Date(),
         };
-        setMessages((currentConversation) => [...currentConversation, incRes]);
+        // Update optimistic message or add new one
+        // The library creates optimistic messages with IDs starting with '__optimistic__'
+        // We should replace the last optimistic assistant message with the real one
+        setMessages((currentConversation) => {
+          // Check if message with this ID already exists (from API)
+          const exists = currentConversation.some(msg => msg.id === messageId);
+          if (exists) {
+            console.log("🚀 ~ Message already exists from API, skipping WebSocket duplicate:", messageId);
+            return currentConversation;
+          }
+          
+          // Find the last optimistic assistant message (created by the library)
+          let optimisticIndex = -1;
+          for (let i = currentConversation.length - 1; i >= 0; i--) {
+            const msg = currentConversation[i];
+            if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+              optimisticIndex = i;
+              break;
+            }
+          }
+          
+          if (optimisticIndex !== -1) {
+            // Update the optimistic message in place, keeping its ID but updating content
+            // This preserves the stable ID reference that the component already has
+            console.log("🚀 ~ Updating optimistic message with real content from WebSocket:", {
+              optimisticId: currentConversation[optimisticIndex].id,
+              realId: messageId
+            });
+            const updated = [...currentConversation];
+            updated[optimisticIndex] = {
+              ...incRes,
+              id: currentConversation[optimisticIndex].id, // Keep the optimistic ID
+            };
+            return updated;
+          }
+          
+          // No optimistic message found, just add the new one
+          return [...currentConversation, incRes];
+        });
       }
       if (incoming?.type === "event") {
         const action = incoming.event?.action;
@@ -434,13 +473,53 @@ export function Assistant({
           searchParams,
           ipAddress
         );
+        // Use the actual message ID from response (pk or id), or generate a unique one
+        const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
         const assRes: ThreadMessageLike = {
           role: assistantResponse.type,
           content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-          id: `user-message-${Date.now()}`,
+          id: messageId,
           createdAt: new Date(),
         };
-        setMessages((currentConversation) => [...currentConversation, assRes]);
+        // Update optimistic message or add new one
+        // The library creates optimistic messages with IDs starting with '__optimistic__'
+        // We should replace the last optimistic assistant message with the real one
+        setMessages((currentConversation) => {
+          // Check if message with this ID already exists (from WebSocket)
+          const exists = currentConversation.some(msg => msg.id === messageId);
+          if (exists) {
+            console.log("🚀 ~ Message already exists from WebSocket, skipping API duplicate:", messageId);
+            return currentConversation;
+          }
+          
+          // Find the last optimistic assistant message (created by the library)
+          let optimisticIndex = -1;
+          for (let i = currentConversation.length - 1; i >= 0; i--) {
+            const msg = currentConversation[i];
+            if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+              optimisticIndex = i;
+              break;
+            }
+          }
+          
+          if (optimisticIndex !== -1) {
+            // Update the optimistic message in place, keeping its ID but updating content
+            // This preserves the stable ID reference that the component already has
+            console.log("🚀 ~ Updating optimistic message with real content:", {
+              optimisticId: currentConversation[optimisticIndex].id,
+              realId: messageId
+            });
+            const updated = [...currentConversation];
+            updated[optimisticIndex] = {
+              ...assRes,
+              id: currentConversation[optimisticIndex].id, // Keep the optimistic ID
+            };
+            return updated;
+          }
+          
+          // No optimistic message found, just add the new one
+          return [...currentConversation, assRes];
+        });
         setlastMessageResponse(assistantResponse);
       } catch (error) {
         setStateData({ error: error });
