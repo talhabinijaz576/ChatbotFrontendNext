@@ -1073,9 +1073,34 @@ const AssistantMessageComponent: FC = () => {
   // This ensures React sees the same reference even when useMemo recalculates
   const lastRenderedContentRef = React.useRef<React.ReactNode | null>(null);
   
+  // CRITICAL: Check cache FIRST and return immediately if we have cached content
+  // This prevents the useMemo from running at all when we have cached content
+  let cachedContentDirect: React.ReactNode | null = null;
+  if (cachedContentForStableId) {
+    const cachedMessageId = cachedContentForStableId.messageId;
+    const cachedText = cachedContentForStableId.markdownText || '';
+    const comparisonId = messageIdForKey;
+    
+    // If this cached content belongs to our stable message ID and has text, use it directly
+    if (cachedMessageId === comparisonId && cachedText && cachedText.length > 0) {
+      // Use cached content directly - this prevents useMemo from running
+      if (lastRenderedContentRef.current !== cachedContentForStableId.content) {
+        console.log('[DEBUG] messageContent - using cached directly (bypassing useMemo)', {
+          cachedMessageId,
+          stableId: messageIdForKey,
+          cachedTextLength: cachedText.length
+        });
+        lastRenderedContentRef.current = cachedContentForStableId.content;
+      }
+      // Use the ref to ensure we return the same reference
+      cachedContentDirect = lastRenderedContentRef.current;
+    }
+  }
+  
+  // Only create useMemo if we don't have cached content (new message or loading)
   // Memoize the message content to prevent re-renders when content hasn't changed
   // CRITICAL: Once we render content, NEVER recalculate it unless content actually increases (streaming)
-  const messageContent = React.useMemo(() => {
+  const messageContentMemo = React.useMemo(() => {
     // CRITICAL: If we have cached content for this stable message ID, return it IMMEDIATELY
     // This prevents any recalculation when dependencies change for other messages
     if (cachedContentForStableId) {
@@ -1184,6 +1209,10 @@ const AssistantMessageComponent: FC = () => {
     getCachedRenderedContent,
     setCachedRenderedContent
   ]);
+  
+  // Use cached content if available, otherwise use memoized content
+  // CRITICAL: This prevents useMemo from running when we have cached content
+  const messageContent: React.ReactNode = cachedContentDirect ?? messageContentMemo;
   
   // CRITICAL: Always try to get cached content using stable message ID
   // This ensures we can read cached content even when messageId from stableValues is not yet available
