@@ -116,23 +116,33 @@ export const Thread: FC<ThreadProps> = ({
     colorsRef.current = colors;
   }, [config, colors]);
   
-  // CRITICAL: Use useCallback with refs to create truly stable component functions
-  // This prevents the avatar and entire message from reloading when new messages are sent
-  const UserMessageWrapper = React.useCallback((props: any) => (
-    <UserMessage {...props} colors={colorsRef.current} />
-  ), []); // Empty deps - always use latest from ref
+  // CRITICAL: Create component wrappers that use refs - these functions NEVER change
+  // Store them in a ref so the components object reference is truly stable
+  const componentsRef = useRef<{
+    UserMessage: (props: any) => React.ReactElement;
+    EditComposer: typeof EditComposer;
+    AssistantMessage: (props: any) => React.ReactElement;
+  } | null>(null);
   
-  const AssistantMessageWrapper = React.useCallback((props: any) => (
-    <AssistantMessage {...props} config={configRef.current} />
-  ), []); // Empty deps - always use latest from ref
+  // Initialize components object once and store in ref - NEVER recreate
+  if (!componentsRef.current) {
+    const UserMessageWrapper = (props: any) => (
+      <UserMessage {...props} colors={colorsRef.current} />
+    );
+    
+    const AssistantMessageWrapper = (props: any) => (
+      <AssistantMessage {...props} config={configRef.current} />
+    );
+    
+    componentsRef.current = {
+      UserMessage: UserMessageWrapper,
+      EditComposer: EditComposer,
+      AssistantMessage: AssistantMessageWrapper,
+    };
+  }
   
-  // Memoize the components object - this will NEVER change after first render
-  // Components use refs to access latest config/colors, so they don't need to recreate
-  const messageComponents = React.useMemo(() => ({
-    UserMessage: UserMessageWrapper,
-    EditComposer: EditComposer,
-    AssistantMessage: AssistantMessageWrapper,
-  }), []); // Empty deps - create once and never change
+  // Use the stable components object from ref - this reference NEVER changes
+  const messageComponents = componentsRef.current;
 
   // Find and store viewport reference
   useEffect(() => {
