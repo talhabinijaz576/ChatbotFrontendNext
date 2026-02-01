@@ -708,56 +708,75 @@ export function Assistant({
               }))
             });
             
-            // Find the last optimistic assistant message (we manually added it when isRunning became true)
-            let optimisticIndex = -1;
+            // CRITICAL: The runtime creates optimistic messages internally (not in our state)
+            // The component sees them via useMessage, but our state array doesn't have them
+            // Strategy: Replace the LAST assistant message (which should be the runtime's optimistic one)
+            // This ensures we update the message the component is locked onto
+            
+            // Find the last assistant message (might be optimistic, but we can't tell from our state)
+            let lastAssistantIndex = -1;
             for (let i = currentConversation.length - 1; i >= 0; i--) {
-              const msg = currentConversation[i];
-              if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                optimisticIndex = i;
+              if (currentConversation[i].role === "assistant") {
+                lastAssistantIndex = i;
                 break;
               }
             }
             
-            console.log("🔵 [onNew] Searching for optimistic message we added", {
+            console.log("🔵 [onNew] Searching for last assistant message to replace", {
               timestamp: Date.now(),
-              optimisticIndex,
-              foundOptimistic: optimisticIndex !== -1,
-              optimisticId: optimisticIndex !== -1 ? currentConversation[optimisticIndex].id : null
+              environment: process.env.NODE_ENV,
+              lastAssistantIndex,
+              foundLastAssistant: lastAssistantIndex !== -1,
+              lastAssistantId: lastAssistantIndex !== -1 ? currentConversation[lastAssistantIndex].id : null,
+              lastAssistantIsOptimistic: lastAssistantIndex !== -1 ? String(currentConversation[lastAssistantIndex].id).startsWith("__optimistic__") : false,
+              isRunningWasTrue: true,
+              note: "Runtime creates optimistic messages internally - not in our state. Replace last assistant message to update it."
             });
             
-            if (optimisticIndex !== -1) {
-              // Update the optimistic message in place, keeping its optimistic ID
-              // This ensures useMessage returns a message with the optimistic ID,
+            // If we found a last assistant message and isRunning was true, replace it
+            // This handles the case where the runtime created an optimistic message
+            // We'll keep the ID of the last assistant message (which might be optimistic)
+            if (lastAssistantIndex !== -1) {
+              // Update the last assistant message in place, keeping its ID
+              // This ensures useMessage returns a message with the same ID,
               // which matches what the component's stable ID reference expects
-              const optimisticId = currentConversation[optimisticIndex].id;
-              const oldContent = currentConversation[optimisticIndex].content?.[0]?.text || '';
+              const lastAssistantId = currentConversation[lastAssistantIndex].id;
+              const oldContent = currentConversation[lastAssistantIndex].content?.[0]?.text || '';
+              const isOptimisticId = String(lastAssistantId).startsWith("__optimistic__");
               
-              console.log("🔵 [onNew] Updating optimistic message with API response (keeping optimistic ID):", {
+              console.log("🔵 [onNew] Replacing last assistant message with API response (keeping its ID):", {
                 timestamp: Date.now(),
-                optimisticId: optimisticId,
+                environment: process.env.NODE_ENV,
+                lastAssistantId: lastAssistantId,
+                isOptimisticId: isOptimisticId,
                 realId: messageId,
-                willKeepId: optimisticId,
+                willKeepId: lastAssistantId,
                 oldContentLength: oldContent.length,
                 newContentLength: assistantResponse.text?.length || 0,
-                contentChanged: oldContent !== assistantResponse.text
+                contentChanged: oldContent !== assistantResponse.text,
+                note: isOptimisticId 
+                  ? "Keeping optimistic ID - component is locked onto this"
+                  : "Keeping last assistant ID - will update in place"
               });
               
               const updated = [...currentConversation];
-              updated[optimisticIndex] = {
+              updated[lastAssistantIndex] = {
                 role: assistantResponse.type,
                 content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-                id: optimisticId, // Keep the optimistic ID so component's stable ID matches
+                id: lastAssistantId, // Keep the ID (might be optimistic) so component's stable ID matches
                 createdAt: new Date(),
               };
               
               console.log("🔵 [onNew] Message updated, verifying ID:", {
                 timestamp: Date.now(),
-                updatedMessageId: updated[optimisticIndex].id,
-                expectedId: optimisticId,
-                match: updated[optimisticIndex].id === optimisticId,
-                updatedContentLength: updated[optimisticIndex].content?.[0]?.text?.length || 0,
-                updatedMessageRole: updated[optimisticIndex].role,
-                updatedContentPreview: updated[optimisticIndex].content?.[0]?.text?.substring(0, 50) || ''
+                environment: process.env.NODE_ENV,
+                updatedMessageId: updated[lastAssistantIndex].id,
+                expectedId: lastAssistantId,
+                match: updated[lastAssistantIndex].id === lastAssistantId,
+                updatedContentLength: updated[lastAssistantIndex].content?.[0]?.text?.length || 0,
+                updatedMessageRole: updated[lastAssistantIndex].role,
+                updatedContentPreview: updated[lastAssistantIndex].content?.[0]?.text?.substring(0, 50) || '',
+                isOptimisticId: String(updated[lastAssistantIndex].id).startsWith("__optimistic__")
               });
               
               console.log("🔵 [onNew] Returning updated conversation", {
