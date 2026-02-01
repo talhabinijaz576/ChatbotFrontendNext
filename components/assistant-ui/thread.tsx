@@ -1355,11 +1355,23 @@ const AssistantMessageComponent: FC = () => {
   // CRITICAL: Always render content when available, regardless of isRunning state
   // This prevents flicker when isRunning changes - the content stays mounted
   // Only show loading dots when isRunning is true AND content is empty
-  // CRITICAL: Check if displayContent has actual content (not just non-null)
-  // For strings, check if length > 0. For ReactNodes, check if not empty string
-  const hasActualContent = displayContent !== null && 
-                           displayContent !== undefined && 
-                           (typeof displayContent === 'string' ? displayContent.trim().length > 0 : displayContent !== '');
+  // CRITICAL: Check if we have actual text content, not just if displayContent exists
+  // For new messages, displayContent might be a ReactNode that exists but is empty
+  // We need to check the underlying text content (markdownText) to know if we have real content
+  const hasActualContent = React.useMemo(() => {
+    // First check if we have text content in the message
+    const hasText = markdownText && markdownText.trim().length > 0;
+    
+    // Also check raw content from the message object
+    const hasRawText = content?.content && (
+      (typeof content.content === 'string' && content.content.trim().length > 0) ||
+      (Array.isArray(content.content) && content.content[0]?.text && content.content[0].text.trim().length > 0)
+    );
+    
+    // Only consider it has content if we have actual text, not just a non-null displayContent
+    return hasText || hasRawText;
+  }, [markdownText, content]);
+  
   const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
   
   return (
