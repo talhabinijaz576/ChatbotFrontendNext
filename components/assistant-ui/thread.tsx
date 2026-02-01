@@ -1094,17 +1094,18 @@ const AssistantMessageComponent: FC = () => {
       );
     }
     
-    // Cache the rendered content - ALWAYS cache if we have content
+    // CRITICAL: Cache the rendered content in module-level cache - ALWAYS cache if we have content
     if (content) {
-      lastRenderedRef.current = {
+      const renderedContent = {
         markdownText,
         messageId,
         content
       };
+      setCachedRenderedContent(renderedContent);
     }
     
     return content;
-  }, [markdownText, messageId, timestamp, isEmpty, hasValidMessage]);
+  }, [markdownText, messageId, timestamp, isEmpty, hasValidMessage, messageIdForKey, getCachedRenderedContent, setCachedRenderedContent]);
   
   // CRITICAL: Always try to get cached content using stable message ID
   // This ensures we can read cached content even when messageId from stableValues is not yet available
