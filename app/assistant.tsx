@@ -357,10 +357,19 @@ export function Assistant({
         // The library creates optimistic messages with IDs starting with '__optimistic__'
         // We should replace the last optimistic assistant message with the real one
         setMessages((currentConversation) => {
-          // Check if message with this ID already exists (from API)
-          const exists = currentConversation.some(msg => msg.id === messageId);
+          // Check if message was already handled by API response
+          // API response updates optimistic message, so if there's no optimistic message,
+          // it means API already handled it
+          const exists = currentConversation.some(msg => {
+            // Check by content match (API response already updated the optimistic message)
+            return msg.role === "assistant" && 
+                   Array.isArray(msg.content) && 
+                   msg.content[0]?.text === incoming.text &&
+                   !String(msg.id).startsWith("__optimistic__");
+          });
           if (exists) {
-            console.log("🚀 ~ Message already exists from API, skipping WebSocket duplicate:", messageId);
+            console.log("🚀 ~ Message already handled by API, skipping WebSocket duplicate:", messageId);
+            setIsRunning(false);
             return currentConversation;
           }
           
@@ -386,11 +395,13 @@ export function Assistant({
               ...incRes,
               id: currentConversation[optimisticIndex].id, // Keep the optimistic ID
             };
+            setIsRunning(false);
             return updated;
           }
           
-          // No optimistic message found, just add the new one
-          return [...currentConversation, incRes];
+          // No optimistic message found - API already handled it, just update isRunning
+          setIsRunning(false);
+          return currentConversation;
         });
       }
       if (incoming?.type === "event") {
@@ -466,6 +477,7 @@ export function Assistant({
       updateTitleIfNeeded(text);
       setIsRunning(true);
       try {
+        // Send message - response comes from API, not WebSocket
         const assistantResponse = await chatService.sendMessage(
           userAppendMessage,
           userId,
@@ -473,25 +485,10 @@ export function Assistant({
           searchParams,
           ipAddress
         );
-        // Use the actual message ID from response (pk or id), or generate a unique one
-        const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
-        const assRes: ThreadMessageLike = {
-          role: assistantResponse.type,
-          content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-          id: messageId,
-          createdAt: new Date(),
-        };
-        // Update optimistic message or add new one
+        
+        // Update the optimistic message with the real response
         // The library creates optimistic messages with IDs starting with '__optimistic__'
-        // We should replace the last optimistic assistant message with the real one
         setMessages((currentConversation) => {
-          // Check if message with this ID already exists (from WebSocket)
-          const exists = currentConversation.some(msg => msg.id === messageId);
-          if (exists) {
-            console.log("🚀 ~ Message already exists from WebSocket, skipping API duplicate:", messageId);
-            return currentConversation;
-          }
-          
           // Find the last optimistic assistant message (created by the library)
           let optimisticIndex = -1;
           for (let i = currentConversation.length - 1; i >= 0; i--) {
@@ -505,26 +502,38 @@ export function Assistant({
           if (optimisticIndex !== -1) {
             // Update the optimistic message in place, keeping its ID but updating content
             // This preserves the stable ID reference that the component already has
-            console.log("🚀 ~ Updating optimistic message with real content:", {
+            const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
+            console.log("🚀 ~ Updating optimistic message with API response:", {
               optimisticId: currentConversation[optimisticIndex].id,
               realId: messageId
             });
             const updated = [...currentConversation];
             updated[optimisticIndex] = {
-              ...assRes,
+              role: assistantResponse.type,
+              content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
               id: currentConversation[optimisticIndex].id, // Keep the optimistic ID
+              createdAt: new Date(),
             };
             return updated;
           }
           
-          // No optimistic message found, just add the new one
+          // No optimistic message found (shouldn't happen, but handle gracefully)
+          const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
+          const assRes: ThreadMessageLike = {
+            role: assistantResponse.type,
+            content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
+            id: messageId,
+            createdAt: new Date(),
+          };
           return [...currentConversation, assRes];
         });
+        
         setlastMessageResponse(assistantResponse);
+        setIsRunning(false);
       } catch (error) {
         setStateData({ error: error });
         console.error("Error communicating with backend:", error);
-      } finally {
+        // On error, stop the running state so optimistic message is removed
         setIsRunning(false);
       }
     },
