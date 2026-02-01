@@ -116,26 +116,22 @@ export const Thread: FC<ThreadProps> = ({
     colorsRef.current = colors;
   }, [config, colors]);
   
-  // CRITICAL: Use useState with lazy initializer to create components ONCE
-  // This is the most reliable way to ensure React recognizes it as stable in production
-  // useState with function initializer only runs once, and the setter is never called
+  // CRITICAL: Update global config ref so AssistantMessage can read it
+  globalConfigRef.current = config;
+  
+  // CRITICAL: Create components object ONCE using useState lazy initializer
+  // AssistantMessage reads from global ref, not props - prevents remounts
   const [messageComponents] = React.useState(() => {
-    // Create wrapper functions that read from refs
-    // These are created once and never change
-    const UserMessageWrapper = (props: any) => (
-      <UserMessage {...props} colors={colorsRef.current} />
-    );
-    
-    const AssistantMessageWrapper = (props: any) => (
-      <AssistantMessage {...props} config={configRef.current} />
-    );
-    
     return {
-      UserMessage: UserMessageWrapper,
+      UserMessage: (props: any) => (
+        <UserMessage {...props} colors={colorsRef.current} />
+      ),
       EditComposer: EditComposer,
-      AssistantMessage: AssistantMessageWrapper,
+      AssistantMessage: () => (
+        <AssistantMessage /> // No props - reads from global ref
+      ),
     };
-  }); // Lazy initializer - only runs once, React guarantees this is stable
+  }); // Lazy initializer - only runs once
 
   // Find and store viewport reference
   useEffect(() => {
@@ -621,14 +617,26 @@ const EditComposer: FC = () => {
   );
 };
 
-const AssistantMessageComponent: FC<{config: any}> = ({config}) => {
+// CRITICAL: Store config in a module-level ref so component can read it without props
+// This prevents prop changes from causing remounts
+let globalConfigRef: { current: any } = { current: null };
+
+const AssistantMessageComponent: FC<{config?: any}> = ({config}) => {
+  // Update global ref when config changes
+  if (config) {
+    globalConfigRef.current = config;
+  }
+  
+  // Read from global ref instead of prop to prevent remounts
+  const actualConfig = config || globalConfigRef.current;
+  
   const content = useMessage((m) => {
     return m;
   });
   
-  // Memoize config values that are actually used to prevent re-renders
-  const avatarUrl = React.useMemo(() => config?.chat?.colors?.assistantMessage?.avatar ?? "", [config?.chat?.colors?.assistantMessage?.avatar]);
-  const backgroundColor = React.useMemo(() => config?.chat?.backgroundColor ?? "bg-blue-950", [config?.chat?.backgroundColor]);
+  // Extract config values directly - no memoization needed, just read from ref
+  const avatarUrl = actualConfig?.chat?.colors?.assistantMessage?.avatar ?? "";
+  const backgroundColor = actualConfig?.chat?.backgroundColor ?? "bg-blue-950";
   
   // Use refs to track previous values and prevent unnecessary re-renders
   const prevContentRef = useRef<string>('');
