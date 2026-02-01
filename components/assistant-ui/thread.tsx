@@ -133,35 +133,8 @@ export const Thread: FC<ThreadProps> = ({
   globalConfigRef.current = config;
   globalColorsRef.current = colors;
   
-  // Log when config/colors change
-  if (prevConfig !== config || prevColors !== colors) {
-    console.log('[DEBUG] Thread render - config/colors updated', {
-      configChanged: prevConfig !== config,
-      colorsChanged: prevColors !== colors,
-      configId: config ? Object.keys(config).join(',') : 'null',
-      timestamp: Date.now()
-    });
-  }
-  
   // Use the module-level components object - it NEVER changes
   const messageComponents = MESSAGE_COMPONENTS;
-  
-  // Log if components object reference changes (should never happen)
-  if (messageComponents !== MESSAGE_COMPONENTS) {
-    console.error('[DEBUG] CRITICAL: messageComponents reference changed!', {
-      messageComponents,
-      MESSAGE_COMPONENTS,
-      timestamp: Date.now()
-    });
-  }
-  
-  console.log('[DEBUG] Thread render', {
-    messageComponentsObjectId: messageComponents,
-    MESSAGE_COMPONENTSObjectId: MESSAGE_COMPONENTS,
-    areSame: messageComponents === MESSAGE_COMPONENTS,
-    AssistantMessageFunction: messageComponents.AssistantMessage,
-    timestamp: Date.now()
-  });
 
   // Find and store viewport reference
   useEffect(() => {
@@ -468,8 +441,6 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
     e.preventDefault();
     setStateData({ suggestedMessages: [] });
 
-    console.log("🚀 ~ handleSuggestionClick ~ message:", message);
-
     onNew({
       content: [{ type: "text", text: message.message }],
       attachments: [],
@@ -652,28 +623,13 @@ const EditComposer: FC = () => {
 // React will see this as a stable reference in production builds
 const MESSAGE_COMPONENTS = {
   UserMessage: (props: any) => {
-    console.log('[DEBUG] UserMessage wrapper called', { 
-      colorsRef: globalColorsRef.current,
-      timestamp: Date.now() 
-    });
     return <UserMessage {...props} colors={globalColorsRef.current} />;
   },
   EditComposer: EditComposer,
   AssistantMessage: () => {
-    console.log('[DEBUG] AssistantMessage wrapper called', { 
-      configRef: globalConfigRef.current,
-      timestamp: Date.now(),
-      stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
-    });
     return <AssistantMessage />; // Reads from globalConfigRef
   },
 };
-
-console.log('[DEBUG] MESSAGE_COMPONENTS created at module load', {
-  timestamp: Date.now(),
-  objectId: MESSAGE_COMPONENTS,
-  AssistantMessageFunction: MESSAGE_COMPONENTS.AssistantMessage
-});
 
 const AssistantMessageComponent: FC = () => {
   // Read from module-level ref - no props means React never sees it as "new"
@@ -692,19 +648,6 @@ const AssistantMessageComponent: FC = () => {
   // After that, NEVER change it, even if the library gives us a different ID
   if (!stableMessageIdRef.current && currentMessageId) {
     stableMessageIdRef.current = currentMessageId;
-    console.log('[DEBUG] AssistantMessageComponent - Setting stable message ID', {
-      stableId: stableMessageIdRef.current,
-      currentId: currentMessageId,
-      timestamp: Date.now()
-    });
-  } else if (stableMessageIdRef.current && currentMessageId && currentMessageId !== stableMessageIdRef.current) {
-    // Message ID changed - but we already have a stable one, NEVER change it
-    console.log('[DEBUG] AssistantMessageComponent - Message ID changed but keeping stable ID', {
-      stableId: stableMessageIdRef.current,
-      newId: currentMessageId,
-      timestamp: Date.now(),
-      action: 'KEEPING_STABLE_ID'
-    });
   }
   
   // Use the stable message ID for the key - this NEVER changes once set
@@ -713,46 +656,12 @@ const AssistantMessageComponent: FC = () => {
   // Track mount/unmount - ONLY depend on stable ID, not current ID
   // This prevents the effect from running when the library changes the message ID
   React.useEffect(() => {
-    console.log('🔴 [AssistantMessage] Component MOUNTED', {
-      timestamp: Date.now(),
-      stableMessageId: stableMessageIdRef.current,
-      currentMessageId: currentMessageId,
-      messageIdForKey,
-      contentId: content?.id,
-      contentTextLength: typeof content?.content === 'string' 
-        ? content.content.length 
-        : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
-        ? (content.content[0].text || '').length
-        : 0,
-      hasContent: !!content?.content,
-      stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
-    });
     return () => {
-      console.log('🔴 [AssistantMessage] Component UNMOUNTED', {
-        timestamp: Date.now(),
-        stableMessageId: stableMessageIdRef.current,
-        currentMessageId: currentMessageId,
-        messageIdForKey,
-        contentId: content?.id,
-        unmountReason: 'component unmounting',
-        stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
-      });
+      // Component unmounted
     };
     // CRITICAL: Only depend on stable ID - never on current ID
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageIdForKey]);
-  
-  console.log('[DEBUG] AssistantMessageComponent render', {
-    hasConfig: !!actualConfig,
-    configId: actualConfig ? Object.keys(actualConfig).join(',') : 'null',
-    stableMessageId: stableMessageIdRef.current,
-    currentMessageId: currentMessageId,
-    messageIdForKey,
-    contentId: content?.id,
-    contentCreatedAt: content?.createdAt,
-    timestamp: Date.now(),
-    componentInstance: 'AssistantMessageComponent'
-  });
   
   // Extract config values directly - no memoization needed, just read from ref
   const avatarUrl = actualConfig?.chat?.colors?.assistantMessage?.avatar ?? "";
@@ -766,14 +675,6 @@ const AssistantMessageComponent: FC = () => {
   // This persists across component instances
   const getCachedValues = React.useCallback(() => {
     const cached = messageContentCache.get(messageIdForKey);
-    console.log('[DEBUG] getCachedValues', {
-      messageIdForKey,
-      hasCached: !!cached,
-      cachedMessageId: cached?.messageId,
-      cachedTextLength: cached?.markdownText?.length || 0,
-      cacheSize: messageContentCache.size,
-      allCacheKeys: Array.from(messageContentCache.keys())
-    });
     if (cached) {
       return {
         messageId: cached.messageId,
@@ -818,19 +719,6 @@ const AssistantMessageComponent: FC = () => {
     // This ensures we always preserve content for the same message, even if useMessage returns different IDs
     const stableId = messageIdForKey || cachedValues?.messageId || '';
     
-    console.log('[DEBUG] stableValues useMemo', {
-      stableId,
-      messageIdForKey,
-      currentMessageId,
-      currentTextLength: currentText.length,
-      currentTextPreview: currentText.substring(0, 50),
-      isInitialized,
-      hasCached: !!cachedValues,
-      cachedMessageId: cachedValues?.messageId,
-      cachedTextLength: cachedValues?.markdownText?.length || 0,
-      timestamp: Date.now()
-    });
-    
     // CRITICAL: If we have cached values for this stable message, ALWAYS check it first
     // This prevents content from disappearing when useMessage returns different content
     // Check if currentMessageId matches our stable ID - if not, useMessage is returning wrong content
@@ -843,19 +731,6 @@ const AssistantMessageComponent: FC = () => {
       // CRITICAL: Check if this is the SAME stable message (not current message ID)
       // If the stable ID matches our cached ID, this is the same message - preserve content
       if (stableId === cachedMessageId) {
-          console.log('[DEBUG] Same stable message - checking if update needed', {
-            stableId,
-            cachedMessageId,
-            currentMessageId,
-            isCurrentMessageForThisComponent,
-            currentTextLength: currentText.length,
-            cachedTextLength: cachedText.length,
-            textIncreased: currentText && currentText.length > cachedText.length,
-            textUnchanged: currentText === cachedText,
-            isEmpty: !currentText,
-            action: isCurrentMessageForThisComponent && currentText && currentText.length > cachedText.length ? 'UPDATE_STREAMING' : 'PRESERVE_CACHED'
-          });
-          
           // CRITICAL: Only use currentText if it's from the SAME message
           // If useMessage returned content for a different message, ignore it completely
           // EXCEPT: If cached text is empty and current text exists, allow the update
@@ -864,21 +739,10 @@ const AssistantMessageComponent: FC = () => {
             // useMessage returned content for a different message
             // But if cached is empty and current has content, allow update (content might be correct even if ID is wrong)
             if (!cachedText && currentText) {
-              console.log('[DEBUG] Allowing update - cached empty, current has content (ID mismatch but content exists)', {
-                stableId,
-                currentMessageId,
-                currentTextLength: currentText.length
-              });
               prevContentRef.current = currentText;
               // Continue to calculate new values
             } else {
               // Cached has content or current is empty - preserve cached
-              console.log('[DEBUG] Preserving cached content - currentMessageId does not match stableId', {
-                stableId,
-                currentMessageId,
-                cachedTextLength: cachedText.length,
-                currentTextLength: currentText.length
-              });
               return cachedValues;
             }
           }
@@ -886,45 +750,21 @@ const AssistantMessageComponent: FC = () => {
           // Same stable message AND currentText is from the same message - only update if text increased (streaming)
           if (currentText && currentText.length > cachedText.length) {
             // Text increased - this is a streaming update, allow it
-            console.log('[DEBUG] Text increased - allowing streaming update', {
-              oldLength: cachedText.length,
-              newLength: currentText.length,
-              diff: currentText.length - cachedText.length
-            });
             prevContentRef.current = currentText;
             // Continue to calculate new values
           } else if (!cachedText && currentText) {
             // Cached is empty but we have current text - allow update (initial content arrival)
-            console.log('[DEBUG] Allowing update - cached empty, current has content', {
-              currentTextLength: currentText.length
-            });
             prevContentRef.current = currentText;
             // Continue to calculate new values
           } else if (!currentText || currentText === cachedText) {
             // Current is empty or unchanged - keep cached
-            console.log('[DEBUG] Preserving cached content - empty or unchanged', {
-              isEmpty: !currentText,
-              isUnchanged: currentText === cachedText,
-              cachedTextLength: cachedText.length
-            });
             return cachedValues;
           } else {
             // Text changed but not increased - ignore, keep cached
-            console.log('[DEBUG] Preserving cached content - text changed but not increased', {
-              currentLength: currentText.length,
-              cachedLength: cachedText.length
-            });
             return cachedValues;
           }
         } else if (stableId && stableId !== cachedMessageId) {
           // Different stable message - this is a genuinely new message
-          console.log('[DEBUG] Different stable message - new message detected', {
-            stableId,
-            cachedMessageId,
-            hasCurrentText: !!currentText,
-            currentTextLength: currentText?.length || 0,
-            action: currentText && stableId ? 'INITIALIZE_NEW' : 'PRESERVE_OLD'
-          });
           
           // Only update if we have new content
           if (currentText && stableId) {
@@ -932,34 +772,18 @@ const AssistantMessageComponent: FC = () => {
             prevMessageIdRef.current = stableId;
           } else {
             // No new content - keep cached (this shouldn't happen for new messages, but be safe)
-            console.log('[DEBUG] No new content for new message - preserving old cached', {
-              hasCurrentText: !!currentText,
-              hasStableId: !!stableId
-            });
             return cachedValues;
           }
         }
     } else {
       // Not initialized yet - initialize if we have content
-      console.log('[DEBUG] Not initialized - initializing if content available', {
-        hasCurrentText: !!currentText,
-        hasStableId: !!stableId,
-        currentTextLength: currentText?.length || 0
-      });
       
       if (currentText && stableId) {
         prevContentRef.current = currentText;
         prevMessageIdRef.current = stableId;
-        console.log('[DEBUG] Initialized with stable ID and text', {
-          stableId,
-          textLength: currentText.length
-        });
       } else if (currentText) {
         // Have text but no stableId - still initialize
         prevContentRef.current = currentText;
-        console.log('[DEBUG] Initialized with text only (no stable ID)', {
-          textLength: currentText.length
-        });
       }
     }
     
@@ -996,14 +820,6 @@ const AssistantMessageComponent: FC = () => {
     
     // CRITICAL: Save to module-level cache so it persists across component instances
     setCachedValues(newStableValues);
-    
-    console.log('[DEBUG] Saved to module-level cache', {
-      stableId: messageIdForKey,
-      messageId,
-      markdownTextLength: markdownText.length,
-      isInitialized: newStableValues.isInitialized,
-      cacheSize: messageContentCache.size
-    });
     
     return newStableValues;
   }, [
@@ -1046,14 +862,6 @@ const AssistantMessageComponent: FC = () => {
       return null;
     }
     const cached = renderedContentCache.get(cacheKey);
-    console.log('[DEBUG] getCachedRenderedContent', {
-      cacheKey,
-      messageIdForKey,
-      hasCached: !!cached,
-      cachedMessageId: cached?.messageId,
-      cacheSize: renderedContentCache.size,
-      allCacheKeys: Array.from(renderedContentCache.keys())
-    });
     return cached || null;
   }, [messageIdForKey]); // CRITICAL: Only depend on stable ID, not messageId
   
@@ -1061,12 +869,6 @@ const AssistantMessageComponent: FC = () => {
     // Use stable message ID as the cache key
     const cacheKey = messageIdForKey || content.messageId;
     renderedContentCache.set(cacheKey, content);
-    console.log('[DEBUG] Saved rendered content to module-level cache', {
-      cacheKey,
-      messageId: content.messageId,
-      markdownTextLength: content.markdownText.length,
-      cacheSize: renderedContentCache.size
-    });
   }, [messageIdForKey]);
   
   // For backward compatibility, create a ref-like object that reads from cache
@@ -1096,11 +898,6 @@ const AssistantMessageComponent: FC = () => {
     if (cachedMessageId === comparisonId && cachedText && cachedText.length > 0) {
       // Use cached content directly - this prevents useMemo from running
       if (lastRenderedContentRef.current !== cachedContentForStableId.content) {
-        console.log('[DEBUG] messageContent - using cached directly (bypassing useMemo)', {
-          cachedMessageId,
-          stableId: messageIdForKey,
-          cachedTextLength: cachedText.length
-        });
         lastRenderedContentRef.current = cachedContentForStableId.content;
       }
       // Use the ref to ensure we return the same reference
@@ -1122,11 +919,6 @@ const AssistantMessageComponent: FC = () => {
       // If this cached content belongs to our stable message ID, use it directly
       if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
         if (cachedText && cachedText.length > 0) {
-          console.log('[DEBUG] messageContent - returning cached immediately (stable ID match)', {
-            cachedMessageId,
-            stableId: messageIdForKey,
-            cachedTextLength: cachedText.length
-          });
           lastRenderedContentRef.current = cachedContentForStableId.content;
           return cachedContentForStableId.content;
         }
@@ -1152,11 +944,6 @@ const AssistantMessageComponent: FC = () => {
       const comparisonId = messageIdForKey || messageId;
       // Only use cached if it matches our stable ID
       if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
-        console.log('[DEBUG] messageContent - using cached (has text, stable ID match)', {
-          cachedMessageId,
-          stableId: messageIdForKey,
-          cachedTextLength: cachedContentForCheck.markdownText.length
-        });
         lastRenderedContentRef.current = cachedContentForCheck.content;
         return cachedContentForCheck.content;
       }
@@ -1170,11 +957,6 @@ const AssistantMessageComponent: FC = () => {
         return null;
       } else {
         // No message yet - return cached if available, otherwise null
-        console.log('[DEBUG] messageContent - empty, returning cached if available', {
-          hasCached: !!cachedContentForCheck,
-          cachedMessageId: cachedContentForCheck?.messageId,
-          cachedHasText
-        });
         const result = cachedContentForCheck?.content ?? null;
         lastRenderedContentRef.current = result;
         return result;
@@ -1243,10 +1025,6 @@ const AssistantMessageComponent: FC = () => {
     
     // If message ID changed, reset the ref (new message)
     if (lastValidMessageIdRef.current && lastValidMessageIdRef.current !== currentMessageId) {
-      console.log('[DEBUG] displayContent - message ID changed, resetting ref', {
-        oldId: lastValidMessageIdRef.current,
-        newId: currentMessageId
-      });
       lastValidDisplayContentRef.current = null;
       lastValidMessageIdRef.current = null;
     }
@@ -1259,10 +1037,6 @@ const AssistantMessageComponent: FC = () => {
       const comparisonId = messageIdForKey || messageId;
       if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
         if (cachedRenderedContent.markdownText && cachedRenderedContent.markdownText.length > 0) {
-          console.log('[DEBUG] displayContent - using cached (stable ID match)', {
-            cachedMessageId,
-            stableId: messageIdForKey
-          });
           calculatedContent = cachedRenderedContent.content;
         }
       }
@@ -1283,18 +1057,10 @@ const AssistantMessageComponent: FC = () => {
           ? content.content[0].text || ""
           : "";
       } catch (error) {
-        console.warn('[DEBUG] displayContent - error reading raw content, failing silently', {
-          error,
-          messageId: messageIdForKey
-        });
         rawText = "";
       }
       // CRITICAL: Only use raw text if it has actual content (not empty string)
       if (rawText && typeof rawText === 'string' && rawText.trim().length > 0) {
-        console.log('[DEBUG] displayContent - using raw content from message object (initial load)', {
-          rawTextLength: rawText.length,
-          messageId: messageIdForKey
-        });
         calculatedContent = rawText;
       }
     }
@@ -1310,38 +1076,15 @@ const AssistantMessageComponent: FC = () => {
     // CRITICAL: Only use ref as fallback if calculated content is null
     // This allows new messages to show their content, but preserves existing content during transitions
     if (lastValidDisplayContentRef.current && lastValidMessageIdRef.current === currentMessageId) {
-      console.log('[DEBUG] displayContent - preserving last valid content (preventing flicker)', {
-        stableId: messageIdForKey,
-        messageId: currentMessageId,
-        hasPreviousContent: true
-      });
       return lastValidDisplayContentRef.current;
     }
     
     return null;
   }, [cachedRenderedContent, messageContent, messageIdForKey, messageId, content]);
   
-  console.log('[DEBUG] displayContent decision', {
-    hasMessageContent: !!messageContent,
-    hasCachedContent: !!cachedRenderedContent?.content,
-    cachedMessageId: cachedRenderedContent?.messageId,
-    stableMessageId: messageIdForKey,
-    displayContentType: displayContent ? (typeof displayContent === 'object' ? 'ReactNode' : 'string') : 'null',
-    timestamp: Date.now()
-  });
-  
   // Check if we've ever had a message (either current or cached)
   // This prevents the flash - if we've rendered this message before, keep rendering
   const hasEverHadMessage = messageId || cachedRenderedContent?.messageId || messageIdForKey;
-  
-  console.log('[DEBUG] hasEverHadMessage check', {
-    messageId,
-    cachedMessageId: cachedRenderedContent?.messageId,
-    stableMessageId: messageIdForKey,
-    hasEverHadMessage,
-    willRender: hasEverHadMessage,
-    timestamp: Date.now()
-  });
   
   // Only return null if we've never had a message at all
   // If we have a cached message, always render (like UserMessage does)
@@ -1355,14 +1098,6 @@ const AssistantMessageComponent: FC = () => {
     // CRITICAL: Use the STABLE message ID for the key, not the current one
     // This prevents unmounting/remounting when the library changes the message ID
     const stableKey = messageIdForKey ? `assistant-msg-${String(messageIdForKey)}` : undefined;
-    
-    console.log('[DEBUG] AssistantMessageComponent returning JSX', {
-      stableMessageId: messageIdForKey,
-      currentMessageId: messageId,
-      stableKey,
-      hasEverHadMessage,
-      timestamp: Date.now()
-    });
 
     // CRITICAL: Always render content when available, regardless of isRunning state
     // This prevents flicker when isRunning changes - the content stays mounted
@@ -1415,11 +1150,6 @@ const AssistantMessageComponent: FC = () => {
   );
   } catch (error) {
     // Fail silently - don't show message if there's an error reading content
-    console.warn('[DEBUG] AssistantMessageComponent - error reading message, failing silently', {
-      error,
-      messageId: messageIdForKey || messageId || 'unknown',
-      timestamp: Date.now()
-    });
     return null;
   }
 };
@@ -1438,29 +1168,6 @@ const LoadingDots: FC = () => {
 // CRITICAL: Memoized avatar component to prevent Image reload
 // This component only re-renders when avatarUrl or backgroundColor actually change
 const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.memo(({avatarUrl, backgroundColor}) => {
-  // Track mount/unmount to see if component is being recreated
-  React.useEffect(() => {
-    console.log('[DEBUG] AssistantAvatar MOUNTED', {
-      avatarUrl,
-      backgroundColor,
-      timestamp: Date.now()
-    });
-    return () => {
-      console.log('[DEBUG] AssistantAvatar UNMOUNTED', {
-        avatarUrl,
-        backgroundColor,
-        timestamp: Date.now()
-      });
-    };
-  }, [avatarUrl, backgroundColor]);
-  
-  console.log('[DEBUG] AssistantAvatar render', {
-    avatarUrl,
-    backgroundColor,
-    timestamp: Date.now(),
-    imageWillReload: true
-  });
-  
   return (
     <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
       <Image
@@ -1470,24 +1177,12 @@ const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.
         width={20}
         height={20}
         className="invert brightness-0 saturate-0 contrast-200"
-        onLoad={() => console.log('[DEBUG] Image loaded', { avatarUrl, timestamp: Date.now() })}
-        onError={(e) => console.error('[DEBUG] Image error', { avatarUrl, error: e, timestamp: Date.now() })}
-        onLoadStart={() => console.log('[DEBUG] Image load START', { avatarUrl, timestamp: Date.now() })}
       />
     </div>
   );
 }, (prevProps, nextProps) => {
   const shouldSkip = prevProps.avatarUrl === nextProps.avatarUrl && 
                      prevProps.backgroundColor === nextProps.backgroundColor;
-  
-  console.log('[DEBUG] AssistantAvatar memo comparison', {
-    prevAvatarUrl: prevProps.avatarUrl,
-    nextAvatarUrl: nextProps.avatarUrl,
-    prevBg: prevProps.backgroundColor,
-    nextBg: nextProps.backgroundColor,
-    shouldSkip,
-    timestamp: Date.now()
-  });
   
   // Only re-render if avatarUrl or backgroundColor actually changed
   return shouldSkip;

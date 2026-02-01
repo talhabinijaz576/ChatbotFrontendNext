@@ -102,33 +102,6 @@ export function Assistant({
   const [history, setHistory] = useState(() => getConversationHistory());
   const [isRunning, setIsRunning] = useState(false);
   
-  // Log messages changes for debugging
-  useEffect(() => {
-    console.log("🟢 [Assistant] Messages state changed", {
-      timestamp: Date.now(),
-      messageCount: messages.length,
-      lastMessage: messages[messages.length - 1] ? {
-        id: messages[messages.length - 1].id,
-        role: messages[messages.length - 1].role,
-        contentLength: messages[messages.length - 1].content?.[0]?.text?.length || 0,
-        isOptimistic: String(messages[messages.length - 1].id).startsWith("__optimistic__")
-      } : null,
-      allMessageIds: messages.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") }))
-    });
-  }, [messages]);
-  
-  // Log isRunning changes for debugging
-  useEffect(() => {
-    console.log("🟡 [Assistant] isRunning state changed", {
-      timestamp: Date.now(),
-      isRunning,
-      messageCount: messages.length,
-      lastMessage: messages[messages.length - 1] ? {
-        id: messages[messages.length - 1].id,
-        role: messages[messages.length - 1].role
-      } : null
-    });
-  }, [isRunning, messages.length]);
   const [config, setConfig] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [open, setOpen] = useState(false);
@@ -147,17 +120,6 @@ export function Assistant({
     ipAddress: "",
   });
 
-  console.log("🔴 [Assistant] Component render", {
-    timestamp: Date.now(),
-    initialConversationId,
-    messageCount: messages.length,
-    isRunning,
-    lastMessage: messages[messages.length - 1] ? {
-      id: messages[messages.length - 1].id,
-      role: messages[messages.length - 1].role,
-      isOptimistic: String(messages[messages.length - 1].id).startsWith("__optimistic__")
-    } : null
-  });
   
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
@@ -178,7 +140,6 @@ export function Assistant({
         fetch("/api/getip")
         .then((res) => res.json())
         .then((data) => {
-          console.log("🚀 ~ useEffect ~ data:", data)
           setStateData({ ipAddress: data });
         })
         setConfig(data);
@@ -190,11 +151,8 @@ export function Assistant({
 
   useEffect(() => {
     const handleConsentUpdate = async (event) => {
-      console.log("🚀 Cookiebot event:", event.type);
-  
       // Wait until Cookiebot is fully ready
       if (!window.Cookiebot || !window.Cookiebot.consent) {
-        console.log("⚠️ Cookiebot not ready yet");
         return;
       }
   
@@ -235,7 +193,7 @@ export function Assistant({
       try {
         parsedOtpPhrase = JSON.parse(otpPhrase);
       } catch (e) {
-        console.error("Invalid JSON in otpPhrase cookie", e);
+        // Fail silently
       }
     }
 
@@ -258,15 +216,13 @@ export function Assistant({
       headers: headers,
     }).then(res => res?.text()).then(data => {
       let ipInfo = data;
-      console.log("🚀🚀🚀🚀 ~ useEffect ~ ipInfo:", ipInfo)
       fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
         method: "POST",
         headers: headers,
         body: JSON.stringify(ipInfo),
       })
-    }).catch(err => {
-      console.log("🚀🚀🚀🚀 ~ useEffect ~ err:", err)
-      
+    }).catch(() => {
+      // Fail silently
     });
 
 
@@ -282,7 +238,6 @@ export function Assistant({
       }
     )
       .then((res) => {
-        console.log("Status:", res.status);
         if (res.status === 403) {
           setOtpModalOpen(true);
           throw new Error("403 Forbidden - OTP required");
@@ -300,10 +255,6 @@ export function Assistant({
                 // const parsed = JSON.parse(normalized);
                 contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
               } catch (err) {
-                console.warn(
-                  "Failed to parse user message text, using fallback:",
-                  item.text
-                );
                 contentArray = [{ type: "text", text: item.text, created_at: item.created_at }];
               }
             } else {
@@ -333,7 +284,6 @@ export function Assistant({
             localStorage.getItem(`conversation:${conversationId}`) || "[]"
           );
 
-          console.log("🚀 ~ existingMessage:", existingMessage);
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
               role: item.role,
@@ -389,31 +339,8 @@ export function Assistant({
   useEffect(() => {
     chatService.initializeConnection(conversationId);
     const unsubscribe = chatService.onMessage((incoming) => {
-      console.log("🟠 [WebSocket] Incoming message received", {
-        timestamp: Date.now(),
-        type: incoming?.type,
-        hasText: !!incoming?.text,
-        textLength: incoming?.text?.length || 0,
-        pk: incoming?.pk,
-        id: incoming?.id,
-        fullIncoming: incoming
-      });
-      
       if (incoming?.type === "assistant" && incoming.text) {
-        console.log("🟠 [WebSocket] Processing assistant message", {
-          timestamp: Date.now(),
-          pk: incoming.pk,
-          id: incoming.id,
-          textLength: incoming.text.length,
-          textPreview: incoming.text.substring(0, 50)
-        });
         const messageId = incoming.pk || `assistant-message-${Date.now()}`;
-        console.log("🟠 [WebSocket] Generated messageId", {
-          timestamp: Date.now(),
-          messageId,
-          fromPk: !!incoming.pk,
-          fromId: !!incoming.id
-        });
         
         const incRes: ThreadMessageLike = {
           role: incoming.type,
@@ -426,38 +353,18 @@ export function Assistant({
         // The library creates optimistic messages with IDs starting with '__optimistic__'
         // We should replace the last optimistic assistant message with the real one
         setMessages((currentConversation) => {
-          console.log("🟠 [WebSocket] setMessages callback - checking for duplicates", {
-            timestamp: Date.now(),
-            conversationLength: currentConversation.length,
-            incomingTextLength: incoming.text?.length || 0,
-            incomingTextPreview: incoming.text?.substring(0, 50) || ''
-          });
-          
           // Check if message was already handled by API response
           // API response updates optimistic message, so if there's no optimistic message,
           // it means API already handled it
           const exists = currentConversation.some(msg => {
             // Check by content match (API response already updated the optimistic message)
-            const matches = msg.role === "assistant" && 
+            return msg.role === "assistant" && 
                    Array.isArray(msg.content) && 
                    msg.content[0]?.text === incoming.text &&
                    !String(msg.id).startsWith("__optimistic__");
-            if (matches) {
-              console.log("🟠 [WebSocket] Found matching message (already handled by API)", {
-                timestamp: Date.now(),
-                existingMessageId: msg.id,
-                existingContentLength: msg.content[0]?.text?.length || 0
-              });
-            }
-            return matches;
           });
           
           if (exists) {
-            console.log("🟠 [WebSocket] Message already handled by API, skipping WebSocket duplicate", {
-              timestamp: Date.now(),
-              messageId,
-              action: "skipping and setting isRunning to false"
-            });
             setIsRunning(false);
             return currentConversation;
           }
@@ -472,27 +379,10 @@ export function Assistant({
             }
           }
           
-          console.log("🟠 [WebSocket] Optimistic message search result", {
-            timestamp: Date.now(),
-            optimisticIndex,
-            foundOptimistic: optimisticIndex !== -1,
-            optimisticId: optimisticIndex !== -1 ? currentConversation[optimisticIndex].id : null
-          });
-          
           if (optimisticIndex !== -1) {
             // Update the optimistic message in place, keeping its ID but updating content
             // This preserves the stable ID reference that the component already has
             const optimisticId = currentConversation[optimisticIndex].id;
-            const oldContent = currentConversation[optimisticIndex].content?.[0]?.text || '';
-            
-            console.log("🟠 [WebSocket] Updating optimistic message with real content from WebSocket", {
-              timestamp: Date.now(),
-              optimisticId: optimisticId,
-              realId: messageId,
-              oldContentLength: oldContent.length,
-              newContentLength: incoming.text?.length || 0,
-              contentChanged: oldContent !== incoming.text
-            });
             
             const updated = [...currentConversation];
             updated[optimisticIndex] = {
@@ -500,24 +390,11 @@ export function Assistant({
               id: optimisticId, // Keep the optimistic ID
             };
             
-            console.log("🟠 [WebSocket] Message updated, setting isRunning to false", {
-              timestamp: Date.now(),
-              updatedMessageId: updated[optimisticIndex].id,
-              keptOptimisticId: updated[optimisticIndex].id === optimisticId,
-              updatedContentLength: updated[optimisticIndex].content?.[0]?.text?.length || 0
-            });
-            
             setIsRunning(false);
             return updated;
           }
           
           // No optimistic message found - API already handled it, just update isRunning
-          console.log("🟠 [WebSocket] No optimistic message found - API already handled it", {
-            timestamp: Date.now(),
-            messageId,
-            action: "setting isRunning to false only"
-          });
-          
           setIsRunning(false);
           return currentConversation;
         });
@@ -529,7 +406,6 @@ export function Assistant({
         } else if (action === "close_url") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
-          console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event);
           setStateData({ suggestedMessages: incoming.event });
         }
       }
@@ -550,9 +426,6 @@ export function Assistant({
 
   const switchConversation = (id: string) => {
     setStateData({ conversationId: id });
-    // const data = loadMessages(id);
-    // console.log("🚀 ~ switchConversation ~ data:", data);
-    // setMessages(data);
     router.push(`/chat/${id}`, undefined, { shallow: true });
     localStorage.setItem(`my-convo-${id}`, "true");
   };
@@ -593,13 +466,6 @@ export function Assistant({
         userMessage,
       ]);
       updateTitleIfNeeded(text);
-      console.log("🔵 [onNew] Setting isRunning to true", {
-        timestamp: Date.now(),
-        conversationId,
-        messageCount: messages.length,
-        environment: process.env.NODE_ENV,
-        note: "CRITICAL: In production, React batches more aggressively - need to add optimistic message atomically with isRunning"
-      });
       
       // CRITICAL: Production vs Dev difference
       // In DEV: React's batching is more forgiving, runtime creates optimistic message and it syncs
@@ -610,13 +476,6 @@ export function Assistant({
       // 
       // Solution: Set isRunning first, then wait a tick for runtime to create optimistic message
       // In production, we need explicit synchronization
-      console.log("🔵 [onNew] Setting isRunning to true", {
-        timestamp: Date.now(),
-        environment: process.env.NODE_ENV,
-        note: process.env.NODE_ENV === 'production' 
-          ? "PROD: Need to wait for runtime to create optimistic message"
-          : "DEV: React batching is more forgiving"
-      });
       
       // CRITICAL: The runtime creates optimistic messages internally but doesn't add them to our state
       // The component locks onto the optimistic ID, but we can't update it if it's not in our state
@@ -628,13 +487,6 @@ export function Assistant({
         id: optimisticId,
         createdAt: new Date(),
       };
-      
-      console.log("🔵 [onNew] Adding optimistic message to state manually", {
-        timestamp: Date.now(),
-        environment: process.env.NODE_ENV,
-        optimisticId,
-        note: "Runtime creates one internally, but we need it in our state to update it"
-      });
       
       // Add optimistic message and set isRunning atomically
       if (process.env.NODE_ENV === 'production') {
@@ -650,12 +502,6 @@ export function Assistant({
       }
       
       try {
-        console.log("🔵 [onNew] Sending message to API", {
-          timestamp: Date.now(),
-          conversationId,
-          userId,
-          textLength: text.length
-        });
         // Send message - response comes from API, not WebSocket
         const assistantResponse = await chatService.sendMessage(
           userAppendMessage,
@@ -665,15 +511,6 @@ export function Assistant({
           ipAddress
         );
         
-        console.log("🔵 [onNew] API response received", {
-          timestamp: Date.now(),
-          responseType: assistantResponse?.type,
-          responseTextLength: assistantResponse?.text?.length || 0,
-          responsePk: assistantResponse?.pk,
-          responseId: assistantResponse?.id,
-          hasText: !!assistantResponse?.text
-        });
-        
         // Update the optimistic message with the real response
         // The library creates optimistic messages with IDs starting with '__optimistic__'
         // CRITICAL: Update both messages and isRunning atomically in the same flushSync
@@ -682,38 +519,9 @@ export function Assistant({
         
         // CRITICAL: Don't use messages.length here - it's a stale closure value!
         // We'll check inside setMessages callback where we have the current state
-        console.log("🔵 [onNew] Before flushSync - starting message update", {
-          timestamp: Date.now(),
-          messageId,
-          isRunningBefore: true,
-          note: "Will check messages inside setMessages callback to avoid stale closure"
-        });
-        
         flushSync(() => {
-          console.log("🔵 [onNew] Inside flushSync - starting message update", {
-            timestamp: Date.now(),
-            messageId,
-            isRunningBefore: true
-          });
-          
           setMessages((currentConversation) => {
             // CRITICAL: Use currentConversation (current state) not messages (stale closure)
-            console.log("🔵 [onNew] setMessages callback - current conversation state", {
-              timestamp: Date.now(),
-              conversationLength: currentConversation.length,
-              lastMessage: currentConversation[currentConversation.length - 1] ? {
-                id: currentConversation[currentConversation.length - 1].id,
-                role: currentConversation[currentConversation.length - 1].role,
-                hasContent: !!currentConversation[currentConversation.length - 1].content?.[0]?.text,
-                isOptimistic: String(currentConversation[currentConversation.length - 1].id).startsWith("__optimistic__")
-              } : null,
-              allMessageIds: currentConversation.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") })),
-              optimisticMessages: currentConversation.filter(m => String(m.id).startsWith("__optimistic__")).map(m => ({
-                id: m.id,
-                role: m.role,
-                hasContent: !!m.content?.[0]?.text
-              }))
-            });
             
             // CRITICAL: The runtime creates optimistic messages internally (not in our state)
             // The component sees them via useMessage and locks onto their optimistic ID
@@ -745,22 +553,6 @@ export function Assistant({
             
             const targetIndex = optimisticIndex !== -1 ? optimisticIndex : lastAssistantIndex;
             
-            console.log("🔵 [onNew] Searching for message to replace", {
-              timestamp: Date.now(),
-              environment: process.env.NODE_ENV,
-              optimisticIndex,
-              lastAssistantIndex,
-              targetIndex,
-              foundOptimistic: optimisticIndex !== -1,
-              foundLastAssistant: lastAssistantIndex !== -1,
-              targetId: targetIndex !== -1 ? currentConversation[targetIndex].id : null,
-              targetIsOptimistic: targetIndex !== -1 ? String(currentConversation[targetIndex].id).startsWith("__optimistic__") : false,
-              isRunningWasTrue: true,
-              note: optimisticIndex !== -1 
-                ? "Found optimistic message in state - will update it"
-                : "No optimistic message in state - will update last assistant message"
-            });
-            
             // If we found a target message (optimistic or last assistant), replace it
             // This handles both cases: runtime added optimistic to state, or we need to update last assistant
             if (targetIndex !== -1) {
@@ -768,25 +560,7 @@ export function Assistant({
               // This ensures useMessage returns a message with the same ID,
               // which matches what the component's stable ID reference expects
               const targetId = currentConversation[targetIndex].id;
-              const oldContent = currentConversation[targetIndex].content?.[0]?.text || '';
               const isOptimisticId = String(targetId).startsWith("__optimistic__");
-              
-              console.log("🔵 [onNew] Replacing target message with API response (keeping its ID):", {
-                timestamp: Date.now(),
-                environment: process.env.NODE_ENV,
-                targetId: targetId,
-                isOptimisticId: isOptimisticId,
-                realId: messageId,
-                willKeepId: targetId,
-                oldContentLength: oldContent.length,
-                newContentLength: assistantResponse.text?.length || 0,
-                contentChanged: oldContent !== assistantResponse.text,
-                foundAsOptimistic: optimisticIndex !== -1,
-                foundAsLastAssistant: optimisticIndex === -1 && lastAssistantIndex !== -1,
-                note: isOptimisticId 
-                  ? "Keeping optimistic ID - component is locked onto this"
-                  : "Keeping target ID - will update in place"
-              });
               
               const updated = [...currentConversation];
               
@@ -796,17 +570,6 @@ export function Assistant({
               // Solution: Keep the optimistic ID so the component's stable ref continues to match
               // The message will have real content, so it won't be empty even if runtime filters optimistic messages
               // We'll delay setting isRunning=false to ensure the update renders first
-              
-              console.log("🔵 [onNew] Keeping optimistic ID (React 19 + Next.js 15.2 production)", {
-                timestamp: Date.now(),
-                environment: process.env.NODE_ENV,
-                targetId: targetId,
-                isOptimisticId: isOptimisticId,
-                realMessageId: messageId,
-                note: isOptimisticId 
-                  ? "Keeping optimistic ID - component's stable ref is locked onto it. Will delay isRunning=false to prevent runtime filtering"
-                  : "Keeping original ID (not optimistic)"
-              });
               
               updated[targetIndex] = {
                 role: assistantResponse.type,
@@ -821,60 +584,19 @@ export function Assistant({
                 if (idx === targetIndex) return true; // Keep the one we just updated
                 // Remove other optimistic assistant messages
                 if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                  console.log("🔵 [onNew] Removing old optimistic message", {
-                    timestamp: Date.now(),
-                    oldOptimisticId: msg.id,
-                    targetId: targetId
-                  });
                   return false;
                 }
                 return true;
               });
               
               if (cleaned.length !== updated.length) {
-                console.log("🔵 [onNew] Cleaned old optimistic messages", {
-                  timestamp: Date.now(),
-                  beforeLength: updated.length,
-                  afterLength: cleaned.length,
-                  removedCount: updated.length - cleaned.length
-                });
                 return cleaned;
               }
-              
-              console.log("🔵 [onNew] Message updated, verifying ID:", {
-                timestamp: Date.now(),
-                environment: process.env.NODE_ENV,
-                updatedMessageId: updated[targetIndex].id,
-                expectedId: targetId,
-                match: updated[targetIndex].id === targetId,
-                updatedContentLength: updated[targetIndex].content?.[0]?.text?.length || 0,
-                updatedMessageRole: updated[targetIndex].role,
-                updatedContentPreview: updated[targetIndex].content?.[0]?.text?.substring(0, 50) || '',
-                isOptimisticId: String(updated[targetIndex].id).startsWith("__optimistic__"),
-                note: "ID kept as optimistic - component's stable ref matches. Content updated with real response."
-              });
-              
-              console.log("🔵 [onNew] Returning updated conversation", {
-                timestamp: Date.now(),
-                updatedLength: updated.length,
-                updatedLastMessage: updated[updated.length - 1] ? {
-                  id: updated[updated.length - 1].id,
-                  role: updated[updated.length - 1].role,
-                  contentLength: updated[updated.length - 1].content?.[0]?.text?.length || 0,
-                  isOptimistic: String(updated[updated.length - 1].id).startsWith("__optimistic__")
-                } : null,
-                allUpdatedIds: updated.map(m => ({ id: m.id, role: m.role, isOptimistic: String(m.id).startsWith("__optimistic__") }))
-              });
               
               return updated;
             }
             
             // No optimistic message found (shouldn't happen, but handle gracefully)
-            console.log("🔵 [onNew] No optimistic message found, adding new message", {
-              timestamp: Date.now(),
-              messageId,
-              conversationLength: currentConversation.length
-            });
             
             const assRes: ThreadMessageLike = {
               role: assistantResponse.type,
@@ -889,13 +611,6 @@ export function Assistant({
           // The runtime filters optimistic messages when isRunning=false, causing flicker
           // We'll set it to false after a delay to ensure the message update is fully rendered
           // In production, React's batching is stricter, so we need explicit timing
-          console.log("🔵 [onNew] Delaying isRunning=false to prevent runtime filtering", {
-            timestamp: Date.now(),
-            environment: process.env.NODE_ENV,
-            isRunningBefore: true,
-            messageUpdateCommitted: true,
-            note: "Will set isRunning=false after message update is rendered"
-          });
           
           // Set isRunning to false after the message update is rendered
           // This prevents the runtime from filtering the optimistic message before it's updated
@@ -912,24 +627,11 @@ export function Assistant({
               setIsRunning(false);
             });
           }
-          
-          console.log("🔵 [onNew] flushSync complete - both updates committed atomically", {
-            timestamp: Date.now(),
-            isRunningSetToFalse: true,
-            messageUpdateCommitted: true
-          });
-        });
-        
-        console.log("🔵 [onNew] After flushSync - state updates committed", {
-          timestamp: Date.now(),
-          messageId,
-          nextTick: "React will process these updates"
         });
         
         setlastMessageResponse(assistantResponse);
       } catch (error) {
         setStateData({ error: error });
-        console.error("Error communicating with backend:", error);
         // On error, stop the running state so optimistic message is removed
         setIsRunning(false);
       }
@@ -968,21 +670,6 @@ export function Assistant({
     adapters,
   });
   
-  // Log runtime state changes for debugging
-  useEffect(() => {
-    console.log("🟣 [Assistant] Runtime state snapshot", {
-      timestamp: Date.now(),
-      isRunning,
-      messageCount: messages.length,
-      runtimeMessages: messages.map(m => ({
-        id: m.id,
-        role: m.role,
-        isOptimistic: String(m.id).startsWith("__optimistic__"),
-        contentLength: m.content?.[0]?.text?.length || 0,
-        contentPreview: m.content?.[0]?.text?.substring(0, 30) || ''
-      }))
-    });
-  }, [isRunning, messages]);
 
  
   if (!config) return <div>Loading config...</div>;
