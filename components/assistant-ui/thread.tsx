@@ -713,18 +713,29 @@ const AssistantMessageComponent: FC = () => {
   // Track mount/unmount - ONLY depend on stable ID, not current ID
   // This prevents the effect from running when the library changes the message ID
   React.useEffect(() => {
-    console.log('[DEBUG] AssistantMessageComponent MOUNTED', {
+    console.log('🔴 [AssistantMessage] Component MOUNTED', {
+      timestamp: Date.now(),
       stableMessageId: stableMessageIdRef.current,
       currentMessageId: currentMessageId,
       messageIdForKey,
-      timestamp: Date.now()
+      contentId: content?.id,
+      contentTextLength: typeof content?.content === 'string' 
+        ? content.content.length 
+        : Array.isArray(content?.content) && content.content[0]?.text
+        ? content.content[0].text.length
+        : 0,
+      hasContent: !!content?.content,
+      stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
     });
     return () => {
-      console.log('[DEBUG] AssistantMessageComponent UNMOUNTED', {
+      console.log('🔴 [AssistantMessage] Component UNMOUNTED', {
+        timestamp: Date.now(),
         stableMessageId: stableMessageIdRef.current,
         currentMessageId: currentMessageId,
         messageIdForKey,
-        timestamp: Date.now()
+        contentId: content?.id,
+        unmountReason: 'component unmounting',
+        stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
       });
     };
     // CRITICAL: Only depend on stable ID - never on current ID
