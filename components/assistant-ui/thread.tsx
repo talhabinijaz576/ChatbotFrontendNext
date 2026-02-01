@@ -1355,22 +1355,24 @@ const AssistantMessageComponent: FC = () => {
   // CRITICAL: Always render content when available, regardless of isRunning state
   // This prevents flicker when isRunning changes - the content stays mounted
   // Only show loading dots when isRunning is true AND content is empty
-  // CRITICAL: Check if we have actual text content, not just if displayContent exists
-  // For new messages, displayContent might be a ReactNode that exists but is empty
-  // We need to check the underlying text content (markdownText) to know if we have real content
+  // CRITICAL: Only show bubble when cached rendered content has text
+  // This ensures content is fully processed and ready to display
+  // For new messages, don't show bubble until content is cached and ready
   const hasActualContent = React.useMemo(() => {
-    // First check if we have text content in the message
-    const hasText = markdownText && markdownText.trim().length > 0;
+    // CRITICAL: Check if cached rendered content has text - this means content is fully processed
+    // Only show bubble if we have cached content with text, ensuring it's ready
+    const cachedHasText = cachedRenderedContent?.markdownText && cachedRenderedContent.markdownText.trim().length > 0;
     
-    // Also check raw content from the message object
-    const hasRawText = content?.content && (
-      (typeof content.content === 'string' && content.content.trim().length > 0) ||
-      (Array.isArray(content.content) && content.content[0]?.text && content.content[0].text.trim().length > 0)
-    );
+    // For strings, check if displayContent has actual text
+    if (typeof displayContent === 'string') {
+      return displayContent.trim().length > 0;
+    }
     
-    // Only consider it has content if we have actual text, not just a non-null displayContent
-    return hasText || hasRawText;
-  }, [markdownText, content]);
+    // For ReactNodes, ONLY show bubble if cached rendered content has text
+    // This ensures the content has been fully processed and is ready to display
+    // Don't show bubble just because source has text - wait for it to be processed
+    return cachedHasText && displayContent !== null && displayContent !== undefined;
+  }, [displayContent, cachedRenderedContent]);
   
   const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
   
