@@ -111,11 +111,40 @@ export const Thread: FC<ThreadProps> = ({
   
   // CRITICAL: Update module-level refs so components can read latest values
   // These refs are updated on every render, but the components object itself never changes
+  const prevConfig = globalConfigRef.current;
+  const prevColors = globalColorsRef.current;
   globalConfigRef.current = config;
   globalColorsRef.current = colors;
   
+  // Log when config/colors change
+  if (prevConfig !== config || prevColors !== colors) {
+    console.log('[DEBUG] Thread render - config/colors updated', {
+      configChanged: prevConfig !== config,
+      colorsChanged: prevColors !== colors,
+      configId: config ? Object.keys(config).join(',') : 'null',
+      timestamp: Date.now()
+    });
+  }
+  
   // Use the module-level components object - it NEVER changes
   const messageComponents = MESSAGE_COMPONENTS;
+  
+  // Log if components object reference changes (should never happen)
+  if (messageComponents !== MESSAGE_COMPONENTS) {
+    console.error('[DEBUG] CRITICAL: messageComponents reference changed!', {
+      messageComponents,
+      MESSAGE_COMPONENTS,
+      timestamp: Date.now()
+    });
+  }
+  
+  console.log('[DEBUG] Thread render', {
+    messageComponentsObjectId: messageComponents,
+    MESSAGE_COMPONENTSObjectId: MESSAGE_COMPONENTS,
+    areSame: messageComponents === MESSAGE_COMPONENTS,
+    AssistantMessageFunction: messageComponents.AssistantMessage,
+    timestamp: Date.now()
+  });
 
   // Find and store viewport reference
   useEffect(() => {
@@ -605,18 +634,40 @@ const EditComposer: FC = () => {
 // This object is created ONCE when module loads and NEVER changes
 // React will see this as a stable reference in production builds
 const MESSAGE_COMPONENTS = {
-  UserMessage: (props: any) => (
-    <UserMessage {...props} colors={globalColorsRef.current} />
-  ),
+  UserMessage: (props: any) => {
+    console.log('[DEBUG] UserMessage wrapper called', { 
+      colorsRef: globalColorsRef.current,
+      timestamp: Date.now() 
+    });
+    return <UserMessage {...props} colors={globalColorsRef.current} />;
+  },
   EditComposer: EditComposer,
-  AssistantMessage: () => (
-    <AssistantMessage /> // Reads from globalConfigRef
-  ),
+  AssistantMessage: () => {
+    console.log('[DEBUG] AssistantMessage wrapper called', { 
+      configRef: globalConfigRef.current,
+      timestamp: Date.now(),
+      stackTrace: new Error().stack?.split('\n').slice(0, 5).join('\n')
+    });
+    return <AssistantMessage />; // Reads from globalConfigRef
+  },
 };
+
+console.log('[DEBUG] MESSAGE_COMPONENTS created at module load', {
+  timestamp: Date.now(),
+  objectId: MESSAGE_COMPONENTS,
+  AssistantMessageFunction: MESSAGE_COMPONENTS.AssistantMessage
+});
 
 const AssistantMessageComponent: FC = () => {
   // Read from module-level ref - no props means React never sees it as "new"
   const actualConfig = globalConfigRef.current;
+  
+  console.log('[DEBUG] AssistantMessageComponent render', {
+    hasConfig: !!actualConfig,
+    configId: actualConfig ? Object.keys(actualConfig).join(',') : 'null',
+    timestamp: Date.now(),
+    componentInstance: 'AssistantMessageComponent'
+  });
   
   const content = useMessage((m) => {
     return m;
@@ -897,6 +948,13 @@ const LoadingDots: FC = () => {
 // CRITICAL: Memoized avatar component to prevent Image reload
 // This component only re-renders when avatarUrl or backgroundColor actually change
 const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.memo(({avatarUrl, backgroundColor}) => {
+  console.log('[DEBUG] AssistantAvatar render', {
+    avatarUrl,
+    backgroundColor,
+    timestamp: Date.now(),
+    imageWillReload: true
+  });
+  
   return (
     <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
       <Image
@@ -905,13 +963,26 @@ const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.
         width={20}
         height={20}
         className="invert brightness-0 saturate-0 contrast-200"
+        onLoad={() => console.log('[DEBUG] Image loaded', { avatarUrl, timestamp: Date.now() })}
+        onError={(e) => console.error('[DEBUG] Image error', { avatarUrl, error: e, timestamp: Date.now() })}
       />
     </div>
   );
 }, (prevProps, nextProps) => {
+  const shouldSkip = prevProps.avatarUrl === nextProps.avatarUrl && 
+                     prevProps.backgroundColor === nextProps.backgroundColor;
+  
+  console.log('[DEBUG] AssistantAvatar memo comparison', {
+    prevAvatarUrl: prevProps.avatarUrl,
+    nextAvatarUrl: nextProps.avatarUrl,
+    prevBg: prevProps.backgroundColor,
+    nextBg: nextProps.backgroundColor,
+    shouldSkip,
+    timestamp: Date.now()
+  });
+  
   // Only re-render if avatarUrl or backgroundColor actually changed
-  return prevProps.avatarUrl === nextProps.avatarUrl && 
-         prevProps.backgroundColor === nextProps.backgroundColor;
+  return shouldSkip;
 });
 AssistantAvatar.displayName = 'AssistantAvatar';
 
