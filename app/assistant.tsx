@@ -596,27 +596,52 @@ export function Assistant({
       console.log("🔵 [onNew] Setting isRunning to true", {
         timestamp: Date.now(),
         conversationId,
-        messageCount: messages.length
+        messageCount: messages.length,
+        environment: process.env.NODE_ENV,
+        note: "CRITICAL: In production, React batches more aggressively - need to add optimistic message atomically with isRunning"
       });
       
-      // CRITICAL: Manually add optimistic message to our state when isRunning becomes true
-      // The runtime also creates one internally, but we need it in our state to update it later
-      const optimisticId = `__optimistic__${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const optimisticMessage: ThreadMessageLike = {
-        role: "assistant",
-        content: [{ text: "", type: "text" }],
-        id: optimisticId,
-        createdAt: new Date(),
-      };
-      
-      console.log("🔵 [onNew] Adding optimistic message to state", {
+      // CRITICAL: Production vs Dev difference
+      // In DEV: React's batching is more forgiving, runtime creates optimistic message and it syncs
+      // In PROD: React batches more aggressively, causing timing issues where:
+      //   1. Runtime creates optimistic message internally (not in our state)
+      //   2. We search our state, don't find it, add new message with different ID
+      //   3. Component locks onto runtime's ID, but we update different message = FLICKER
+      // 
+      // Solution: Set isRunning first, then wait a tick for runtime to create optimistic message
+      // In production, we need explicit synchronization
+      console.log("🔵 [onNew] Setting isRunning to true", {
         timestamp: Date.now(),
-        optimisticId,
-        note: "Runtime will also create one internally, but we need it in our state"
+        environment: process.env.NODE_ENV,
+        note: process.env.NODE_ENV === 'production' 
+          ? "PROD: Need to wait for runtime to create optimistic message"
+          : "DEV: React batching is more forgiving"
       });
       
-      setMessages((currentConversation) => [...currentConversation, optimisticMessage]);
       setIsRunning(true);
+      
+      // CRITICAL: Production vs Dev timing difference
+      // In PROD: React batches more aggressively, runtime might not have added optimistic message yet
+      // In DEV: React's batching is more forgiving, optimistic message appears faster
+      // Solution: Wait for runtime to add optimistic message to our state before API call
+      if (process.env.NODE_ENV === 'production') {
+        // Wait for runtime to process isRunning=true and add optimistic message to our state
+        // Use multiple requestAnimationFrame calls to ensure React has processed the state update
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              resolve(undefined);
+            });
+          });
+        });
+        
+        console.log("🔵 [onNew] After waiting for runtime in production", {
+          timestamp: Date.now(),
+          messageCount: messages.length,
+          note: "Runtime should have added optimistic message by now"
+        });
+      }
+      
       try {
         console.log("🔵 [onNew] Sending message to API", {
           timestamp: Date.now(),
