@@ -847,14 +847,29 @@ const AssistantMessageComponent: FC = () => {
           
           // CRITICAL: Only use currentText if it's from the SAME message
           // If useMessage returned content for a different message, ignore it completely
+          // EXCEPT: If cached text is empty and current text exists, allow the update
+          // (This handles the case where useMessage ID is wrong but content is correct)
           if (!isCurrentMessageForThisComponent) {
-            // useMessage returned content for a different message - ignore it, use cached
-            console.log('[DEBUG] Preserving cached content - currentMessageId does not match stableId', {
-              stableId,
-              currentMessageId,
-              cachedTextLength: cachedText.length
-            });
-            return cachedValues;
+            // useMessage returned content for a different message
+            // But if cached is empty and current has content, allow update (content might be correct even if ID is wrong)
+            if (!cachedText && currentText) {
+              console.log('[DEBUG] Allowing update - cached empty, current has content (ID mismatch but content exists)', {
+                stableId,
+                currentMessageId,
+                currentTextLength: currentText.length
+              });
+              prevContentRef.current = currentText;
+              // Continue to calculate new values
+            } else {
+              // Cached has content or current is empty - preserve cached
+              console.log('[DEBUG] Preserving cached content - currentMessageId does not match stableId', {
+                stableId,
+                currentMessageId,
+                cachedTextLength: cachedText.length,
+                currentTextLength: currentText.length
+              });
+              return cachedValues;
+            }
           }
           
           // Same stable message AND currentText is from the same message - only update if text increased (streaming)
