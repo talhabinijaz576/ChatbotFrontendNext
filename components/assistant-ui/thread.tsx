@@ -1239,18 +1239,6 @@ const AssistantMessageComponent: FC = () => {
   const displayContent = React.useMemo(() => {
     const currentMessageId = messageIdForKey || messageId || '';
     
-    // CRITICAL: Check ref FIRST before any calculation - this prevents flicker
-    // If we have valid ref content for this message, return it IMMEDIATELY
-    // This prevents any recalculation that might return null during isRunning transition
-    if (lastValidDisplayContentRef.current && lastValidMessageIdRef.current === currentMessageId) {
-      console.log('[DEBUG] displayContent - using ref content immediately (preventing flicker)', {
-        stableId: messageIdForKey,
-        messageId: currentMessageId,
-        hasRefContent: true
-      });
-      return lastValidDisplayContentRef.current;
-    }
-    
     // If message ID changed, reset the ref (new message)
     if (lastValidMessageIdRef.current && lastValidMessageIdRef.current !== currentMessageId) {
       console.log('[DEBUG] displayContent - message ID changed, resetting ref', {
@@ -1300,15 +1288,15 @@ const AssistantMessageComponent: FC = () => {
     }
     
     // CRITICAL: If we have calculated content, store it in ref and return it
-    // This ensures we preserve it for future renders
+    // This ensures we preserve it for future renders AND allows new content to show
     if (calculatedContent) {
       lastValidDisplayContentRef.current = calculatedContent;
       lastValidMessageIdRef.current = currentMessageId;
       return calculatedContent;
     }
     
-    // If no new content but we have previous valid content for THIS message, return it
-    // This ensures text never disappears once it's been rendered (for the same message)
+    // CRITICAL: Only use ref as fallback if calculated content is null
+    // This allows new messages to show their content, but preserves existing content during transitions
     if (lastValidDisplayContentRef.current && lastValidMessageIdRef.current === currentMessageId) {
       console.log('[DEBUG] displayContent - preserving last valid content (preventing flicker)', {
         stableId: messageIdForKey,
