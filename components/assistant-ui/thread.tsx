@@ -755,6 +755,14 @@ const AssistantMessageComponent: FC = () => {
   // This persists across component instances
   const getCachedValues = React.useCallback(() => {
     const cached = messageContentCache.get(messageIdForKey);
+    console.log('[DEBUG] getCachedValues', {
+      messageIdForKey,
+      hasCached: !!cached,
+      cachedMessageId: cached?.messageId,
+      cachedTextLength: cached?.markdownText?.length || 0,
+      cacheSize: messageContentCache.size,
+      allCacheKeys: Array.from(messageContentCache.keys())
+    });
     if (cached) {
       return {
         messageId: cached.messageId,
