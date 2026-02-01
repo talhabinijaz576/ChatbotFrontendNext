@@ -930,29 +930,9 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
   );
 };
 
-// Memoize AssistantMessage for production builds with stable comparison
-// CRITICAL: In production, React does stricter comparisons, so we need to be very explicit
-const AssistantMessage = React.memo(AssistantMessageComponent, (prevProps, nextProps) => {
-  // In production builds, React.memo comparison must return true if props are EQUAL (skip render)
-  // Return false if props are DIFFERENT (should render)
-  
-  // Compare actual config values that matter, not just the reference
-  const prevAvatar = prevProps.config?.chat?.colors?.assistantMessage?.avatar;
-  const nextAvatar = nextProps.config?.chat?.colors?.assistantMessage?.avatar;
-  const prevBgColor = prevProps.config?.chat?.backgroundColor;
-  const nextBgColor = nextProps.config?.chat?.backgroundColor;
-  
-  // If config values are the same, return true (props equal, skip re-render)
-  // The content comparison is handled by useMessage hook and internal refs
-  const configEqual = (
-    prevAvatar === nextAvatar &&
-    prevBgColor === nextBgColor
-  );
-  
-  // In production, be extra strict - if config is equal, always skip render
-  // The component's internal refs handle content updates
-  return configEqual;
-});
+// DON'T wrap with React.memo - UserMessage doesn't use it and it works fine
+// The assistant-ui library handles memoization internally via useMessage
+const AssistantMessage = AssistantMessageComponent;
 
 const AssistantActionBar: FC = ({ timestamp, type }) => {
   return (
