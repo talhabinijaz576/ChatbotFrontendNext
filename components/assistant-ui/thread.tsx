@@ -693,7 +693,8 @@ const AssistantMessageComponent: FC = () => {
   // Use the stable message ID for the key - this NEVER changes once set
   const messageIdForKey = stableMessageIdRef.current || currentMessageId;
   
-  // Track mount/unmount
+  // Track mount/unmount - ONLY depend on stable ID, not current ID
+  // This prevents the effect from running when the library changes the message ID
   React.useEffect(() => {
     console.log('[DEBUG] AssistantMessageComponent MOUNTED', {
       stableMessageId: stableMessageIdRef.current,
@@ -709,7 +710,9 @@ const AssistantMessageComponent: FC = () => {
         timestamp: Date.now()
       });
     };
-  }, [messageIdForKey, currentMessageId]);
+    // CRITICAL: Only depend on stable ID - never on current ID
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messageIdForKey]);
   
   console.log('[DEBUG] AssistantMessageComponent render', {
     hasConfig: !!actualConfig,
@@ -811,7 +814,8 @@ const AssistantMessageComponent: FC = () => {
     
     // Calculate new values - use current if available, otherwise preserve cached
     // CRITICAL: Use stableMessageIdRef for messageId to prevent remounts
-    const messageId = stableMessageIdRef.current || currentMessageId || stableValuesRef.current?.messageId || '';
+    // Always prefer the stable ID if we have one, even if currentMessageId changed
+    const messageId = messageIdForKey || stableValuesRef.current?.messageId || '';
     const markdownText = currentText || stableValuesRef.current?.markdownText || '';
     
     // Calculate timestamp
