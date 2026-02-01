@@ -818,21 +818,39 @@ const AssistantMessageComponent: FC = () => {
       const cachedMessageId = cachedValues.messageId;
       const cachedText = cachedValues.markdownText;
       
+      // CRITICAL: Check if currentMessageId matches our stable ID
+      // If not, useMessage is returning content for a different message - ignore it completely
+      const isCurrentMessageForThisComponent = currentMessageId === stableId || currentMessageId === messageIdForKey;
+      
       // CRITICAL: Check if this is the SAME stable message (not current message ID)
       // If the stable ID matches our cached ID, this is the same message - preserve content
       if (stableId === cachedMessageId) {
           console.log('[DEBUG] Same stable message - checking if update needed', {
             stableId,
             cachedMessageId,
+            currentMessageId,
+            isCurrentMessageForThisComponent,
             currentTextLength: currentText.length,
             cachedTextLength: cachedText.length,
             textIncreased: currentText && currentText.length > cachedText.length,
             textUnchanged: currentText === cachedText,
             isEmpty: !currentText,
-            action: currentText && currentText.length > cachedText.length ? 'UPDATE_STREAMING' : 'PRESERVE_CACHED'
+            action: isCurrentMessageForThisComponent && currentText && currentText.length > cachedText.length ? 'UPDATE_STREAMING' : 'PRESERVE_CACHED'
           });
           
-          // Same stable message - only update if text increased (streaming)
+          // CRITICAL: Only use currentText if it's from the SAME message
+          // If useMessage returned content for a different message, ignore it completely
+          if (!isCurrentMessageForThisComponent) {
+            // useMessage returned content for a different message - ignore it, use cached
+            console.log('[DEBUG] Preserving cached content - currentMessageId does not match stableId', {
+              stableId,
+              currentMessageId,
+              cachedTextLength: cachedText.length
+            });
+            return cachedValues;
+          }
+          
+          // Same stable message AND currentText is from the same message - only update if text increased (streaming)
           if (currentText && currentText.length > cachedText.length) {
             // Text increased - this is a streaming update, allow it
             console.log('[DEBUG] Text increased - allowing streaming update', {
