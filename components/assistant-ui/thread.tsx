@@ -1239,6 +1239,18 @@ const AssistantMessageComponent: FC = () => {
   const displayContent = React.useMemo(() => {
     const currentMessageId = messageIdForKey || messageId || '';
     
+    // CRITICAL: Check ref FIRST before any calculation - this prevents flicker
+    // If we have valid ref content for this message, return it IMMEDIATELY
+    // This prevents any recalculation that might return null during isRunning transition
+    if (lastValidDisplayContentRef.current && lastValidMessageIdRef.current === currentMessageId) {
+      console.log('[DEBUG] displayContent - using ref content immediately (preventing flicker)', {
+        stableId: messageIdForKey,
+        messageId: currentMessageId,
+        hasRefContent: true
+      });
+      return lastValidDisplayContentRef.current;
+    }
+    
     // If message ID changed, reset the ref (new message)
     if (lastValidMessageIdRef.current && lastValidMessageIdRef.current !== currentMessageId) {
       console.log('[DEBUG] displayContent - message ID changed, resetting ref', {
@@ -1288,8 +1300,7 @@ const AssistantMessageComponent: FC = () => {
     }
     
     // CRITICAL: If we have calculated content, store it in ref and return it
-    // If calculated content is null but we have a previous valid content for THIS message, keep using it
-    // This prevents text from disappearing when isRunning changes and useMessage briefly returns null
+    // This ensures we preserve it for future renders
     if (calculatedContent) {
       lastValidDisplayContentRef.current = calculatedContent;
       lastValidMessageIdRef.current = currentMessageId;
@@ -1350,30 +1361,29 @@ const AssistantMessageComponent: FC = () => {
     timestamp: Date.now()
   });
 
+  // CRITICAL: Always render content when available, regardless of isRunning state
+  // This prevents flicker when isRunning changes - the content stays mounted
+  // Only show loading dots when isRunning is true AND content is empty
+  const hasContent = displayContent !== null && displayContent !== undefined;
+  const shouldShowLoadingDots = isEmpty && messageId && !hasContent;
+  
   return (
     <MessagePrimitive.Root 
       key={stableKey}
       className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
+      {/* Always render content when available - prevents flicker during isRunning transition */}
+      {hasContent && (
+        <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
+          {displayContent}
+        </div>
+      )}
+      {/* Show loading dots only when running and no content yet */}
       <ThreadPrimitive.If running>
-        {isEmpty && messageId ? (
-          // Loading state: just show dots without bubble
+        {shouldShowLoadingDots && (
           <div className="col-span-2 col-start-2 row-start-1 my-1.5 flex items-center">
             <LoadingDots />
           </div>
-        ) : displayContent ? (
-          // Content state: show bubble with content (only if content exists)
-          <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
-            {displayContent}
-          </div>
-        ) : null}
-      </ThreadPrimitive.If>
-      <ThreadPrimitive.If running={false}>
-        {/* Content state: show bubble with content (only if content exists) */}
-        {displayContent ? (
-          <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
-            {displayContent}
-          </div>
-        ) : null}
+        )}
       </ThreadPrimitive.If>
 
       <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
