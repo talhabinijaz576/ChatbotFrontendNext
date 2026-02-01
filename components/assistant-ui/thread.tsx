@@ -1247,8 +1247,25 @@ const AssistantMessageComponent: FC = () => {
       }
     }
     // Otherwise use messageContent (which might be null or loading)
+    // CRITICAL: On initial load, messageContent might be null even though content exists in the message
+    // Check if we have content in the raw message object
+    if (!messageContent && content?.content) {
+      const rawText = typeof content.content === "string" 
+        ? content.content 
+        : Array.isArray(content.content) && content.content[0]?.text
+        ? content.content[0].text
+        : "";
+      if (rawText) {
+        console.log('[DEBUG] displayContent - using raw content from message object (initial load)', {
+          rawTextLength: rawText.length,
+          messageId: messageIdForKey
+        });
+        // Return the raw text - it will be processed by MarkdownRenderer
+        return rawText;
+      }
+    }
     return messageContent;
-  }, [cachedRenderedContent, messageContent, messageIdForKey, messageId]);
+  }, [cachedRenderedContent, messageContent, messageIdForKey, messageId, content]);
   
   console.log('[DEBUG] displayContent decision', {
     hasMessageContent: !!messageContent,
@@ -1300,18 +1317,20 @@ const AssistantMessageComponent: FC = () => {
           <div className="col-span-2 col-start-2 row-start-1 my-1.5 flex items-center">
             <LoadingDots />
           </div>
-        ) : (
-          // Content state: show bubble with content
+        ) : displayContent ? (
+          // Content state: show bubble with content (only if content exists)
           <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
             {displayContent}
           </div>
-        )}
+        ) : null}
       </ThreadPrimitive.If>
       <ThreadPrimitive.If running={false}>
-        {/* Content state: show bubble with content */}
-        <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
-          {displayContent}
-        </div>
+        {/* Content state: show bubble with content (only if content exists) */}
+        {displayContent ? (
+          <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
+            {displayContent}
+          </div>
+        ) : null}
       </ThreadPrimitive.If>
 
       <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
