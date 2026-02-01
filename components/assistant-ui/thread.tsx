@@ -57,6 +57,10 @@ import {
 } from "../attachment";
 import Image from "next/image";
 
+// CRITICAL: Module-level refs - these are updated but the components object never changes
+let globalConfigRef: { current: any } = { current: null };
+let globalColorsRef: { current: any } = { current: null };
+
 interface ThreadProps {
   sidebarOpen: boolean;
   setStateData: Dispatch<SetStateAction<any>>;
@@ -105,33 +109,13 @@ export const Thread: FC<ThreadProps> = ({
   const viewportRef = useRef<HTMLElement | null>(null);
   const lastScrollTopRef = useRef<number>(0);
   
-  // CRITICAL: Store config and colors in refs to prevent recreation
-  // This ensures components only recreate when values actually change, not when objects are recreated
-  const configRef = useRef(config);
-  const colorsRef = useRef(colors);
-  
-  // Update refs only when values actually change
-  React.useEffect(() => {
-    configRef.current = config;
-    colorsRef.current = colors;
-  }, [config, colors]);
-  
-  // CRITICAL: Update global config ref so AssistantMessage can read it
+  // CRITICAL: Update module-level refs so components can read latest values
+  // These refs are updated on every render, but the components object itself never changes
   globalConfigRef.current = config;
+  globalColorsRef.current = colors;
   
-  // CRITICAL: Create components object ONCE using useState lazy initializer
-  // AssistantMessage reads from global ref, not props - prevents remounts
-  const [messageComponents] = React.useState(() => {
-    return {
-      UserMessage: (props: any) => (
-        <UserMessage {...props} colors={colorsRef.current} />
-      ),
-      EditComposer: EditComposer,
-      AssistantMessage: () => (
-        <AssistantMessage /> // No props - reads from global ref
-      ),
-    };
-  }); // Lazy initializer - only runs once
+  // Use the module-level components object - it NEVER changes
+  const messageComponents = MESSAGE_COMPONENTS;
 
   // Find and store viewport reference
   useEffect(() => {
@@ -617,18 +601,22 @@ const EditComposer: FC = () => {
   );
 };
 
-// CRITICAL: Store config in a module-level ref so component can read it without props
-// This prevents prop changes from causing remounts
-let globalConfigRef: { current: any } = { current: null };
+// CRITICAL: Create module-level components object AFTER all components are defined
+// This object is created ONCE when module loads and NEVER changes
+// React will see this as a stable reference in production builds
+const MESSAGE_COMPONENTS = {
+  UserMessage: (props: any) => (
+    <UserMessage {...props} colors={globalColorsRef.current} />
+  ),
+  EditComposer: EditComposer,
+  AssistantMessage: () => (
+    <AssistantMessage /> // Reads from globalConfigRef
+  ),
+};
 
-const AssistantMessageComponent: FC<{config?: any}> = ({config}) => {
-  // Update global ref when config changes
-  if (config) {
-    globalConfigRef.current = config;
-  }
-  
-  // Read from global ref instead of prop to prevent remounts
-  const actualConfig = config || globalConfigRef.current;
+const AssistantMessageComponent: FC = () => {
+  // Read from module-level ref - no props means React never sees it as "new"
+  const actualConfig = globalConfigRef.current;
   
   const content = useMessage((m) => {
     return m;
