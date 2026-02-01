@@ -662,15 +662,35 @@ const AssistantMessageComponent: FC = () => {
   // Read from module-level ref - no props means React never sees it as "new"
   const actualConfig = globalConfigRef.current;
   
+  const content = useMessage((m) => {
+    return m;
+  });
+  
+  // CRITICAL: Get message ID early for logging and key
+  const messageIdForKey = content?.id ? String(content.id) : content?.createdAt ? String(content.createdAt) : '';
+  
+  // Track mount/unmount
+  React.useEffect(() => {
+    console.log('[DEBUG] AssistantMessageComponent MOUNTED', {
+      messageId: messageIdForKey,
+      timestamp: Date.now()
+    });
+    return () => {
+      console.log('[DEBUG] AssistantMessageComponent UNMOUNTED', {
+        messageId: messageIdForKey,
+        timestamp: Date.now()
+      });
+    };
+  }, [messageIdForKey]);
+  
   console.log('[DEBUG] AssistantMessageComponent render', {
     hasConfig: !!actualConfig,
     configId: actualConfig ? Object.keys(actualConfig).join(',') : 'null',
+    messageId: messageIdForKey,
+    contentId: content?.id,
+    contentCreatedAt: content?.createdAt,
     timestamp: Date.now(),
     componentInstance: 'AssistantMessageComponent'
-  });
-  
-  const content = useMessage((m) => {
-    return m;
   });
   
   // Extract config values directly - no memoization needed, just read from ref
@@ -903,8 +923,21 @@ const AssistantMessageComponent: FC = () => {
     return null;
   }
 
+  // CRITICAL: Use stable key based on messageId to prevent unmounting/remounting
+  // The library might be using this to determine component identity
+  const stableKey = messageId ? `assistant-msg-${String(messageId)}` : undefined;
+  
+  console.log('[DEBUG] AssistantMessageComponent returning JSX', {
+    messageId,
+    stableKey,
+    hasEverHadMessage,
+    timestamp: Date.now()
+  });
+
   return (
-    <MessagePrimitive.Root className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
+    <MessagePrimitive.Root 
+      key={stableKey}
+      className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <ThreadPrimitive.If running>
         {isEmpty && messageId ? (
           // Loading state: just show dots without bubble
@@ -948,6 +981,22 @@ const LoadingDots: FC = () => {
 // CRITICAL: Memoized avatar component to prevent Image reload
 // This component only re-renders when avatarUrl or backgroundColor actually change
 const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.memo(({avatarUrl, backgroundColor}) => {
+  // Track mount/unmount to see if component is being recreated
+  React.useEffect(() => {
+    console.log('[DEBUG] AssistantAvatar MOUNTED', {
+      avatarUrl,
+      backgroundColor,
+      timestamp: Date.now()
+    });
+    return () => {
+      console.log('[DEBUG] AssistantAvatar UNMOUNTED', {
+        avatarUrl,
+        backgroundColor,
+        timestamp: Date.now()
+      });
+    };
+  }, [avatarUrl, backgroundColor]);
+  
   console.log('[DEBUG] AssistantAvatar render', {
     avatarUrl,
     backgroundColor,
@@ -958,6 +1007,7 @@ const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.
   return (
     <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
       <Image
+        key={`img-${avatarUrl}`} // Stable key based on URL
         src={avatarUrl}
         alt="Assistant Avatar"
         width={20}
@@ -965,6 +1015,7 @@ const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.
         className="invert brightness-0 saturate-0 contrast-200"
         onLoad={() => console.log('[DEBUG] Image loaded', { avatarUrl, timestamp: Date.now() })}
         onError={(e) => console.error('[DEBUG] Image error', { avatarUrl, error: e, timestamp: Date.now() })}
+        onLoadStart={() => console.log('[DEBUG] Image load START', { avatarUrl, timestamp: Date.now() })}
       />
     </div>
   );
