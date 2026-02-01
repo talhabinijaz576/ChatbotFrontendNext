@@ -761,6 +761,23 @@ const AssistantMessageComponent: FC = () => {
       ? String(currentText.length) + currentText.substring(0, 50) 
       : '';
     
+    // CRITICAL: Use the stable message ID for comparison, not the current one
+    // This ensures we always preserve content for the same message, even if useMessage returns different IDs
+    const stableId = messageIdForKey || stableValuesRef.current?.messageId || '';
+    
+    console.log('[DEBUG] stableValues useMemo', {
+      stableId,
+      messageIdForKey,
+      currentMessageId,
+      currentTextLength: currentText.length,
+      currentTextPreview: currentText.substring(0, 50),
+      isInitialized: isInitializedRef.current,
+      hasCached: !!stableValuesRef.current,
+      cachedMessageId: stableValuesRef.current?.messageId,
+      cachedTextLength: stableValuesRef.current?.markdownText?.length || 0,
+      timestamp: Date.now()
+    });
+    
     // CRITICAL: Once initialized with content, NEVER lose it
     // Ignore empty content from useMessage - it's just a re-render artifact
     if (isInitializedRef.current && stableValuesRef.current) {
@@ -769,53 +786,104 @@ const AssistantMessageComponent: FC = () => {
       
       // If we have cached content, preserve it aggressively
       if (cachedText) {
-        // If current is empty, ALWAYS ignore it and keep cached
-        if (!currentText) {
-          return stableValuesRef.current;
-        }
-        
-        // Same message - only update if text increased (streaming)
-        if (currentMessageId === cachedMessageId || (!currentMessageId && cachedMessageId)) {
-          // Text increased - this is a streaming update, allow it
-          if (currentText.length > cachedText.length) {
+        // CRITICAL: Check if this is the SAME stable message (not current message ID)
+        // If the stable ID matches our cached ID, this is the same message - preserve content
+        if (stableId === cachedMessageId) {
+          console.log('[DEBUG] Same stable message - checking if update needed', {
+            stableId,
+            cachedMessageId,
+            currentTextLength: currentText.length,
+            cachedTextLength: cachedText.length,
+            textIncreased: currentText && currentText.length > cachedText.length,
+            textUnchanged: currentText === cachedText,
+            isEmpty: !currentText,
+            action: currentText && currentText.length > cachedText.length ? 'UPDATE_STREAMING' : 'PRESERVE_CACHED'
+          });
+          
+          // Same stable message - only update if text increased (streaming)
+          if (currentText && currentText.length > cachedText.length) {
+            // Text increased - this is a streaming update, allow it
+            console.log('[DEBUG] Text increased - allowing streaming update', {
+              oldLength: cachedText.length,
+              newLength: currentText.length,
+              diff: currentText.length - cachedText.length
+            });
             prevContentRef.current = currentText;
             // Continue to calculate new values
-          } else if (currentText === cachedText) {
-            // Text unchanged - keep cached
+          } else if (!currentText || currentText === cachedText) {
+            // Current is empty or unchanged - keep cached
+            console.log('[DEBUG] Preserving cached content - empty or unchanged', {
+              isEmpty: !currentText,
+              isUnchanged: currentText === cachedText
+            });
             return stableValuesRef.current;
           } else {
-            // Text decreased or changed but not increased - ignore, keep cached
+            // Text changed but not increased - ignore, keep cached
+            console.log('[DEBUG] Preserving cached content - text changed but not increased', {
+              currentLength: currentText.length,
+              cachedLength: cachedText.length
+            });
             return stableValuesRef.current;
           }
-        } else if (currentMessageId && currentMessageId !== cachedMessageId) {
-          // Different message - this is a new message, update
-          if (currentText) {
-            prevContentRef.current = currentText;
-            prevMessageIdRef.current = currentMessageId;
-            isInitializedRef.current = true;
-          }
         } else {
-          // No current messageId - keep cached
-          return stableValuesRef.current;
+          // Different stable message - this is a genuinely new message
+          console.log('[DEBUG] Different stable message - new message detected', {
+            stableId,
+            cachedMessageId,
+            hasCurrentText: !!currentText,
+            currentTextLength: currentText?.length || 0,
+            action: currentText && stableId ? 'INITIALIZE_NEW' : 'PRESERVE_OLD'
+          });
+          
+          // Only update if we have new content
+          if (currentText && stableId) {
+            prevContentRef.current = currentText;
+            prevMessageIdRef.current = stableId;
+            isInitializedRef.current = true;
+          } else {
+            // No new content - keep cached (this shouldn't happen for new messages, but be safe)
+            console.log('[DEBUG] No new content for new message - preserving old cached', {
+              hasCurrentText: !!currentText,
+              hasStableId: !!stableId
+            });
+            return stableValuesRef.current;
+          }
         }
+      } else {
+        console.log('[DEBUG] No cached text to preserve', {
+          stableId,
+          cachedMessageId
+        });
       }
     } else {
       // Not initialized yet - initialize if we have content
-      if (currentText && currentMessageId) {
+      console.log('[DEBUG] Not initialized - initializing if content available', {
+        hasCurrentText: !!currentText,
+        hasStableId: !!stableId,
+        currentTextLength: currentText?.length || 0
+      });
+      
+      if (currentText && stableId) {
         prevContentRef.current = currentText;
-        prevMessageIdRef.current = currentMessageId;
+        prevMessageIdRef.current = stableId;
         isInitializedRef.current = true;
+        console.log('[DEBUG] Initialized with stable ID and text', {
+          stableId,
+          textLength: currentText.length
+        });
       } else if (currentText) {
-        // Have text but no messageId - still initialize
+        // Have text but no stableId - still initialize
         prevContentRef.current = currentText;
         isInitializedRef.current = true;
+        console.log('[DEBUG] Initialized with text only (no stable ID)', {
+          textLength: currentText.length
+        });
       }
     }
     
     // Calculate new values - use current if available, otherwise preserve cached
-    // CRITICAL: Use stableMessageIdRef for messageId to prevent remounts
-    // Always prefer the stable ID if we have one, even if currentMessageId changed
-    const messageId = messageIdForKey || stableValuesRef.current?.messageId || '';
+    // CRITICAL: Always use the stable ID, never the current message ID
+    const messageId = stableId || stableValuesRef.current?.messageId || '';
     const markdownText = currentText || stableValuesRef.current?.markdownText || '';
     
     // Calculate timestamp
@@ -845,6 +913,8 @@ const AssistantMessageComponent: FC = () => {
     }
     return newStableValues;
   }, [
+    // CRITICAL: Include messageIdForKey so we can compare against stable ID
+    messageIdForKey,
     // Only depend on the actual content values, not object references
     content?.id,
     content?.createdAt,
@@ -948,9 +1018,24 @@ const AssistantMessageComponent: FC = () => {
   // Use cached content if current is empty but we have cache (prevents empty flash)
   const displayContent = messageContent || (lastRenderedRef.current?.content ?? null);
   
+  console.log('[DEBUG] displayContent decision', {
+    hasMessageContent: !!messageContent,
+    hasCachedContent: !!lastRenderedRef.current?.content,
+    displayContentType: displayContent ? (typeof displayContent === 'object' ? 'ReactNode' : 'string') : 'null',
+    timestamp: Date.now()
+  });
+  
   // Check if we've ever had a message (either current or cached)
   // This prevents the flash - if we've rendered this message before, keep rendering
   const hasEverHadMessage = messageId || lastRenderedRef.current?.messageId;
+  
+  console.log('[DEBUG] hasEverHadMessage check', {
+    messageId,
+    cachedMessageId: lastRenderedRef.current?.messageId,
+    hasEverHadMessage,
+    willRender: hasEverHadMessage,
+    timestamp: Date.now()
+  });
   
   // Only return null if we've never had a message at all
   // If we have a cached message, always render (like UserMessage does)
