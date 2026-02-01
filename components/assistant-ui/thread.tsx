@@ -812,17 +812,15 @@ const AssistantMessageComponent: FC = () => {
       timestamp: Date.now()
     });
     
-    // CRITICAL: Once initialized with content, NEVER lose it
-    // Ignore empty content from useMessage - it's just a re-render artifact
-    if (isInitialized && cachedValues) {
+    // CRITICAL: If we have cached content, ALWAYS check it first, regardless of initialization state
+    // This prevents content from disappearing when useMessage returns different content
+    if (cachedValues && cachedValues.markdownText) {
       const cachedMessageId = cachedValues.messageId;
       const cachedText = cachedValues.markdownText;
       
-      // If we have cached content, preserve it aggressively
-      if (cachedText) {
-        // CRITICAL: Check if this is the SAME stable message (not current message ID)
-        // If the stable ID matches our cached ID, this is the same message - preserve content
-        if (stableId === cachedMessageId) {
+      // CRITICAL: Check if this is the SAME stable message (not current message ID)
+      // If the stable ID matches our cached ID, this is the same message - preserve content
+      if (stableId === cachedMessageId) {
           console.log('[DEBUG] Same stable message - checking if update needed', {
             stableId,
             cachedMessageId,
@@ -859,7 +857,7 @@ const AssistantMessageComponent: FC = () => {
             });
             return cachedValues;
           }
-        } else {
+        } else if (stableId && stableId !== cachedMessageId) {
           // Different stable message - this is a genuinely new message
           console.log('[DEBUG] Different stable message - new message detected', {
             stableId,
@@ -882,12 +880,6 @@ const AssistantMessageComponent: FC = () => {
             return cachedValues;
           }
         }
-      } else {
-        console.log('[DEBUG] No cached text to preserve', {
-          stableId,
-          cachedMessageId
-        });
-      }
     } else {
       // Not initialized yet - initialize if we have content
       console.log('[DEBUG] Not initialized - initializing if content available', {
