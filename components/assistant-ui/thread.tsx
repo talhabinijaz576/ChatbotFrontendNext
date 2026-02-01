@@ -1229,9 +1229,28 @@ const AssistantMessageComponent: FC = () => {
   // This ensures we can read cached content even when messageId from stableValues is not yet available
   const cachedRenderedContent = getCachedRenderedContent();
   
+  // CRITICAL: Use ref to store the last valid displayContent to prevent text from disappearing
+  // Once we've rendered content, we NEVER want it to disappear, even if useMessage briefly returns null
+  const lastValidDisplayContentRef = React.useRef<React.ReactNode | null>(null);
+  const lastValidMessageIdRef = React.useRef<string | null>(null);
+  
   // CRITICAL: Use ref to prevent re-renders - if we have cached content, use it directly
   // This ensures React sees the same reference even when messageContent useMemo recalculates
   const displayContent = React.useMemo(() => {
+    const currentMessageId = messageIdForKey || messageId || '';
+    
+    // If message ID changed, reset the ref (new message)
+    if (lastValidMessageIdRef.current && lastValidMessageIdRef.current !== currentMessageId) {
+      console.log('[DEBUG] displayContent - message ID changed, resetting ref', {
+        oldId: lastValidMessageIdRef.current,
+        newId: currentMessageId
+      });
+      lastValidDisplayContentRef.current = null;
+      lastValidMessageIdRef.current = null;
+    }
+    
+    let calculatedContent: React.ReactNode | null = null;
+    
     // If we have cached content for this stable message ID, use it
     if (cachedRenderedContent) {
       const cachedMessageId = cachedRenderedContent.messageId;
@@ -1242,14 +1261,18 @@ const AssistantMessageComponent: FC = () => {
             cachedMessageId,
             stableId: messageIdForKey
           });
-          return cachedRenderedContent.content;
+          calculatedContent = cachedRenderedContent.content;
         }
       }
     }
-    // Otherwise use messageContent (which might be null or loading)
-    // CRITICAL: On initial load, messageContent might be null even though content exists in the message
-    // Check if we have content in the raw message object
-    if (!messageContent && content?.content) {
+    
+    // If no cached content, try messageContent
+    if (!calculatedContent) {
+      calculatedContent = messageContent;
+    }
+    
+    // If still no content, check raw message object (initial load)
+    if (!calculatedContent && content?.content) {
       const rawText = typeof content.content === "string" 
         ? content.content 
         : Array.isArray(content.content) && content.content[0]?.text
@@ -1260,11 +1283,31 @@ const AssistantMessageComponent: FC = () => {
           rawTextLength: rawText.length,
           messageId: messageIdForKey
         });
-        // Return the raw text - it will be processed by MarkdownRenderer
-        return rawText;
+        calculatedContent = rawText;
       }
     }
-    return messageContent;
+    
+    // CRITICAL: If we have calculated content, store it in ref and return it
+    // If calculated content is null but we have a previous valid content for THIS message, keep using it
+    // This prevents text from disappearing when isRunning changes and useMessage briefly returns null
+    if (calculatedContent) {
+      lastValidDisplayContentRef.current = calculatedContent;
+      lastValidMessageIdRef.current = currentMessageId;
+      return calculatedContent;
+    }
+    
+    // If no new content but we have previous valid content for THIS message, return it
+    // This ensures text never disappears once it's been rendered (for the same message)
+    if (lastValidDisplayContentRef.current && lastValidMessageIdRef.current === currentMessageId) {
+      console.log('[DEBUG] displayContent - preserving last valid content (preventing flicker)', {
+        stableId: messageIdForKey,
+        messageId: currentMessageId,
+        hasPreviousContent: true
+      });
+      return lastValidDisplayContentRef.current;
+    }
+    
+    return null;
   }, [cachedRenderedContent, messageContent, messageIdForKey, messageId, content]);
   
   console.log('[DEBUG] displayContent decision', {
