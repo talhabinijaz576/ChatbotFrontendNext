@@ -500,10 +500,11 @@ export function Assistant({
           }
           
           if (optimisticIndex !== -1) {
-            // Update the optimistic message in place, keeping its ID but updating content
-            // This preserves the stable ID reference that the component already has
+            // Update the optimistic message in place, keeping its optimistic ID
+            // This ensures useMessage returns a message with the optimistic ID,
+            // which matches what the component's stable ID reference expects
             const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
-            console.log("🚀 ~ Updating optimistic message with API response:", {
+            console.log("🚀 ~ Updating optimistic message with API response (keeping optimistic ID):", {
               optimisticId: currentConversation[optimisticIndex].id,
               realId: messageId
             });
@@ -511,7 +512,7 @@ export function Assistant({
             updated[optimisticIndex] = {
               role: assistantResponse.type,
               content: [{ text: assistantResponse.text, type: "text", created_at: assistantResponse.created_at }],
-              id: currentConversation[optimisticIndex].id, // Keep the optimistic ID
+              id: currentConversation[optimisticIndex].id, // Keep the optimistic ID so component's stable ID matches
               createdAt: new Date(),
             };
             return updated;
