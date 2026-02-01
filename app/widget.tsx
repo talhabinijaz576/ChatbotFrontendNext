@@ -17,6 +17,8 @@ import { useSearchParams } from "next/navigation";
 import { AssistantModal } from "@/components/assistant-modal";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { getCookie, setCookie } from "cookies-next";
+import { blurActiveInputIfMobile } from "./utils/deviceDetection";
+import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 export default function Widget({  }) {
   const params = useSearchParams();
@@ -30,6 +32,7 @@ export default function Widget({  }) {
   const [config, setConfig] = useState<any>();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userId, setUserId] = useState(uuidv4);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [
     {
       suggestedMessages,
@@ -164,6 +167,13 @@ export default function Widget({  }) {
 
   useEffect(() => {
     chatService.initializeConnection(conversationId);
+    
+    // Subscribe to connection status changes
+    const unsubscribeStatus = chatService.onConnectionStatusChange((isConnected) => {
+      console.log(`📡 [Widget] Connection status changed: ${isConnected}`);
+      setIsWebSocketConnected(isConnected);
+    });
+    
     const unsubscribe = chatService.onMessage((incoming) => {
       console.log("🚀 ~ unsubscribe ~ incoming:", incoming);
       if (incoming?.type === "assistant" && incoming.text) {
@@ -177,9 +187,15 @@ export default function Widget({  }) {
       }
       if (incoming?.type === "event") {
         const action = incoming.event?.action;
-        if (action === "open_url") {
+        
+        // Blur input field to close keyboard when these actions are received (mobile only)
+        if (action === "open_url" || action === "close_url" || action === "display_suggestions" || action === "on_open" || action === "on_close") {
+          blurActiveInputIfMobile();
+        }
+        
+        if (action === "open_url" || action === "on_open") {
           iframe.openIframe(incoming.event.url);
-        } else if (action === "close_url") {
+        } else if (action === "close_url" || action === "on_close") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
           console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
@@ -190,6 +206,7 @@ export default function Widget({  }) {
     return () => {
       chatService.disconnect();
       unsubscribe();
+      unsubscribeStatus();
     };
   }, [conversationId]);
 
@@ -261,6 +278,7 @@ export default function Widget({  }) {
       threadVisibility: "hidden",
       eventPointers: config.chat.isWidgetOpen ? "auto" : "none" // Dynamic based on widget state
     }}>
+      <WebSocketLoadingOverlay isVisible={!isWebSocketConnected} />
       <AssistantModal config={config} suggestedMessages={suggestedMessages} onNew={onNew} messages={messages} setStateData={setStateData} />
 
       <ActionModal

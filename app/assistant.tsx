@@ -10,7 +10,7 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import { flushSync } from "react-dom";
 import {
   Thread,
@@ -30,6 +30,8 @@ import { useBindReducer } from "./utils/useThunkReducer";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import CookiebotLoader from "@/components/CookiebotLoader";
 import { getClientIp } from "./utils/get-ip";
+import { blurActiveInputIfMobile } from "./utils/deviceDetection";
+import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 // === Utility Functions ===
 declare global {
@@ -109,6 +111,7 @@ export function Assistant({
   const [lastMessageResponse, setlastMessageResponse] = useState(null);
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [
     { error, suggestedMessages, conversationId, sidebarOpen, ipAddress },
     setStateData,
@@ -123,6 +126,7 @@ export function Assistant({
   
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
+  const createdConversationsRef = useRef<Set<string>>(new Set());
 
   const handleModalOpen = () => setModalOpen(true);
   const handleModalClose = () => setModalOpen(false);
@@ -209,21 +213,26 @@ export function Assistant({
     }
     const params = new URLSearchParams(resolvedSearchParams).toString();
 
-    let ipInfo = 
-    
-    fetch('https://ipinfo.io/?callback=?',{
-      method: "GET",
-      headers: headers,
-    }).then(res => res?.text()).then(data => {
-      let ipInfo = data;
-      fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
-        method: "POST",
+    // Only call /create once per conversationId
+    if (conversationId && !createdConversationsRef.current.has(conversationId)) {
+      createdConversationsRef.current.add(conversationId);
+      
+      let ipInfo = 
+      
+      fetch('https://ipinfo.io/?callback=?',{
+        method: "GET",
         headers: headers,
-        body: JSON.stringify(ipInfo),
-      })
-    }).catch(() => {
-      // Fail silently
-    });
+      }).then(res => res?.text()).then(data => {
+        let ipInfo = data;
+        fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify(ipInfo),
+        })
+      }).catch(() => {
+        // Fail silently
+      });
+    }
 
 
       
@@ -338,6 +347,13 @@ export function Assistant({
 
   useEffect(() => {
     chatService.initializeConnection(conversationId);
+    
+    // Subscribe to connection status changes
+    const unsubscribeStatus = chatService.onConnectionStatusChange((isConnected) => {
+      console.log(`📡 [Assistant] Connection status changed: ${isConnected}`);
+      setIsWebSocketConnected(isConnected);
+    });
+    
     const unsubscribe = chatService.onMessage((incoming) => {
       console.log("🔵 [WebSocket Handler] Message received", {
         timestamp: Date.now(),
@@ -364,9 +380,15 @@ export function Assistant({
           event: incoming.event
         });
         const action = incoming.event?.action;
-        if (action === "open_url") {
+        
+        // Blur input field to close keyboard when these actions are received (mobile only)
+        if (action === "open_url" || action === "close_url" || action === "display_suggestions" || action === "on_open" || action === "on_close") {
+          blurActiveInputIfMobile();
+        }
+        
+        if (action === "open_url" || action === "on_open") {
           iframe.openIframe(incoming.event.url);
-        } else if (action === "close_url") {
+        } else if (action === "close_url" || action === "on_close") {
           iframe.closeIframe();
         } else if (action === "display_suggestions") {
           setStateData({ suggestedMessages: incoming.event });
@@ -545,6 +567,7 @@ export function Assistant({
     return () => {
       // chatService.disconnect();
       unsubscribe();
+      unsubscribeStatus();
     };
   }, [conversationId]);
 
@@ -835,6 +858,7 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      <WebSocketLoadingOverlay isVisible={!isWebSocketConnected} />
         {/* <CookiebotLoader config={config} /> */}
       {/* HEADER */}
 

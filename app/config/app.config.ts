@@ -63,7 +63,7 @@ const config: AppConfig = {
     endpoints: {
       user: `ws/user/${userId}/`
     },
-    reconnectInterval: 5000, // 5 seconds
+    reconnectInterval: 750, // 0.75 seconds
   },
   app: {
     title: 'Jazee AI Assistant',

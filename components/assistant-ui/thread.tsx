@@ -56,6 +56,7 @@ import {
   UserMessageAttachments,
 } from "../attachment";
 import Image from "next/image";
+import { blurActiveInputIfMobile } from "@/app/utils/deviceDetection";
 
 // CRITICAL: Module-level refs - these are updated but the components object never changes
 let globalConfigRef: { current: any } = { current: null };
@@ -448,6 +449,9 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
       createdAt: new Date(),
       role: "user",
     });
+
+    // Blur input field on mobile to keep keyboard down after sending suggestion
+    blurActiveInputIfMobile();
   };
 
   return (

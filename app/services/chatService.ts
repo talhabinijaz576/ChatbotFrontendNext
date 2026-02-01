@@ -24,16 +24,28 @@ class ChatService {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 200; // Maximum number of reconnect attempts
-  private reconnectDelay: number = 2000; // Retry every 2 seconds
+  private reconnectDelay: number = 750; // Retry every 0.75 seconds
+  private connectionStatusHandlers: ((isConnected: boolean) => void)[] = [];
+  private isConnectedState: boolean = false;
+  private isConnecting: boolean = false; // Track if we're actively connecting
 
   constructor() {
     // Initial connection will be made when first chat is loaded
   }
 
   public async initializeConnection(userId: string) {
+    console.log(`🚀 [InitializeConnection] Called for userId: ${userId}`);
+    console.log(`🚀 [InitializeConnection] Current WebSocket: ${this.ws ? `exists (readyState: ${this.ws.readyState})` : 'null'}`);
+    console.log(`🚀 [InitializeConnection] Current userId: ${this.currentUserId}`);
+    console.log(`🚀 [InitializeConnection] Reconnect delay: ${this.reconnectDelay}ms (${(this.reconnectDelay / 1000).toFixed(2)}s)`);
+    
     if (!this.ws || this.currentUserId !== userId) {
+      console.log(`🚀 [InitializeConnection] Need to connect - fetching config...`);
       this.config = await this.fetchConfig();
+      console.log(`🚀 [InitializeConnection] Config fetched, calling connect()...`);
       this.connect(userId);
+    } else {
+      console.log(`🚀 [InitializeConnection] WebSocket already exists for this userId, skipping connection`);
     }
   }
 
@@ -52,24 +64,45 @@ class ChatService {
   }
 
   private connect(userId: string) {
+    console.log(`🔌 [Connect] Starting connection attempt for userId: ${userId}`);
+    console.log(`🔌 [Connect] Current WebSocket state: ${this.ws ? `exists (readyState: ${this.ws.readyState})` : 'null'}`);
+    console.log(`🔌 [Connect] Reconnect attempts so far: ${this.reconnectAttempts}`);
+    console.log(`🔌 [Connect] isConnecting flag: ${this.isConnecting}`);
+    
+    // Set flag to indicate we're actively connecting
+    this.isConnecting = true;
+    
     if (this.ws) {
-      this.isIntentionalDisconnect = true;
-      this.ws.close();
+      console.log(`🔌 [Connect] Closing existing WebSocket before creating new one`);
+      // Don't set isIntentionalDisconnect here - we're replacing the connection, not intentionally disconnecting
+      // The old connection will close, but we're already creating a new one, so we don't want it to trigger reconnect
+      const oldWs = this.ws;
+      this.ws = null; // Clear reference before closing to prevent onclose from triggering reconnect
+      oldWs.onclose = null; // Remove onclose handler to prevent it from triggering reconnect
+      oldWs.close();
     }
 
     if (this.reconnectTimeout) {
+      console.log(`🔌 [Connect] Clearing reconnect timeout`);
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
   
 
     this.currentUserId = userId;
-    this.ws = new WebSocket(`${this.config.websocket.baseUrl}/ws/user/${userId}/`);
+    this.setConnectionStatus(false); // Set to disconnected initially
+    const wsUrl = `${this.config.websocket.baseUrl}/ws/user/${userId}/`;
+    console.log(`🔌 [Connect] Creating new WebSocket connection to: ${wsUrl}`);
+    this.ws = new WebSocket(wsUrl);
+    console.log(`🔌 [Connect] WebSocket created, initial readyState: ${this.ws.readyState} (CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3)`);
   
     this.ws.onopen = () => {
-      console.log('✅ WebSocket Connected');
+      console.log('✅ [Connect] WebSocket Connected successfully!');
+      console.log(`✅ [Connect] Resetting reconnect attempts (was: ${this.reconnectAttempts})`);
       this.isIntentionalDisconnect = false;
+      this.isConnecting = false; // Clear connecting flag
       this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+      this.setConnectionStatus(true);
     };
   
     this.ws.onmessage = (event) => {
@@ -173,41 +206,79 @@ class ChatService {
     };
   
     this.ws.onerror = (error) => {
-      console.error("⚠️ WebSocket Error:", error);
+      console.error("⚠️ [OnError] WebSocket Error occurred");
+      console.error("⚠️ [OnError] Error details:", error);
+      console.error("⚠️ [OnError] WebSocket readyState:", this.ws?.readyState);
       // Don't reconnect on error - let onclose handle it
       // This prevents double reconnection attempts
     };
 
   
     this.ws.onclose = (event) => {
-      console.log(`🔌 WebSocket Disconnected (code: ${event.code})`);
-      if (!this.isIntentionalDisconnect) {
-        // Only reconnect if we haven't exceeded max attempts
+      console.log(`🔌 [OnClose] WebSocket Disconnected`);
+      console.log(`🔌 [OnClose] Close code: ${event.code}, reason: ${event.reason || 'none'}, wasClean: ${event.wasClean}`);
+      console.log(`🔌 [OnClose] isIntentionalDisconnect: ${this.isIntentionalDisconnect}`);
+      console.log(`🔌 [OnClose] isConnecting: ${this.isConnecting}`);
+      console.log(`🔌 [OnClose] Current reconnect attempts: ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+      console.log(`🔌 [OnClose] Current WebSocket reference: ${this.ws ? 'exists' : 'null'}`);
+      
+      // Reset connecting flag since connection closed (whether successful or not)
+      const wasConnecting = this.isConnecting;
+      this.isConnecting = false;
+      
+      this.setConnectionStatus(false);
+      
+      // Only skip reconnection if it was a truly intentional disconnect (like cleanup on unmount)
+      if (this.isIntentionalDisconnect) {
+        // Truly intentional disconnect (like component unmount) - don't reconnect
+        console.log(`🔌 [OnClose] Intentional disconnect, NOT reconnecting`);
+        this.reconnectAttempts = 0;
+        this.isIntentionalDisconnect = false; // Reset flag after handling
+      } else {
+        // Unexpected disconnect - ALWAYS try to reconnect
+        console.log(`🔄 [OnClose] Unexpected disconnect, will ALWAYS try to reconnect`);
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          console.log(`🔄 [OnClose] Scheduling reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
           this.scheduleReconnect(userId);
         } else {
-          console.error(`❌ Max reconnect attempts (${this.maxReconnectAttempts}) reached. Stopping reconnection.`);
+          console.warn(`⚠️ [OnClose] Max reconnect attempts (${this.maxReconnectAttempts}) reached, but will retry after longer delay...`);
+          // Even if max attempts reached, we should still try to reconnect after a longer delay
+          // This ensures the app always tries to maintain connection
+          setTimeout(() => {
+            console.log(`🔄 [OnClose] Retrying after max attempts reached, resetting attempt counter`);
+            this.reconnectAttempts = 0; // Reset and try again
+            this.scheduleReconnect(userId);
+          }, 5000); // Wait 5 seconds before retrying after max attempts
         }
-      } else {
-        // Reset attempts on intentional disconnect
-        this.reconnectAttempts = 0;
       }
     };
   }
 
   private scheduleReconnect(userId: string) {
     if (this.reconnectTimeout) {
+      console.log(`🔄 [Reconnect] Clearing existing reconnect timeout before scheduling new one`);
       clearTimeout(this.reconnectTimeout);
     }
 
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay; // Fixed 2 second delay
+    // Don't schedule if we're already connecting AND we have an active WebSocket
+    if (this.isConnecting && this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+      console.log(`🔄 [Reconnect] Already connecting with active WebSocket, skipping schedule to avoid duplicate attempts`);
+      return;
+    }
 
-    console.log(`⏳ Reconnecting WebSocket in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay; // 0.75 seconds (750ms)
+
+    console.log(`⏳ [Reconnect] Scheduling reconnect in ${(delay / 1000).toFixed(2)}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(`⏳ [Reconnect] Current userId: ${userId}, Current time: ${new Date().toISOString()}`);
     
     this.reconnectTimeout = setTimeout(() => {
+      console.log(`🔄 [Reconnect] Timeout fired! Attempting to reconnect now (attempt ${this.reconnectAttempts})`);
+      console.log(`🔄 [Reconnect] Calling connect() for userId: ${userId}`);
       this.connect(userId);
     }, delay);
+    
+    console.log(`⏳ [Reconnect] Reconnect timeout scheduled with ID: ${this.reconnectTimeout}`);
   }
   
   public async sendMessage(message: string, userId: string, conversationId: string, searchParams?: { [key: string]: string | string[] | undefined }, ipAddress?: string): Promise<any> {
@@ -543,17 +614,56 @@ class ChatService {
   }
   
   public disconnect() {
+    console.log(`🔌 [Disconnect] Intentional disconnect called`);
+    this.isIntentionalDisconnect = true;
+    this.isConnecting = false; // Reset connecting flag
     if (this.ws) {
-      this.isIntentionalDisconnect = true;
+      console.log(`🔌 [Disconnect] Closing WebSocket and preventing reconnection`);
       this.ws.close();
       this.ws = null;
       this.currentUserId = null;
       this.reconnectAttempts = 0; // Reset attempts on intentional disconnect
+      this.setConnectionStatus(false);
     }
     if (this.reconnectTimeout) {
+      console.log(`🔌 [Disconnect] Clearing reconnect timeout`);
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+  }
+
+  private setConnectionStatus(isConnected: boolean) {
+    if (this.isConnectedState !== isConnected) {
+      console.log(`📡 [ConnectionStatus] Status changed: ${this.isConnectedState} -> ${isConnected}`);
+      this.isConnectedState = isConnected;
+      console.log(`📡 [ConnectionStatus] Notifying ${this.connectionStatusHandlers.length} handler(s)`);
+      this.connectionStatusHandlers.forEach((handler, index) => {
+        try {
+          console.log(`📡 [ConnectionStatus] Calling handler ${index + 1} with status: ${isConnected}`);
+          handler(isConnected);
+        } catch (error) {
+          console.error("Error in connection status handler:", error);
+        }
+      });
+    } else {
+      console.log(`📡 [ConnectionStatus] Status unchanged: ${isConnected} (no notification needed)`);
+    }
+  }
+
+  public onConnectionStatusChange(handler: (isConnected: boolean) => void) {
+    console.log(`📡 [ConnectionStatus] New handler subscribed. Current status: ${this.isConnectedState}`);
+    this.connectionStatusHandlers.push(handler);
+    // Immediately call with current status
+    console.log(`📡 [ConnectionStatus] Immediately calling handler with current status: ${this.isConnectedState}`);
+    handler(this.isConnectedState);
+    return () => {
+      console.log(`📡 [ConnectionStatus] Handler unsubscribed`);
+      this.connectionStatusHandlers = this.connectionStatusHandlers.filter((h) => h !== handler);
+    };
+  }
+
+  public isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
 

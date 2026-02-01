@@ -24,6 +24,9 @@ class WidgetChatService {
   private lastMessageId: number | null = null;
   private currentUserId: string | null = null;
   private isIntentionalDisconnect: boolean = false;
+  private connectionStatusHandlers: ((isConnected: boolean) => void)[] = [];
+  private isConnectedState: boolean = false;
+  private isConnecting: boolean = false; // Track if we're actively connecting
 
   constructor() {
     // Initial connection will be made when widget is opened
@@ -39,18 +42,35 @@ class WidgetChatService {
   }
 
   private connect(userId: string) {
-    console.log('WidgetService: Connecting to WebSocket for userId:', userId);
+    console.log('🔌 [WidgetService:Connect] Starting connection attempt for userId:', userId);
+    console.log('🔌 [WidgetService:Connect] Current WebSocket state:', this.ws ? `exists (readyState: ${this.ws.readyState})` : 'null');
+    console.log('🔌 [WidgetService:Connect] isConnecting flag:', this.isConnecting);
+    
+    // Set flag to indicate we're actively connecting
+    this.isConnecting = true;
+    
     if (this.ws) {
-      this.isIntentionalDisconnect = true;
-      this.ws.close();
+      console.log('🔌 [WidgetService:Connect] Closing existing WebSocket before creating new one');
+      // Don't set isIntentionalDisconnect here - we're replacing the connection, not intentionally disconnecting
+      // The old connection will close, but we're already creating a new one, so we don't want it to trigger reconnect
+      const oldWs = this.ws;
+      this.ws = null; // Clear reference before closing to prevent onclose from triggering reconnect
+      oldWs.onclose = null; // Remove onclose handler to prevent it from triggering reconnect
+      oldWs.close();
     }
 
     this.currentUserId = userId;
-    this.ws = new WebSocket(`wss://leadgen-chatbot-v1.jazeeautomation.com/ws/user/${userId}/`);
+    this.setConnectionStatus(false); // Set to disconnected initially
+    const wsUrl = `wss://leadgen-chatbot-v1.jazeeautomation.com/ws/user/${userId}/`;
+    console.log('🔌 [WidgetService:Connect] Creating new WebSocket connection to:', wsUrl);
+    this.ws = new WebSocket(wsUrl);
+    console.log('🔌 [WidgetService:Connect] WebSocket created, initial readyState:', this.ws.readyState, '(CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3)');
 
     this.ws.onopen = () => {
-      console.log('WidgetService: WebSocket Connected for userId:', userId);
+      console.log('✅ [WidgetService:Connect] WebSocket Connected successfully for userId:', userId);
       this.isIntentionalDisconnect = false;
+      this.isConnecting = false; // Clear connecting flag
+      this.setConnectionStatus(true);
     };
 
     this.ws.onmessage = (event) => {
@@ -189,14 +209,39 @@ class WidgetChatService {
     };
 
     this.ws.onerror = (error) => {
-      console.error('Widget WebSocket Error:', error);
+      console.error('⚠️ [WidgetService:OnError] WebSocket Error occurred');
+      console.error('⚠️ [WidgetService:OnError] Error details:', error);
+      console.error('⚠️ [WidgetService:OnError] WebSocket readyState:', this.ws?.readyState);
     };
 
-    this.ws.onclose = () => {
-      console.log('Widget WebSocket Disconnected');
-      // Only attempt to reconnect if it wasn't an intentional disconnect
-      if (!this.isIntentionalDisconnect) {
-        setTimeout(() => this.connect(userId), config.websocket.reconnectInterval);
+    this.ws.onclose = (event) => {
+      console.log('🔌 [WidgetService:OnClose] WebSocket Disconnected');
+      console.log('🔌 [WidgetService:OnClose] Close code:', event.code, ', reason:', event.reason || 'none', ', wasClean:', event.wasClean);
+      console.log('🔌 [WidgetService:OnClose] isIntentionalDisconnect:', this.isIntentionalDisconnect);
+      console.log('🔌 [WidgetService:OnClose] isConnecting:', this.isConnecting);
+      console.log('🔌 [WidgetService:OnClose] Current WebSocket reference:', this.ws ? 'exists' : 'null');
+      
+      // Reset connecting flag since connection closed (whether successful or not)
+      this.isConnecting = false;
+      
+      this.setConnectionStatus(false);
+      
+      // Only skip reconnection if it was a truly intentional disconnect (like cleanup on unmount)
+      if (this.isIntentionalDisconnect) {
+        // Truly intentional disconnect (like component unmount) - don't reconnect
+        console.log('🔌 [WidgetService:OnClose] Intentional disconnect, NOT reconnecting');
+        this.isIntentionalDisconnect = false; // Reset flag after handling
+      } else {
+        // Unexpected disconnect - ALWAYS try to reconnect
+        console.log('🔄 [WidgetService:OnClose] Unexpected disconnect, will ALWAYS try to reconnect');
+        const delay = 750; // 0.75 seconds
+        console.log(`⏳ [WidgetService:OnClose] Scheduling reconnect in ${(delay / 1000).toFixed(2)}s`);
+        console.log(`⏳ [WidgetService:OnClose] Current userId: ${userId}, Current time: ${new Date().toISOString()}`);
+        setTimeout(() => {
+          console.log(`🔄 [WidgetService:OnClose] Reconnect timeout fired! Attempting to reconnect now`);
+          console.log(`🔄 [WidgetService:OnClose] Calling connect() for userId: ${userId}`);
+          this.connect(userId);
+        }, delay);
       }
     };
   }
@@ -331,13 +376,47 @@ class WidgetChatService {
   }
 
   public disconnect() {
+    console.log('🔌 [WidgetService:Disconnect] Intentional disconnect called');
+    this.isIntentionalDisconnect = true;
+    this.isConnecting = false; // Reset connecting flag
     if (this.ws) {
-      this.isIntentionalDisconnect = true;
+      console.log('🔌 [WidgetService:Disconnect] Closing WebSocket and preventing reconnection');
       this.ws.close();
       this.ws = null;
+      this.setConnectionStatus(false);
     }
     this.messageHandlers = [];
     this.currentUserId = null;
+  }
+
+  private setConnectionStatus(isConnected: boolean) {
+    if (this.isConnectedState !== isConnected) {
+      console.log(`📡 [WidgetService:ConnectionStatus] Status changed: ${this.isConnectedState} -> ${isConnected}`);
+      this.isConnectedState = isConnected;
+      console.log(`📡 [WidgetService:ConnectionStatus] Notifying ${this.connectionStatusHandlers.length} handler(s)`);
+      this.connectionStatusHandlers.forEach((handler, index) => {
+        try {
+          console.log(`📡 [WidgetService:ConnectionStatus] Calling handler ${index + 1} with status: ${isConnected}`);
+          handler(isConnected);
+        } catch (error) {
+          console.error("Error in connection status handler:", error);
+        }
+      });
+    } else {
+      console.log(`📡 [WidgetService:ConnectionStatus] Status unchanged: ${isConnected} (no notification needed)`);
+    }
+  }
+
+  public onConnectionStatusChange(handler: (isConnected: boolean) => void) {
+    console.log(`📡 [WidgetService:ConnectionStatus] New handler subscribed. Current status: ${this.isConnectedState}`);
+    this.connectionStatusHandlers.push(handler);
+    // Immediately call with current status
+    console.log(`📡 [WidgetService:ConnectionStatus] Immediately calling handler with current status: ${this.isConnectedState}`);
+    handler(this.isConnectedState);
+    return () => {
+      console.log(`📡 [WidgetService:ConnectionStatus] Handler unsubscribed`);
+      this.connectionStatusHandlers = this.connectionStatusHandlers.filter((h) => h !== handler);
+    };
   }
 
   public isConnected() {
