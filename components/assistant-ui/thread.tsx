@@ -1163,9 +1163,11 @@ const AssistantMessageComponent: FC = () => {
     }
     
     if (effectiveIsEmpty) {
-      // Only show loading if we have a valid message ID (real message)
+      // Don't set loading dots as content - they should be rendered separately
+      // Return null so loading dots show in the separate loading section, not in a bubble
       if (hasValidMessage) {
-        content = <LoadingDots />;
+        // Return null - loading dots will be shown separately via shouldShowLoadingDots
+        return null;
       } else {
         // No message yet - return cached if available, otherwise null
         console.log('[DEBUG] messageContent - empty, returning cached if available', {
@@ -1377,8 +1379,6 @@ const AssistantMessageComponent: FC = () => {
       <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
         <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
       </div>
-
-      <BranchPicker className="col-start-2 row-start-2 -ml-2 mr-2" />
     </MessagePrimitive.Root>
   );
 };
