@@ -76,11 +76,34 @@ class ChatService {
       try {
         const data1 = JSON.parse(event.data);
         console.log("🚀 ~ ChatService ~ connect ~ data1:", data1)
-        const data = JSON.parse(data1.event);
+        
+        // Handle different message formats
+        let data;
+        if (data1.event) {
+          // If event is already an object, use it directly
+          if (typeof data1.event === 'object') {
+            data = data1.event;
+          } else if (typeof data1.event === 'string') {
+            // If event is a string, try to parse it
+            try {
+              data = JSON.parse(data1.event);
+            } catch (parseError) {
+              // If parsing fails, the event might be a plain string or invalid JSON
+              console.warn('Failed to parse data1.event as JSON, using data1 directly:', parseError);
+              data = data1;
+            }
+          } else {
+            data = data1;
+          }
+        } else {
+          // No event property, use data1 directly
+          data = data1;
+        }
+        
         console.log("📩 Incoming WebSocket Message:", data);
         this.handleIncomingMessage([data]);
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data);
       }
     };
   

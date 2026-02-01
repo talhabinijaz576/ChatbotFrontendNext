@@ -10,8 +10,8 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
     params,
     searchParams,
   }: {
-    params: { conversationId: string };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<{ conversationId: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
   }) {
     const { conversationId } = use(params);
     const newParams = use(searchParams); 

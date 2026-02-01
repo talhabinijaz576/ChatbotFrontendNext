@@ -10,7 +10,8 @@ import {
   SimpleTextAttachmentAdapter,
 } from "@assistant-ui/react";
 import { v4 as uuidv4 } from "uuid";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
+import { flushSync } from "react-dom";
 import {
   Thread,
 } from "@/components/assistant-ui/thread";
@@ -86,10 +87,16 @@ export function Assistant({
   searchParams,
 }: {
   initialConversationId: string | null;
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined };
 }) {
   const router = useRouter();
   const iframe = useIframe();
+  
+  // Unwrap searchParams if it's a Promise (Next.js 15+)
+  // Check if it's a Promise by checking for 'then' method (safer than instanceof)
+  const resolvedSearchParams = searchParams && typeof (searchParams as any).then === 'function' 
+    ? use(searchParams as Promise<{ [key: string]: string | string[] | undefined }>)
+    : searchParams as { [key: string]: string | string[] | undefined };
 
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [history, setHistory] = useState(() => getConversationHistory());
@@ -113,7 +120,7 @@ export function Assistant({
   });
 
   console.log("🚀 ~ Assistant ~ initialConversationId:", initialConversationId)
-  console.log("🚀 ~ Assistant ~ searchParams:", searchParams)
+  console.log("🚀 ~ Assistant ~ searchParams:", resolvedSearchParams)
   const userId = getOrCreateUserId();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -204,7 +211,7 @@ export function Assistant({
     if (otpPhraseArray?.passphrase) {
       headers.set("passphrase", otpPhraseArray.passphrase);
     }
-    const params = new URLSearchParams(searchParams).toString();
+    const params = new URLSearchParams(resolvedSearchParams).toString();
 
     let ipInfo = 
     
@@ -482,16 +489,17 @@ export function Assistant({
           userAppendMessage,
           userId,
           conversationId!,
-          searchParams,
+          resolvedSearchParams,
           ipAddress
         );
         
         // Update the optimistic message with the real response
         // The library creates optimistic messages with IDs starting with '__optimistic__'
-        // CRITICAL: Update message and set isRunning in the same batch to prevent runtime from creating new message
+        // CRITICAL: Use flushSync to ensure message update is committed before isRunning changes
         const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
         
-        setMessages((currentConversation) => {
+        flushSync(() => {
+          setMessages((currentConversation) => {
           // Find the last optimistic assistant message (created by the library)
           let optimisticIndex = -1;
           for (let i = currentConversation.length - 1; i >= 0; i--) {
@@ -535,16 +543,12 @@ export function Assistant({
             createdAt: new Date(),
           };
           return [...currentConversation, assRes];
+          });
         });
         
         setlastMessageResponse(assistantResponse);
-        // CRITICAL: Set isRunning to false after the next frame to ensure message update is rendered first
-        // This prevents the runtime from seeing an inconsistent state and creating a new message
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setIsRunning(false);
-          });
-        });
+        // Now set isRunning to false - message update is already committed
+        setIsRunning(false);
       } catch (error) {
         setStateData({ error: error });
         console.error("Error communicating with backend:", error);
