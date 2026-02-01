@@ -1027,21 +1027,24 @@ const AssistantMessageComponent: FC = () => {
   
   // CRITICAL: Get cached rendered content from module-level cache using STABLE message ID
   // This ensures we can read cached content even when messageId from stableValues is not yet available
+  // CRITICAL: Only depend on messageIdForKey (stable ID), NOT messageId which changes
   const getCachedRenderedContent = React.useCallback(() => {
-    // Use stable message ID first, then fall back to messageId from stableValues
-    const cacheKey = messageIdForKey || messageId;
+    // Use stable message ID ONLY - never use messageId which changes when new messages arrive
+    const cacheKey = messageIdForKey;
+    if (!cacheKey) {
+      return null;
+    }
     const cached = renderedContentCache.get(cacheKey);
     console.log('[DEBUG] getCachedRenderedContent', {
       cacheKey,
       messageIdForKey,
-      messageId,
       hasCached: !!cached,
       cachedMessageId: cached?.messageId,
       cacheSize: renderedContentCache.size,
       allCacheKeys: Array.from(renderedContentCache.keys())
     });
     return cached || null;
-  }, [messageIdForKey, messageId]);
+  }, [messageIdForKey]); // CRITICAL: Only depend on stable ID, not messageId
   
   const setCachedRenderedContent = React.useCallback((content: { markdownText: string; messageId: string; content: React.ReactNode }) => {
     // Use stable message ID as the cache key
@@ -1060,79 +1063,92 @@ const AssistantMessageComponent: FC = () => {
     current: getCachedRenderedContent()
   }), [getCachedRenderedContent]);
   
+  // CRITICAL: Check cache FIRST before any useMemo - this prevents unnecessary recalculations
+  // If we have cached content for this stable message ID, use it directly without recalculation
+  const cachedContentForStableId = React.useMemo(() => {
+    return getCachedRenderedContent();
+  }, [messageIdForKey]); // Only recalculate when stable ID changes (which should never happen)
+  
+  // CRITICAL: Use a ref to store the last rendered content to prevent re-renders
+  // This ensures React sees the same reference even when useMemo recalculates
+  const lastRenderedContentRef = React.useRef<React.ReactNode | null>(null);
+  
   // Memoize the message content to prevent re-renders when content hasn't changed
   // CRITICAL: Once we render content, NEVER recalculate it unless content actually increases (streaming)
   const messageContent = React.useMemo(() => {
-    // CRITICAL: Get cached content using stable message ID
-    const cachedContent = getCachedRenderedContent();
-    
-    // If we have cached content for this message, check if we should use it
-    if (cachedContent) {
-      const cachedMessageId = cachedContent.messageId;
-      const cachedText = cachedContent.markdownText;
-      
-      // Same message - check if we should preserve cached content
-      // Use stable message ID for comparison to ensure we match correctly
+    // CRITICAL: If we have cached content for this stable message ID, return it IMMEDIATELY
+    // This prevents any recalculation when dependencies change for other messages
+    if (cachedContentForStableId) {
+      const cachedMessageId = cachedContentForStableId.messageId;
+      const cachedText = cachedContentForStableId.markdownText || '';
       const comparisonId = messageIdForKey || messageId;
-      if (cachedMessageId === comparisonId || cachedMessageId === messageId) {
-        // If current is empty but cached exists, ALWAYS use cached
-        if (isEmpty && cachedText) {
-          console.log('[DEBUG] messageContent - using cached (empty)', {
+      
+      // If this cached content belongs to our stable message ID, use it directly
+      if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
+        if (cachedText && cachedText.length > 0) {
+          console.log('[DEBUG] messageContent - returning cached immediately (stable ID match)', {
             cachedMessageId,
+            stableId: messageIdForKey,
             cachedTextLength: cachedText.length
           });
-          return cachedContent.content;
+          lastRenderedContentRef.current = cachedContentForStableId.content;
+          return cachedContentForStableId.content;
         }
-        // If text hasn't changed, use cached
-        if (markdownText === cachedText) {
-          console.log('[DEBUG] messageContent - using cached (unchanged)', {
-            cachedMessageId,
-            textLength: markdownText.length
-          });
-          return cachedContent.content;
-        }
-        // If text increased (streaming update), we need to update
-        // But if text decreased or became empty, ignore it and keep cached
-        if (markdownText && markdownText.length < cachedText.length) {
-          // Text decreased - ignore, keep cached
-          console.log('[DEBUG] messageContent - using cached (text decreased)', {
-            currentLength: markdownText.length,
-            cachedLength: cachedText.length
-          });
-          return cachedContent.content;
-        }
-      } else if (cachedMessageId && !messageId && !messageIdForKey) {
-        // We have cached message but current is empty - keep cached
-        console.log('[DEBUG] messageContent - using cached (no current messageId)', {
-          cachedMessageId,
-          cachedTextLength: cachedText.length
-        });
-        return cachedContent.content;
       }
     }
     
+    // CRITICAL: Check if cached rendered content has actual text (not just markdownText from stableValues)
+    // This handles the case where stableValues preserves empty content but cached rendered content has text
+    const cachedContentForCheck = getCachedRenderedContent();
+    const cachedHasText = cachedContentForCheck?.markdownText && cachedContentForCheck.markdownText.length > 0;
+    
     // Only create new content if we have actual text OR it's a new message with loading state
     let content: React.ReactNode;
-    if (isEmpty) {
+    // CRITICAL: Use cached text if available, even if markdownText from stableValues is empty
+    // This handles the case where stableValues hasn't updated yet but cached content has text
+    const effectiveText = markdownText || cachedContentForCheck?.markdownText || '';
+    const effectiveIsEmpty = !effectiveText || effectiveText.trim() === '';
+    
+    // CRITICAL: If we have cached content with text, use it instead of creating new content
+    // This prevents re-renders when useMessage returns content for a different message
+    if (cachedContentForCheck && cachedHasText) {
+      const cachedMessageId = cachedContentForCheck.messageId;
+      const comparisonId = messageIdForKey || messageId;
+      // Only use cached if it matches our stable ID
+      if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
+        console.log('[DEBUG] messageContent - using cached (has text, stable ID match)', {
+          cachedMessageId,
+          stableId: messageIdForKey,
+          cachedTextLength: cachedContentForCheck.markdownText.length
+        });
+        lastRenderedContentRef.current = cachedContentForCheck.content;
+        return cachedContentForCheck.content;
+      }
+    }
+    
+    if (effectiveIsEmpty) {
       // Only show loading if we have a valid message ID (real message)
       if (hasValidMessage) {
         content = <LoadingDots />;
       } else {
         // No message yet - return cached if available, otherwise null
-        const cached = getCachedRenderedContent();
         console.log('[DEBUG] messageContent - empty, returning cached if available', {
-          hasCached: !!cached,
-          cachedMessageId: cached?.messageId
+          hasCached: !!cachedContentForCheck,
+          cachedMessageId: cachedContentForCheck?.messageId,
+          cachedHasText
         });
-        return cached?.content ?? null;
+        const result = cachedContentForCheck?.content ?? null;
+        lastRenderedContentRef.current = result;
+        return result;
       }
     } else {
       // We have text - create content
+      // CRITICAL: Use effectiveText which includes cached text if markdownText is empty
       content = (
         <>
         <MemoryUI />
         <MarkdownRenderer
-          markdownText={markdownText}
+          markdownText={effectiveText}
             messageId={messageId}
           showCopyButton={true}
           isDarkMode={document.documentElement.classList.contains("dark")}
@@ -1143,24 +1159,56 @@ const AssistantMessageComponent: FC = () => {
     }
     
     // CRITICAL: Cache the rendered content in module-level cache - ALWAYS cache if we have content
+    // Use effectiveText for caching to ensure we cache the actual text being rendered
     if (content) {
       const renderedContent = {
-        markdownText,
-        messageId,
+        markdownText: effectiveText, // Use effectiveText, not markdownText from stableValues
+        messageId: messageIdForKey || messageId, // Use stable ID for caching
         content
       };
       setCachedRenderedContent(renderedContent);
     }
     
+    lastRenderedContentRef.current = content;
     return content;
-  }, [markdownText, messageId, timestamp, isEmpty, hasValidMessage, messageIdForKey, getCachedRenderedContent, setCachedRenderedContent]);
+  }, [
+    // CRITICAL: Only depend on stable ID and actual content - NOT messageId which changes
+    messageIdForKey,
+    cachedContentForStableId,
+    // Only depend on markdownText if it actually changed (not just messageId)
+    markdownText,
+    // Only recalculate if content actually changed, not just dependencies
+    timestamp,
+    isEmpty,
+    hasValidMessage,
+    getCachedRenderedContent,
+    setCachedRenderedContent
+  ]);
   
   // CRITICAL: Always try to get cached content using stable message ID
   // This ensures we can read cached content even when messageId from stableValues is not yet available
   const cachedRenderedContent = getCachedRenderedContent();
   
-  // Use cached content if current is empty but we have cache (prevents empty flash)
-  const displayContent = messageContent || (cachedRenderedContent?.content ?? null);
+  // CRITICAL: Use ref to prevent re-renders - if we have cached content, use it directly
+  // This ensures React sees the same reference even when messageContent useMemo recalculates
+  const displayContent = React.useMemo(() => {
+    // If we have cached content for this stable message ID, use it
+    if (cachedRenderedContent) {
+      const cachedMessageId = cachedRenderedContent.messageId;
+      const comparisonId = messageIdForKey || messageId;
+      if (cachedMessageId === comparisonId || cachedMessageId === messageId || cachedMessageId === messageIdForKey) {
+        if (cachedRenderedContent.markdownText && cachedRenderedContent.markdownText.length > 0) {
+          console.log('[DEBUG] displayContent - using cached (stable ID match)', {
+            cachedMessageId,
+            stableId: messageIdForKey
+          });
+          return cachedRenderedContent.content;
+        }
+      }
+    }
+    // Otherwise use messageContent (which might be null or loading)
+    return messageContent;
+  }, [cachedRenderedContent, messageContent, messageIdForKey, messageId]);
   
   console.log('[DEBUG] displayContent decision', {
     hasMessageContent: !!messageContent,
