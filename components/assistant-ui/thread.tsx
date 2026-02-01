@@ -61,6 +61,23 @@ import Image from "next/image";
 let globalConfigRef: { current: any } = { current: null };
 let globalColorsRef: { current: any } = { current: null };
 
+// CRITICAL: Module-level cache for message content - persists across component instances
+// Key: stable message ID, Value: { messageId, markdownText, timestamp, isInitialized }
+const messageContentCache = new Map<string, {
+  messageId: string;
+  markdownText: string;
+  timestamp: string;
+  isInitialized: boolean;
+}>();
+
+// CRITICAL: Module-level cache for rendered content - persists across component instances
+// Key: stable message ID, Value: { markdownText, messageId, content }
+const renderedContentCache = new Map<string, {
+  markdownText: string;
+  messageId: string;
+  content: React.ReactNode;
+}>();
+
 interface ThreadProps {
   sidebarOpen: boolean;
   setStateData: Dispatch<SetStateAction<any>>;
@@ -733,12 +750,25 @@ const AssistantMessageComponent: FC = () => {
   // Use refs to track previous values and prevent unnecessary re-renders
   const prevContentRef = useRef<string>('');
   const prevMessageIdRef = useRef<string>('');
-  const stableValuesRef = useRef<{
-    messageId: string;
-    markdownText: string;
-    timestamp: string;
-  } | null>(null);
-  const isInitializedRef = useRef(false); // Track if we've ever had real content
+  
+  // CRITICAL: Get cached values from module-level cache using stable message ID
+  // This persists across component instances
+  const getCachedValues = React.useCallback(() => {
+    const cached = messageContentCache.get(messageIdForKey);
+    if (cached) {
+      return {
+        messageId: cached.messageId,
+        markdownText: cached.markdownText,
+        timestamp: cached.timestamp,
+        isInitialized: cached.isInitialized
+      };
+    }
+    return null;
+  }, [messageIdForKey]);
+  
+  const setCachedValues = React.useCallback((values: { messageId: string; markdownText: string; timestamp: string; isInitialized: boolean }) => {
+    messageContentCache.set(messageIdForKey, values);
+  }, [messageIdForKey]);
   
   // Extract stable values only when content actually changes
   // CRITICAL: Once we have content, NEVER lose it - ignore empty content from useMessage
@@ -778,11 +808,15 @@ const AssistantMessageComponent: FC = () => {
       timestamp: Date.now()
     });
     
+    // CRITICAL: Read from module-level cache (persists across component instances)
+    const cachedValues = getCachedValues();
+    const isInitialized = cachedValues?.isInitialized || false;
+    
     // CRITICAL: Once initialized with content, NEVER lose it
     // Ignore empty content from useMessage - it's just a re-render artifact
-    if (isInitializedRef.current && stableValuesRef.current) {
-      const cachedMessageId = stableValuesRef.current.messageId;
-      const cachedText = stableValuesRef.current.markdownText;
+    if (isInitialized && cachedValues) {
+      const cachedMessageId = cachedValues.messageId;
+      const cachedText = cachedValues.markdownText;
       
       // If we have cached content, preserve it aggressively
       if (cachedText) {
@@ -903,18 +937,32 @@ const AssistantMessageComponent: FC = () => {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : (stableValuesRef.current?.timestamp || '');
+      : (cached?.timestamp || '');
     
-    const newStableValues = { messageId, markdownText, timestamp };
-    stableValuesRef.current = newStableValues;
-    // Mark as initialized if we have content
-    if (markdownText) {
-      isInitializedRef.current = true;
-    }
+    const newStableValues = { 
+      messageId, 
+      markdownText, 
+      timestamp,
+      isInitialized: !!markdownText || (cached?.isInitialized || false)
+    };
+    
+    // CRITICAL: Save to module-level cache so it persists across component instances
+    setCachedValues(newStableValues);
+    
+    console.log('[DEBUG] Saved to module-level cache', {
+      stableId: messageIdForKey,
+      messageId,
+      markdownTextLength: markdownText.length,
+      isInitialized: newStableValues.isInitialized,
+      cacheSize: messageContentCache.size
+    });
+    
     return newStableValues;
   }, [
-    // CRITICAL: Include messageIdForKey so we can compare against stable ID
+    // CRITICAL: Include messageIdForKey and cache functions
     messageIdForKey,
+    getCachedValues,
+    setCachedValues,
     // Only depend on the actual content values, not object references
     content?.id,
     content?.createdAt,
@@ -940,12 +988,19 @@ const AssistantMessageComponent: FC = () => {
   const hasValidMessage = messageId && messageId.trim() !== '';
   const shouldRender = hasValidMessage;
   
-  // Use ref to store last rendered content to prevent unnecessary re-renders
-  const lastRenderedRef = useRef<{
-    markdownText: string;
-    messageId: string;
-    content: React.ReactNode;
-  } | null>(null);
+  // CRITICAL: Get cached rendered content from module-level cache
+  const getCachedRenderedContent = () => {
+    return renderedContentCache.get(messageId) || null;
+  };
+  
+  const setCachedRenderedContent = (content: { markdownText: string; messageId: string; content: React.ReactNode }) => {
+    renderedContentCache.set(messageId, content);
+  };
+  
+  // For backward compatibility, create a ref-like object that reads from cache
+  const lastRenderedRef = {
+    current: getCachedRenderedContent()
+  };
   
   // Memoize the message content to prevent re-renders when content hasn't changed
   // CRITICAL: Once we render content, NEVER recalculate it unless content actually increases (streaming)
