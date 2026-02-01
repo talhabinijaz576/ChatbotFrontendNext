@@ -75,7 +75,6 @@ class ChatService {
     this.ws.onmessage = (event) => {
       try {
         const data1 = JSON.parse(event.data);
-        console.log("🚀 ~ ChatService ~ connect ~ data1:", data1)
         
         // Handle different message formats
         let data;
@@ -89,7 +88,7 @@ class ChatService {
               data = JSON.parse(data1.event);
             } catch (parseError) {
               // If parsing fails, the event might be a plain string or invalid JSON
-              console.warn('Failed to parse data1.event as JSON, using data1 directly:', parseError);
+              // Use data1 directly as fallback
               data = data1;
             }
           } else {
@@ -100,10 +99,12 @@ class ChatService {
           data = data1;
         }
         
-        console.log("📩 Incoming WebSocket Message:", data);
-        this.handleIncomingMessage([data]);
+        // Process any valid data - let the handlers decide what to do with it
+        if (data) {
+          this.handleIncomingMessage([data]);
+        }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data);
+        // Fail silently on parse errors
       }
     };
   
@@ -212,18 +213,25 @@ class ChatService {
   }
   
   public handleIncomingMessage(data: any) {
-    console.log("🚀 ~ Haris Data:", data);
+    // Ensure data is an array
+    const messages = Array.isArray(data) ? data : [data];
   
-    for (const d of data || []) {
-      console.log("Message Type", d.type);
+    for (const d of messages) {
+      if (!d) continue;
   
-      // Always notify listeners first
-      this.messageHandlers.forEach((h) => h(d));
+      // Always notify listeners first - this is what triggers the UI updates
+      this.messageHandlers.forEach((h) => {
+        try {
+          h(d);
+        } catch (error) {
+          // Fail silently if handler throws
+        }
+      });
   
       if (d.type === "event") {
-        this.runActions?.(d); // ✅ Don't return
+        this.runActions?.(d);
       } else if (d.type === "assistant") {
-        this.processMessage(d); // ✅ Don't return
+        this.processMessage(d);
       }
     }
   }

@@ -339,69 +339,12 @@ export function Assistant({
   useEffect(() => {
     chatService.initializeConnection(conversationId);
     const unsubscribe = chatService.onMessage((incoming) => {
-      // Fail silently if incoming is undefined or doesn't have required properties
-      if (!incoming || incoming?.type !== "assistant" || !incoming.text) {
+      // Fail silently if incoming is undefined
+      if (!incoming) {
         return;
       }
       
-      const messageId = incoming.pk || `assistant-message-${Date.now()}`;
-      
-      const incRes: ThreadMessageLike = {
-        role: incoming.type || "assistant",
-        content: [{ text: incoming.text || "", type: "text", created_at: incoming.created_at }],
-        id: messageId,
-        createdAt: new Date(),
-      };
-      
-      // Update optimistic message or add new one
-      // The library creates optimistic messages with IDs starting with '__optimistic__'
-      // We should replace the last optimistic assistant message with the real one
-      setMessages((currentConversation) => {
-        // Check if message was already handled by API response
-        // API response updates optimistic message, so if there's no optimistic message,
-        // it means API already handled it
-        const exists = currentConversation.some(msg => {
-          // Check by content match (API response already updated the optimistic message)
-          return msg.role === "assistant" && 
-                 Array.isArray(msg.content) && 
-                 msg.content[0]?.text === incoming.text &&
-                 !String(msg.id).startsWith("__optimistic__");
-        });
-        
-        if (exists) {
-          setIsRunning(false);
-          return currentConversation;
-        }
-        
-        // Find the last optimistic assistant message (created by the library)
-        let optimisticIndex = -1;
-        for (let i = currentConversation.length - 1; i >= 0; i--) {
-          const msg = currentConversation[i];
-          if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-            optimisticIndex = i;
-            break;
-          }
-        }
-        
-        if (optimisticIndex !== -1) {
-          // Update the optimistic message in place, keeping its ID but updating content
-          // This preserves the stable ID reference that the component already has
-          const optimisticId = currentConversation[optimisticIndex].id;
-          
-          const updated = [...currentConversation];
-          updated[optimisticIndex] = {
-            ...incRes,
-            id: optimisticId, // Keep the optimistic ID
-          };
-          
-          setIsRunning(false);
-          return updated;
-        }
-        
-        // No optimistic message found - API already handled it, just update isRunning
-        setIsRunning(false);
-        return currentConversation;
-      });
+      // Handle event messages first (display_suggestions, open_url, close_url)
       if (incoming?.type === "event") {
         const action = incoming.event?.action;
         if (action === "open_url") {
@@ -411,6 +354,71 @@ export function Assistant({
         } else if (action === "display_suggestions") {
           setStateData({ suggestedMessages: incoming.event });
         }
+        return;
+      }
+      
+      // Handle assistant messages
+      if (incoming?.type === "assistant" && incoming.text) {
+        const messageId = incoming.pk || `assistant-message-${Date.now()}`;
+        
+        const incRes: ThreadMessageLike = {
+          role: incoming.type || "assistant",
+          content: [{ text: incoming.text || "", type: "text", created_at: incoming.created_at }],
+          id: messageId,
+          createdAt: new Date(),
+        };
+        
+        // Update optimistic message or add new one
+        // The library creates optimistic messages with IDs starting with '__optimistic__'
+        // We should replace the last optimistic assistant message with the real one
+        setMessages((currentConversation) => {
+          // Check if message was already handled by API response
+          // API response updates optimistic message, so if there's no optimistic message,
+          // it means API already handled it
+          const exists = currentConversation.some(msg => {
+            // Check by content match (API response already updated the optimistic message)
+            return msg.role === "assistant" && 
+                   Array.isArray(msg.content) && 
+                   msg.content[0]?.text === incoming.text &&
+                   !String(msg.id).startsWith("__optimistic__");
+          });
+          
+          if (exists) {
+            setIsRunning(false);
+            return currentConversation;
+          }
+          
+          // Find the last optimistic assistant message (created by the library)
+          let optimisticIndex = -1;
+          for (let i = currentConversation.length - 1; i >= 0; i--) {
+            const msg = currentConversation[i];
+            if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+              optimisticIndex = i;
+              break;
+            }
+          }
+          
+          if (optimisticIndex !== -1) {
+            // Update the optimistic message in place, keeping its ID but updating content
+            // This preserves the stable ID reference that the component already has
+            const optimisticId = currentConversation[optimisticIndex].id;
+            
+            const updated = [...currentConversation];
+            updated[optimisticIndex] = {
+              ...incRes,
+              id: optimisticId, // Keep the optimistic ID
+            };
+            
+            setIsRunning(false);
+            return updated;
+          }
+          
+          // No optimistic message found - add the new message
+          // This handles cases where WebSocket message arrives before API response
+          // or when API response was empty/failed
+          setIsRunning(false);
+          return [...currentConversation, incRes];
+        });
       }
     });
     return () => {
