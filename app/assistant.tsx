@@ -339,13 +339,30 @@ export function Assistant({
   useEffect(() => {
     chatService.initializeConnection(conversationId);
     const unsubscribe = chatService.onMessage((incoming) => {
+      console.log("🔵 [WebSocket Handler] Message received", {
+        timestamp: Date.now(),
+        hasIncoming: !!incoming,
+        type: incoming?.type,
+        hasText: !!incoming?.text,
+        textLength: incoming?.text?.length || 0,
+        pk: incoming?.pk,
+        id: incoming?.id,
+        fullIncoming: incoming
+      });
+      
       // Fail silently if incoming is undefined
       if (!incoming) {
+        console.log("🔵 [WebSocket Handler] Incoming is undefined, returning");
         return;
       }
       
       // Handle event messages first (display_suggestions, open_url, close_url)
       if (incoming?.type === "event") {
+        console.log("🔵 [WebSocket Handler] Processing event message", {
+          timestamp: Date.now(),
+          action: incoming.event?.action,
+          event: incoming.event
+        });
         const action = incoming.event?.action;
         if (action === "open_url") {
           iframe.openIframe(incoming.event.url);
@@ -357,9 +374,29 @@ export function Assistant({
         return;
       }
       
-      // Handle assistant messages
-      if (incoming?.type === "assistant" && incoming.text) {
-        const messageId = incoming.pk || `assistant-message-${Date.now()}`;
+      // Handle assistant messages - ensure text exists and is not empty
+      if (incoming?.type === "assistant" && incoming.text && incoming.text.trim().length > 0) {
+        console.log("🔵 [WebSocket Handler] Processing assistant message", {
+          timestamp: Date.now(),
+          pk: incoming.pk,
+          id: incoming.id,
+          textLength: incoming.text.length,
+          textPreview: incoming.text.substring(0, 50)
+        });
+        
+        // Use pk (primary key) if available, otherwise use id, otherwise generate one
+        const messageId = incoming.pk 
+          ? String(incoming.pk) 
+          : incoming.id 
+          ? String(incoming.id) 
+          : `assistant-message-${Date.now()}`;
+        
+        console.log("🔵 [WebSocket Handler] Generated messageId", {
+          timestamp: Date.now(),
+          messageId,
+          fromPk: !!incoming.pk,
+          fromId: !!incoming.id
+        });
         
         const incRes: ThreadMessageLike = {
           role: incoming.type || "assistant",
@@ -368,56 +405,140 @@ export function Assistant({
           createdAt: new Date(),
         };
         
+        console.log("🔵 [WebSocket Handler] Created message object", {
+          timestamp: Date.now(),
+          messageId: incRes.id,
+          role: incRes.role,
+          contentLength: incRes.content[0]?.text?.length || 0
+        });
+        
         // Update optimistic message or add new one
-        // The library creates optimistic messages with IDs starting with '__optimistic__'
-        // We should replace the last optimistic assistant message with the real one
-        setMessages((currentConversation) => {
-          // Check if message was already handled by API response
-          // API response updates optimistic message, so if there's no optimistic message,
-          // it means API already handled it
-          const exists = currentConversation.some(msg => {
-            // Check by content match (API response already updated the optimistic message)
-            return msg.role === "assistant" && 
-                   Array.isArray(msg.content) && 
-                   msg.content[0]?.text === incoming.text &&
-                   !String(msg.id).startsWith("__optimistic__");
-          });
-          
-          if (exists) {
-            setIsRunning(false);
-            return currentConversation;
-          }
-          
-          // Find the last optimistic assistant message (created by the library)
-          let optimisticIndex = -1;
-          for (let i = currentConversation.length - 1; i >= 0; i--) {
-            const msg = currentConversation[i];
-            if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-              optimisticIndex = i;
-              break;
+        // Use flushSync to ensure the update is processed immediately
+        flushSync(() => {
+          setMessages((currentConversation) => {
+            console.log("🔵 [WebSocket Handler] setMessages callback - current state", {
+              timestamp: Date.now(),
+              conversationLength: currentConversation.length,
+              messageIds: currentConversation.map(m => ({ id: m.id, role: m.role })),
+              searchingForId: messageId
+            });
+            
+            // First, check if message already exists by ID (pk) - most reliable check
+            const existingByIdIndex = currentConversation.findIndex(msg => {
+              return String(msg.id) === String(messageId) || 
+                     (incoming.pk && String(msg.id) === String(incoming.pk));
+            });
+            
+            console.log("🔵 [WebSocket Handler] ID check result", {
+              timestamp: Date.now(),
+              existingByIdIndex,
+              foundById: existingByIdIndex !== -1,
+              messageId
+            });
+            
+            if (existingByIdIndex !== -1) {
+              // Message already exists with this ID - update it to ensure content is current
+              console.log("🔵 [WebSocket Handler] Message exists by ID, updating", {
+                timestamp: Date.now(),
+                existingIndex: existingByIdIndex,
+                existingId: currentConversation[existingByIdIndex].id,
+                newId: messageId
+              });
+              const updated = [...currentConversation];
+              updated[existingByIdIndex] = incRes;
+              return updated;
             }
-          }
-          
-          if (optimisticIndex !== -1) {
-            // Update the optimistic message in place, keeping its ID but updating content
-            // This preserves the stable ID reference that the component already has
-            const optimisticId = currentConversation[optimisticIndex].id;
             
-            const updated = [...currentConversation];
-            updated[optimisticIndex] = {
-              ...incRes,
-              id: optimisticId, // Keep the optimistic ID
-            };
+            // Find the last optimistic assistant message (created by the library)
+            let optimisticIndex = -1;
+            for (let i = currentConversation.length - 1; i >= 0; i--) {
+              const msg = currentConversation[i];
+              if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
+                optimisticIndex = i;
+                break;
+              }
+            }
             
-            setIsRunning(false);
-            return updated;
-          }
-          
-          // No optimistic message found - add the new message
-          // This handles cases where WebSocket message arrives before API response
-          // or when API response was empty/failed
-          setIsRunning(false);
-          return [...currentConversation, incRes];
+            console.log("🔵 [WebSocket Handler] Optimistic message check", {
+              timestamp: Date.now(),
+              optimisticIndex,
+              foundOptimistic: optimisticIndex !== -1,
+              optimisticId: optimisticIndex !== -1 ? currentConversation[optimisticIndex].id : null
+            });
+            
+            if (optimisticIndex !== -1) {
+              // Update the optimistic message in place, keeping its ID but updating content
+              // This preserves the stable ID reference that the component already has
+              const optimisticId = currentConversation[optimisticIndex].id;
+              
+              console.log("🔵 [WebSocket Handler] Updating optimistic message", {
+                timestamp: Date.now(),
+                optimisticIndex,
+                optimisticId,
+                newMessageId: messageId,
+                willKeepOptimisticId: true
+              });
+              
+              const updated = [...currentConversation];
+              updated[optimisticIndex] = {
+                ...incRes,
+                id: optimisticId, // Keep the optimistic ID
+              };
+              
+              console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
+                timestamp: Date.now(),
+                updatedLength: updated.length,
+                updatedMessage: updated[optimisticIndex] ? {
+                  id: updated[optimisticIndex].id,
+                  role: updated[optimisticIndex].role,
+                  contentLength: updated[optimisticIndex].content[0]?.text?.length || 0
+                } : null
+              });
+              
+              return updated;
+            }
+            
+            // No optimistic message found - add the new message
+            // WebSocket messages should always be added if they don't exist by ID
+            console.log("🔵 [WebSocket Handler] No optimistic message, adding new message", {
+              timestamp: Date.now(),
+              currentLength: currentConversation.length,
+              newMessageId: messageId,
+              newMessageRole: incRes.role,
+              newMessageContentLength: incRes.content[0]?.text?.length || 0
+            });
+            
+            const newConversation = [...currentConversation, incRes];
+            
+            console.log("🔵 [WebSocket Handler] Returning new conversation with added message", {
+              timestamp: Date.now(),
+              newLength: newConversation.length,
+              lastMessage: newConversation[newConversation.length - 1] ? {
+                id: newConversation[newConversation.length - 1].id,
+                role: newConversation[newConversation.length - 1].role,
+                contentLength: newConversation[newConversation.length - 1].content[0]?.text?.length || 0
+              } : null,
+              allMessageIds: newConversation.map(m => ({ id: m.id, role: m.role }))
+            });
+            
+            return newConversation;
+          });
+        });
+        
+        console.log("🔵 [WebSocket Handler] After flushSync, setting isRunning to false", {
+          timestamp: Date.now(),
+          messageId
+        });
+        
+        // Set isRunning to false after message is added
+        setIsRunning(false);
+      } else {
+        console.log("🔵 [WebSocket Handler] Message skipped - not assistant or no text", {
+          timestamp: Date.now(),
+          type: incoming?.type,
+          hasText: !!incoming?.text,
+          textLength: incoming?.text?.length || 0,
+          textIsEmpty: incoming?.text?.trim().length === 0
         });
       }
     });

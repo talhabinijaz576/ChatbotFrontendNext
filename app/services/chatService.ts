@@ -74,7 +74,24 @@ class ChatService {
   
     this.ws.onmessage = (event) => {
       try {
+        console.log("🟢 [ChatService] Raw WebSocket message received", {
+          timestamp: Date.now(),
+          rawData: event.data,
+          dataType: typeof event.data
+        });
+        
         const data1 = JSON.parse(event.data);
+        console.log("🟢 [ChatService] Parsed initial data", {
+          timestamp: Date.now(),
+          hasEvent: !!data1.event,
+          eventType: typeof data1.event,
+          data1Keys: Object.keys(data1),
+          data1Type: data1.type,
+          data1Pk: data1.pk,
+          data1Id: data1.id,
+          data1Text: data1.text?.substring(0, 50) || null,
+          fullData1: data1
+        });
         
         // Handle different message formats
         let data;
@@ -82,29 +99,76 @@ class ChatService {
           // If event is already an object, use it directly
           if (typeof data1.event === 'object') {
             data = data1.event;
+            console.log("🟢 [ChatService] Using event as object", {
+              timestamp: Date.now(),
+              eventKeys: Object.keys(data),
+              eventType: data.type
+            });
           } else if (typeof data1.event === 'string') {
             // If event is a string, try to parse it
             try {
               data = JSON.parse(data1.event);
+              console.log("🟢 [ChatService] Parsed event string", {
+                timestamp: Date.now(),
+                parsedKeys: Object.keys(data),
+                parsedType: data.type
+              });
             } catch (parseError) {
               // If parsing fails, the event might be a plain string or invalid JSON
               // Use data1 directly as fallback
               data = data1;
+              console.log("🟢 [ChatService] Event string parse failed, using data1", {
+                timestamp: Date.now(),
+                parseError: parseError instanceof Error ? parseError.message : String(parseError)
+              });
             }
           } else {
             data = data1;
+            console.log("🟢 [ChatService] Event is neither object nor string, using data1", {
+              timestamp: Date.now()
+            });
           }
         } else {
           // No event property, use data1 directly
           data = data1;
+          console.log("🟢 [ChatService] No event property, using data1 directly", {
+            timestamp: Date.now(),
+            dataKeys: Object.keys(data),
+            dataType: data.type
+          });
         }
+        
+        console.log("🟢 [ChatService] Final data to process", {
+          timestamp: Date.now(),
+          hasData: !!data,
+          dataType: data?.type,
+          dataPk: data?.pk,
+          dataId: data?.id,
+          dataText: data?.text?.substring(0, 50) || null,
+          fullData: data
+        });
         
         // Process any valid data - let the handlers decide what to do with it
         if (data) {
+          console.log("🟢 [ChatService] Calling handleIncomingMessage", {
+            timestamp: Date.now(),
+            dataType: data.type,
+            dataPk: data.pk,
+            handlerCount: this.messageHandlers.length
+          });
           this.handleIncomingMessage([data]);
+        } else {
+          console.log("🟢 [ChatService] No data to process, skipping", {
+            timestamp: Date.now()
+          });
         }
       } catch (error) {
         // Fail silently on parse errors
+        console.error("🟢 [ChatService] Error parsing WebSocket message", {
+          timestamp: Date.now(),
+          error: error instanceof Error ? error.message : String(error),
+          rawData: event.data
+        });
       }
     };
   
@@ -213,27 +277,98 @@ class ChatService {
   }
   
   public handleIncomingMessage(data: any) {
+    console.log("🟢 [ChatService] handleIncomingMessage called", {
+      timestamp: Date.now(),
+      dataType: typeof data,
+      isArray: Array.isArray(data),
+      dataLength: Array.isArray(data) ? data.length : 1,
+      handlerCount: this.messageHandlers.length
+    });
+    
     // Ensure data is an array
     const messages = Array.isArray(data) ? data : [data];
-  
+    
+    console.log("🟢 [ChatService] Processing messages array", {
+      timestamp: Date.now(),
+      messageCount: messages.length,
+      messages: messages.map(m => ({
+        type: m?.type,
+        pk: m?.pk,
+        id: m?.id,
+        hasText: !!m?.text,
+        textLength: m?.text?.length || 0
+      }))
+    });
+
     for (const d of messages) {
-      if (!d) continue;
-  
+      if (!d) {
+        console.log("🟢 [ChatService] Skipping null/undefined message", {
+          timestamp: Date.now()
+        });
+        continue;
+      }
+      
+      console.log("🟢 [ChatService] Processing message", {
+        timestamp: Date.now(),
+        type: d.type,
+        pk: d.pk,
+        id: d.id,
+        hasText: !!d.text,
+        textLength: d.text?.length || 0,
+        handlerCount: this.messageHandlers.length
+      });
+
       // Always notify listeners first - this is what triggers the UI updates
-      this.messageHandlers.forEach((h) => {
+      this.messageHandlers.forEach((h, index) => {
         try {
+          console.log("🟢 [ChatService] Calling handler", {
+            timestamp: Date.now(),
+            handlerIndex: index,
+            messageType: d.type,
+            messagePk: d.pk
+          });
           h(d);
+          console.log("🟢 [ChatService] Handler completed", {
+            timestamp: Date.now(),
+            handlerIndex: index,
+            messageType: d.type
+          });
         } catch (error) {
           // Fail silently if handler throws
+          console.error("🟢 [ChatService] Handler error", {
+            timestamp: Date.now(),
+            handlerIndex: index,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
         }
       });
-  
+
       if (d.type === "event") {
+        console.log("🟢 [ChatService] Message is event type, calling runActions", {
+          timestamp: Date.now(),
+          action: d.event?.action
+        });
         this.runActions?.(d);
       } else if (d.type === "assistant") {
+        console.log("🟢 [ChatService] Message is assistant type, calling processMessage", {
+          timestamp: Date.now(),
+          pk: d.pk,
+          textLength: d.text?.length || 0
+        });
         this.processMessage(d);
+      } else {
+        console.log("🟢 [ChatService] Message type not recognized", {
+          timestamp: Date.now(),
+          type: d.type
+        });
       }
     }
+    
+    console.log("🟢 [ChatService] handleIncomingMessage completed", {
+      timestamp: Date.now(),
+      processedCount: messages.length
+    });
   }
   
   

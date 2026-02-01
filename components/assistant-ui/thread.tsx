@@ -569,8 +569,6 @@ const UserMessage: FC = ({ colors}) => {
         <MessagePrimitive.Content />
         <AssistantActionBar timestamp={timestamp} type="user" />
         </div>
-
-      <BranchPicker className="col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
     </MessagePrimitive.Root>
   );
 };
