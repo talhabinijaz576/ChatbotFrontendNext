@@ -1280,7 +1280,8 @@ const AssistantMessageComponent: FC = () => {
         : Array.isArray(content.content) && content.content[0]?.text
         ? content.content[0].text
         : "";
-      if (rawText) {
+      // CRITICAL: Only use raw text if it has actual content (not empty string)
+      if (rawText && rawText.trim().length > 0) {
         console.log('[DEBUG] displayContent - using raw content from message object (initial load)', {
           rawTextLength: rawText.length,
           messageId: messageIdForKey
@@ -1354,15 +1355,20 @@ const AssistantMessageComponent: FC = () => {
   // CRITICAL: Always render content when available, regardless of isRunning state
   // This prevents flicker when isRunning changes - the content stays mounted
   // Only show loading dots when isRunning is true AND content is empty
-  const hasContent = displayContent !== null && displayContent !== undefined;
-  const shouldShowLoadingDots = isEmpty && messageId && !hasContent;
+  // CRITICAL: Check if displayContent has actual content (not just non-null)
+  // For strings, check if length > 0. For ReactNodes, check if not empty string
+  const hasActualContent = displayContent !== null && 
+                           displayContent !== undefined && 
+                           (typeof displayContent === 'string' ? displayContent.trim().length > 0 : displayContent !== '');
+  const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
   
   return (
     <MessagePrimitive.Root 
       key={stableKey}
       className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       {/* Always render content when available - prevents flicker during isRunning transition */}
-      {hasContent && (
+      {/* CRITICAL: Only render bubble if we have actual content, not just a non-null value */}
+      {hasActualContent && (
         <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
           {displayContent}
         </div>
