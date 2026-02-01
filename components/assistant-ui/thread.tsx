@@ -791,9 +791,13 @@ const AssistantMessageComponent: FC = () => {
       ? String(currentText.length) + currentText.substring(0, 50) 
       : '';
     
+    // CRITICAL: Read from module-level cache (persists across component instances)
+    const cachedValues = getCachedValues();
+    const isInitialized = cachedValues?.isInitialized || false;
+    
     // CRITICAL: Use the stable message ID for comparison, not the current one
     // This ensures we always preserve content for the same message, even if useMessage returns different IDs
-    const stableId = messageIdForKey || stableValuesRef.current?.messageId || '';
+    const stableId = messageIdForKey || cachedValues?.messageId || '';
     
     console.log('[DEBUG] stableValues useMemo', {
       stableId,
@@ -801,16 +805,12 @@ const AssistantMessageComponent: FC = () => {
       currentMessageId,
       currentTextLength: currentText.length,
       currentTextPreview: currentText.substring(0, 50),
-      isInitialized: isInitializedRef.current,
-      hasCached: !!stableValuesRef.current,
-      cachedMessageId: stableValuesRef.current?.messageId,
-      cachedTextLength: stableValuesRef.current?.markdownText?.length || 0,
+      isInitialized,
+      hasCached: !!cachedValues,
+      cachedMessageId: cachedValues?.messageId,
+      cachedTextLength: cachedValues?.markdownText?.length || 0,
       timestamp: Date.now()
     });
-    
-    // CRITICAL: Read from module-level cache (persists across component instances)
-    const cachedValues = getCachedValues();
-    const isInitialized = cachedValues?.isInitialized || false;
     
     // CRITICAL: Once initialized with content, NEVER lose it
     // Ignore empty content from useMessage - it's just a re-render artifact
@@ -850,14 +850,14 @@ const AssistantMessageComponent: FC = () => {
               isEmpty: !currentText,
               isUnchanged: currentText === cachedText
             });
-            return stableValuesRef.current;
+            return cachedValues;
           } else {
             // Text changed but not increased - ignore, keep cached
             console.log('[DEBUG] Preserving cached content - text changed but not increased', {
               currentLength: currentText.length,
               cachedLength: cachedText.length
             });
-            return stableValuesRef.current;
+            return cachedValues;
           }
         } else {
           // Different stable message - this is a genuinely new message
@@ -873,14 +873,13 @@ const AssistantMessageComponent: FC = () => {
           if (currentText && stableId) {
             prevContentRef.current = currentText;
             prevMessageIdRef.current = stableId;
-            isInitializedRef.current = true;
           } else {
             // No new content - keep cached (this shouldn't happen for new messages, but be safe)
             console.log('[DEBUG] No new content for new message - preserving old cached', {
               hasCurrentText: !!currentText,
               hasStableId: !!stableId
             });
-            return stableValuesRef.current;
+            return cachedValues;
           }
         }
       } else {
@@ -900,7 +899,6 @@ const AssistantMessageComponent: FC = () => {
       if (currentText && stableId) {
         prevContentRef.current = currentText;
         prevMessageIdRef.current = stableId;
-        isInitializedRef.current = true;
         console.log('[DEBUG] Initialized with stable ID and text', {
           stableId,
           textLength: currentText.length
@@ -908,7 +906,6 @@ const AssistantMessageComponent: FC = () => {
       } else if (currentText) {
         // Have text but no stableId - still initialize
         prevContentRef.current = currentText;
-        isInitializedRef.current = true;
         console.log('[DEBUG] Initialized with text only (no stable ID)', {
           textLength: currentText.length
         });
@@ -917,8 +914,8 @@ const AssistantMessageComponent: FC = () => {
     
     // Calculate new values - use current if available, otherwise preserve cached
     // CRITICAL: Always use the stable ID, never the current message ID
-    const messageId = stableId || stableValuesRef.current?.messageId || '';
-    const markdownText = currentText || stableValuesRef.current?.markdownText || '';
+    const messageId = stableId || cachedValues?.messageId || '';
+    const markdownText = currentText || cachedValues?.markdownText || '';
     
     // Calculate timestamp
     const timestamp = content?.content?.[0]?.created_at 
@@ -937,13 +934,13 @@ const AssistantMessageComponent: FC = () => {
           hour: "2-digit",
           minute: "2-digit",
         })
-      : (cached?.timestamp || '');
+      : (cachedValues?.timestamp || '');
     
     const newStableValues = { 
       messageId, 
       markdownText, 
       timestamp,
-      isInitialized: !!markdownText || (cached?.isInitialized || false)
+      isInitialized: !!markdownText || (cachedValues?.isInitialized || false)
     };
     
     // CRITICAL: Save to module-level cache so it persists across component instances
