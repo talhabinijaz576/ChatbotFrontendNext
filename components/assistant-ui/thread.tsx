@@ -181,7 +181,7 @@ export const Thread: FC<ThreadProps> = ({
       setIsKeyboardOpen(true);
       if (composerInputRef.current && viewportRef.current) {
         // Delay to let keyboard fully open
-        const timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
           const input = composerInputRef.current;
           const viewport = viewportRef.current;
           if (input && viewport) {
@@ -229,7 +229,7 @@ export const Thread: FC<ThreadProps> = ({
             }
           }
         }, 300);
-        return () => clearTimeout(timeout);
+    return () => clearTimeout(timeout);
       }
     };
 
@@ -356,7 +356,7 @@ export const Thread: FC<ThreadProps> = ({
       </ThreadPrimitive.Viewport>
       
       {/* Suggestion bar - outside viewport so it doesn't interfere with composer */}
-      {suggestedMessages?.buttons?.length > 0 && (
+          {suggestedMessages?.buttons?.length > 0 && (
         <div className="flex flex-col w-full items-center justify-center px-4 pb-2 bg-inherit z-5">
           <ThreadWelcomeSuggestions
             composerInputRef={composerInputRef}
@@ -369,7 +369,7 @@ export const Thread: FC<ThreadProps> = ({
           />
         </div>
       )}
-      
+
       <div 
         className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto"
         style={{
@@ -911,20 +911,20 @@ const AssistantMessageComponent: FC = () => {
     
     // Calculate timestamp
     const timestamp = content?.content?.[0]?.created_at 
-      ? new Date(content.content[0].created_at).toLocaleString([], {
-          day: "numeric",
-          month: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+  ? new Date(content.content[0].created_at).toLocaleString([], {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
       : content?.created_at
       ? new Date(content.created_at).toLocaleString([], {
-          day: "numeric",
-          month: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
         })
       : (cachedValues?.timestamp || '');
     
@@ -977,47 +977,89 @@ const AssistantMessageComponent: FC = () => {
   const hasValidMessage = messageId && messageId.trim() !== '';
   const shouldRender = hasValidMessage;
   
-  // CRITICAL: Get cached rendered content from module-level cache
-  const getCachedRenderedContent = () => {
-    return renderedContentCache.get(messageId) || null;
-  };
+  // CRITICAL: Get cached rendered content from module-level cache using STABLE message ID
+  // This ensures we can read cached content even when messageId from stableValues is not yet available
+  const getCachedRenderedContent = React.useCallback(() => {
+    // Use stable message ID first, then fall back to messageId from stableValues
+    const cacheKey = messageIdForKey || messageId;
+    const cached = renderedContentCache.get(cacheKey);
+    console.log('[DEBUG] getCachedRenderedContent', {
+      cacheKey,
+      messageIdForKey,
+      messageId,
+      hasCached: !!cached,
+      cachedMessageId: cached?.messageId,
+      cacheSize: renderedContentCache.size,
+      allCacheKeys: Array.from(renderedContentCache.keys())
+    });
+    return cached || null;
+  }, [messageIdForKey, messageId]);
   
-  const setCachedRenderedContent = (content: { markdownText: string; messageId: string; content: React.ReactNode }) => {
-    renderedContentCache.set(messageId, content);
-  };
+  const setCachedRenderedContent = React.useCallback((content: { markdownText: string; messageId: string; content: React.ReactNode }) => {
+    // Use stable message ID as the cache key
+    const cacheKey = messageIdForKey || content.messageId;
+    renderedContentCache.set(cacheKey, content);
+    console.log('[DEBUG] Saved rendered content to module-level cache', {
+      cacheKey,
+      messageId: content.messageId,
+      markdownTextLength: content.markdownText.length,
+      cacheSize: renderedContentCache.size
+    });
+  }, [messageIdForKey]);
   
   // For backward compatibility, create a ref-like object that reads from cache
-  const lastRenderedRef = {
+  const lastRenderedRef = React.useMemo(() => ({
     current: getCachedRenderedContent()
-  };
+  }), [getCachedRenderedContent]);
   
   // Memoize the message content to prevent re-renders when content hasn't changed
   // CRITICAL: Once we render content, NEVER recalculate it unless content actually increases (streaming)
   const messageContent = React.useMemo(() => {
+    // CRITICAL: Get cached content using stable message ID
+    const cachedContent = getCachedRenderedContent();
+    
     // If we have cached content for this message, check if we should use it
-    if (lastRenderedRef.current) {
-      const cachedMessageId = lastRenderedRef.current.messageId;
-      const cachedText = lastRenderedRef.current.markdownText;
+    if (cachedContent) {
+      const cachedMessageId = cachedContent.messageId;
+      const cachedText = cachedContent.markdownText;
       
       // Same message - check if we should preserve cached content
-      if (cachedMessageId === messageId) {
+      // Use stable message ID for comparison to ensure we match correctly
+      const comparisonId = messageIdForKey || messageId;
+      if (cachedMessageId === comparisonId || cachedMessageId === messageId) {
         // If current is empty but cached exists, ALWAYS use cached
         if (isEmpty && cachedText) {
-          return lastRenderedRef.current.content;
+          console.log('[DEBUG] messageContent - using cached (empty)', {
+            cachedMessageId,
+            cachedTextLength: cachedText.length
+          });
+          return cachedContent.content;
         }
         // If text hasn't changed, use cached
         if (markdownText === cachedText) {
-          return lastRenderedRef.current.content;
+          console.log('[DEBUG] messageContent - using cached (unchanged)', {
+            cachedMessageId,
+            textLength: markdownText.length
+          });
+          return cachedContent.content;
         }
         // If text increased (streaming update), we need to update
         // But if text decreased or became empty, ignore it and keep cached
         if (markdownText && markdownText.length < cachedText.length) {
           // Text decreased - ignore, keep cached
-          return lastRenderedRef.current.content;
+          console.log('[DEBUG] messageContent - using cached (text decreased)', {
+            currentLength: markdownText.length,
+            cachedLength: cachedText.length
+          });
+          return cachedContent.content;
         }
-      } else if (cachedMessageId && !messageId) {
+      } else if (cachedMessageId && !messageId && !messageIdForKey) {
         // We have cached message but current is empty - keep cached
-        return lastRenderedRef.current.content;
+        console.log('[DEBUG] messageContent - using cached (no current messageId)', {
+          cachedMessageId,
+          cachedTextLength: cachedText.length
+        });
+        return cachedContent.content;
       }
     }
     
@@ -1029,20 +1071,25 @@ const AssistantMessageComponent: FC = () => {
         content = <LoadingDots />;
       } else {
         // No message yet - return cached if available, otherwise null
-        return lastRenderedRef.current?.content ?? null;
+        const cached = getCachedRenderedContent();
+        console.log('[DEBUG] messageContent - empty, returning cached if available', {
+          hasCached: !!cached,
+          cachedMessageId: cached?.messageId
+        });
+        return cached?.content ?? null;
       }
     } else {
       // We have text - create content
       content = (
         <>
-          <MemoryUI />
-          <MarkdownRenderer
-            markdownText={markdownText}
+        <MemoryUI />
+        <MarkdownRenderer
+          markdownText={markdownText}
             messageId={messageId}
-            showCopyButton={true}
-            isDarkMode={document.documentElement.classList.contains("dark")}
-          />
-          <AssistantActionBar timestamp={timestamp} type="assistant" />
+          showCopyButton={true}
+          isDarkMode={document.documentElement.classList.contains("dark")}
+        />
+      <AssistantActionBar timestamp={timestamp} type="assistant" />
         </>
       );
     }
@@ -1059,23 +1106,30 @@ const AssistantMessageComponent: FC = () => {
     return content;
   }, [markdownText, messageId, timestamp, isEmpty, hasValidMessage]);
   
+  // CRITICAL: Always try to get cached content using stable message ID
+  // This ensures we can read cached content even when messageId from stableValues is not yet available
+  const cachedRenderedContent = getCachedRenderedContent();
+  
   // Use cached content if current is empty but we have cache (prevents empty flash)
-  const displayContent = messageContent || (lastRenderedRef.current?.content ?? null);
+  const displayContent = messageContent || (cachedRenderedContent?.content ?? null);
   
   console.log('[DEBUG] displayContent decision', {
     hasMessageContent: !!messageContent,
-    hasCachedContent: !!lastRenderedRef.current?.content,
+    hasCachedContent: !!cachedRenderedContent?.content,
+    cachedMessageId: cachedRenderedContent?.messageId,
+    stableMessageId: messageIdForKey,
     displayContentType: displayContent ? (typeof displayContent === 'object' ? 'ReactNode' : 'string') : 'null',
     timestamp: Date.now()
   });
   
   // Check if we've ever had a message (either current or cached)
   // This prevents the flash - if we've rendered this message before, keep rendering
-  const hasEverHadMessage = messageId || lastRenderedRef.current?.messageId;
+  const hasEverHadMessage = messageId || cachedRenderedContent?.messageId || messageIdForKey;
   
   console.log('[DEBUG] hasEverHadMessage check', {
     messageId,
-    cachedMessageId: lastRenderedRef.current?.messageId,
+    cachedMessageId: cachedRenderedContent?.messageId,
+    stableMessageId: messageIdForKey,
     hasEverHadMessage,
     willRender: hasEverHadMessage,
     timestamp: Date.now()
@@ -1211,15 +1265,15 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
       </div>
 
       <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-        <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
-          <Image
-            src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
-            alt="Assistant Avatar"
-            width={20}
-            height={20}
-            className="invert brightness-0 saturate-0 contrast-200"
-          />
-        </div>
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
+        <Image
+          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+          alt="Assistant Avatar"
+          width={20}
+          height={20}
+          className="invert brightness-0 saturate-0 contrast-200"
+        />
+      </div>
       </div>
     </div>
   );
