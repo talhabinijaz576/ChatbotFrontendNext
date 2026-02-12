@@ -30,7 +30,7 @@ import { useBindReducer } from "./utils/useThunkReducer";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import CookiebotLoader from "@/components/CookiebotLoader";
 import { getClientIp } from "./utils/get-ip";
-import { blurActiveInputIfMobile } from "./utils/deviceDetection";
+import { keepInputFocused } from "./utils/deviceDetection";
 import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 // === Utility Functions ===
@@ -41,6 +41,7 @@ declare global {
 }
 
 const getOrCreateUserId = () => {
+  if (typeof window === 'undefined') return uuidv4();
   let id = localStorage.getItem("userId1");
   if (!id) {
     id = uuidv4();
@@ -50,10 +51,16 @@ const getOrCreateUserId = () => {
 };
 
 const getConversationHistory = () => {
+  if (typeof window === 'undefined') return [];
+  try {
   return JSON.parse(localStorage.getItem("chatHistory") || "[]");
+  } catch (e) {
+    return [];
+  }
 };
 
 const saveConversationToHistory = (id: string, title: string) => {
+  if (typeof window === 'undefined') return;
   const history = getConversationHistory();
   const exists = history.find((h) => h.id === id);
   if (!exists) {
@@ -61,11 +68,20 @@ const saveConversationToHistory = (id: string, title: string) => {
   } else if (title && !exists.title) {
     exists.title = title;
   }
+  try {
   localStorage.setItem("chatHistory", JSON.stringify(history));
+  } catch (e) {
+    console.error("Failed to save conversation history:", e);
+  }
 };
 
 const saveMessages = (id: string, messages: any[]) => {
+  if (typeof window === 'undefined') return;
+  try {
   localStorage.setItem(`conversation:${id}`, JSON.stringify(messages));
+  } catch (e) {
+    console.error("Failed to save messages:", e);
+  }
 };
 
 const style = {
@@ -103,6 +119,7 @@ export function Assistant({
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [history, setHistory] = useState(() => getConversationHistory());
   const [isRunning, setIsRunning] = useState(false);
+  const keyboardOpenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [config, setConfig] = useState<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -112,6 +129,7 @@ export function Assistant({
   const [openCookieModal, setOpenCookieModal] = useState(true);
   const [cookieLoading, setCookieLoading] = useState(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [visualViewportHeight, setVisualViewportHeight] = useState<number | null>(null);
   const [
     { error, suggestedMessages, conversationId, sidebarOpen, ipAddress },
     setStateData,
@@ -132,6 +150,40 @@ export function Assistant({
   const handleModalClose = () => setModalOpen(false);
 
   // Step 1: Load config once on page load
+
+  // Monitor visual viewport height to adjust layout when keyboard opens
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) {
+      setVisualViewportHeight(window.innerHeight);
+      return;
+    }
+
+    const visualViewport = window.visualViewport;
+    
+    const updateViewportHeight = () => {
+      // Update height and trigger re-render to adjust header position
+      setVisualViewportHeight(visualViewport.height);
+      
+      // Force header repositioning on mobile by updating transform
+      // This ensures the header stays visible when keyboard opens
+      const header = document.querySelector('header');
+      if (header && visualViewport.offsetTop !== undefined) {
+        header.style.transform = `translateY(${visualViewport.offsetTop}px)`;
+      }
+    };
+
+    // Set initial height
+    updateViewportHeight();
+
+    // Listen for viewport changes (keyboard open/close)
+    visualViewport.addEventListener('resize', updateViewportHeight);
+    visualViewport.addEventListener('scroll', updateViewportHeight);
+
+    return () => {
+      visualViewport.removeEventListener('resize', updateViewportHeight);
+      visualViewport.removeEventListener('scroll', updateViewportHeight);
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/api/config")
@@ -289,9 +341,9 @@ export function Assistant({
 
           setMessages([autoMessage, ...converted]);
         } else {
-          const existingMessage = JSON.parse(
-            localStorage.getItem(`conversation:${conversationId}`) || "[]"
-          );
+          const existingMessage = typeof window !== 'undefined' 
+            ? JSON.parse(localStorage.getItem(`conversation:${conversationId}`) || "[]")
+            : [];
 
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
@@ -381,23 +433,57 @@ export function Assistant({
         });
         const action = incoming.event?.action;
         
-        // Blur input field to close keyboard when these actions are received (mobile only)
-        if (action === "open_url" || action === "close_url" || action === "display_suggestions" || action === "on_open" || action === "on_close") {
-          blurActiveInputIfMobile();
-        }
-        
         if (action === "open_url" || action === "on_open") {
+          // Cancel any pending keyboard open timeout since an action was received
+          if (keyboardOpenTimeoutRef.current) {
+            clearTimeout(keyboardOpenTimeoutRef.current);
+            keyboardOpenTimeoutRef.current = null;
+          }
+          
           iframe.openIframe(incoming.event.url);
+          // Keep input focused when opening iframe (but only if no suggestions)
+          if (!suggestedMessages?.buttons?.length) {
+            keepInputFocused();
+          }
         } else if (action === "close_url" || action === "on_close") {
+          // Cancel any pending keyboard open timeout since an action was received
+          if (keyboardOpenTimeoutRef.current) {
+            clearTimeout(keyboardOpenTimeoutRef.current);
+            keyboardOpenTimeoutRef.current = null;
+          }
+          
           iframe.closeIframe();
+          // Keep input focused when closing iframe (but only if no suggestions)
+          if (!suggestedMessages?.buttons?.length) {
+            keepInputFocused();
+          }
         } else if (action === "display_suggestions") {
+          // When displaying suggestions, blur input to close keyboard
+          // CRITICAL: Cancel any pending keyboard open timeout since suggestions are appearing
+          if (keyboardOpenTimeoutRef.current) {
+            clearTimeout(keyboardOpenTimeoutRef.current);
+            keyboardOpenTimeoutRef.current = null;
+          }
+          
+          // CRITICAL: Delay suggestions display to ensure any pending message updates complete first
+          // This prevents messages from disappearing when suggestions appear
+          setTimeout(() => {
+            flushSync(() => {
           setStateData({ suggestedMessages: incoming.event });
+            });
+            // Close keyboard by blurring the input
+            const input = document.querySelector('textarea[placeholder], textarea[data-composer-input]') as HTMLTextAreaElement | null;
+            if (input && document.activeElement === input) {
+              input.blur();
+            }
+          }, 100); // Delay to ensure messages are fully rendered first
         }
         return;
       }
       
-      // Handle assistant messages - ensure text exists and is not empty
-      if (incoming?.type === "assistant" && incoming.text && incoming.text.trim().length > 0) {
+      // Handle assistant messages - be more lenient with text validation
+      // Accept messages even if text is empty or whitespace (might be streaming or partial)
+      if (incoming?.type === "assistant" && incoming.text !== undefined && incoming.text !== null) {
         console.log("🔵 [WebSocket Handler] Processing assistant message", {
           timestamp: Date.now(),
           pk: incoming.pk,
@@ -407,11 +493,13 @@ export function Assistant({
         });
         
         // Use pk (primary key) if available, otherwise use id, otherwise generate one
+        // CRITICAL: Use a stable ID format that won't be confused with optimistic messages
+        // Include timestamp to ensure uniqueness, but make it clear it's a real message
         const messageId = incoming.pk 
-          ? String(incoming.pk) 
+          ? `ws-msg-${String(incoming.pk)}` 
           : incoming.id 
-          ? String(incoming.id) 
-          : `assistant-message-${Date.now()}`;
+          ? `ws-msg-${String(incoming.id)}` 
+          : `ws-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         console.log("🔵 [WebSocket Handler] Generated messageId", {
           timestamp: Date.now(),
@@ -420,9 +508,12 @@ export function Assistant({
           fromId: !!incoming.id
         });
         
+        // Ensure text is a string, even if empty
+        const messageText = typeof incoming.text === 'string' ? incoming.text : String(incoming.text || '');
+        
         const incRes: ThreadMessageLike = {
           role: incoming.type || "assistant",
-          content: [{ text: incoming.text || "", type: "text", created_at: incoming.created_at }],
+          content: [{ text: messageText, type: "text", created_at: incoming.created_at }],
           id: messageId,
           createdAt: new Date(),
         };
@@ -436,8 +527,10 @@ export function Assistant({
         
         // Update optimistic message or add new one
         // Use flushSync to ensure the update is processed immediately
-        flushSync(() => {
-          setMessages((currentConversation) => {
+        // CRITICAL: Wrap in try-catch to ensure message is never lost
+        try {
+          flushSync(() => {
+            setMessages((currentConversation) => {
             console.log("🔵 [WebSocket Handler] setMessages callback - current state", {
               timestamp: Date.now(),
               conversationLength: currentConversation.length,
@@ -446,9 +539,20 @@ export function Assistant({
             });
             
             // First, check if message already exists by ID (pk) - most reliable check
+            // Also check for messages with the same pk/id even if the prefix differs
             const existingByIdIndex = currentConversation.findIndex(msg => {
-              return String(msg.id) === String(messageId) || 
-                     (incoming.pk && String(msg.id) === String(incoming.pk));
+              const msgIdStr = String(msg.id);
+              const incomingPkStr = incoming.pk ? String(incoming.pk) : null;
+              const incomingIdStr = incoming.id ? String(incoming.id) : null;
+              
+              // Check exact match
+              if (msgIdStr === String(messageId)) return true;
+              
+              // Check if message ID contains the pk/id (handles both prefixed and non-prefixed)
+              if (incomingPkStr && (msgIdStr.includes(incomingPkStr) || msgIdStr === incomingPkStr)) return true;
+              if (incomingIdStr && (msgIdStr.includes(incomingIdStr) || msgIdStr === incomingIdStr)) return true;
+              
+              return false;
             });
             
             console.log("🔵 [WebSocket Handler] ID check result", {
@@ -464,10 +568,17 @@ export function Assistant({
                 timestamp: Date.now(),
                 existingIndex: existingByIdIndex,
                 existingId: currentConversation[existingByIdIndex].id,
-                newId: messageId
+                newId: messageId,
+                existingContentLength: currentConversation[existingByIdIndex].content[0]?.text?.length || 0,
+                newContentLength: incRes.content[0]?.text?.length || 0
               });
               const updated = [...currentConversation];
-              updated[existingByIdIndex] = incRes;
+              // Only update if new content is longer or different (for streaming updates)
+              const existingText = updated[existingByIdIndex].content[0]?.text || '';
+              const newText = incRes.content[0]?.text || '';
+              if (newText.length > existingText.length || newText !== existingText) {
+                updated[existingByIdIndex] = incRes;
+              }
               return updated;
             }
             
@@ -492,32 +603,46 @@ export function Assistant({
               // Update the optimistic message in place, keeping its ID but updating content
               // This preserves the stable ID reference that the component already has
               const optimisticId = currentConversation[optimisticIndex].id;
+              const existingText = currentConversation[optimisticIndex].content[0]?.text || '';
+              const newText = incRes.content[0]?.text || '';
               
               console.log("🔵 [WebSocket Handler] Updating optimistic message", {
                 timestamp: Date.now(),
                 optimisticIndex,
                 optimisticId,
                 newMessageId: messageId,
-                willKeepOptimisticId: true
+                willKeepOptimisticId: true,
+                existingTextLength: existingText.length,
+                newTextLength: newText.length
               });
               
-              const updated = [...currentConversation];
-              updated[optimisticIndex] = {
-                ...incRes,
-                id: optimisticId, // Keep the optimistic ID
-              };
-              
-              console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
-                timestamp: Date.now(),
-                updatedLength: updated.length,
-                updatedMessage: updated[optimisticIndex] ? {
-                  id: updated[optimisticIndex].id,
-                  role: updated[optimisticIndex].role,
-                  contentLength: updated[optimisticIndex].content[0]?.text?.length || 0
-                } : null
-              });
-              
-              return updated;
+              // Only update if new content is longer or different (for streaming updates)
+              if (newText.length > existingText.length || newText !== existingText) {
+                const updated = [...currentConversation];
+                updated[optimisticIndex] = {
+                  ...incRes,
+                  id: optimisticId, // Keep the optimistic ID
+                };
+                
+                console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
+                  timestamp: Date.now(),
+                  updatedLength: updated.length,
+                  updatedMessage: updated[optimisticIndex] ? {
+                    id: updated[optimisticIndex].id,
+                    role: updated[optimisticIndex].role,
+                    contentLength: updated[optimisticIndex].content[0]?.text?.length || 0
+                  } : null
+                });
+                
+                return updated;
+              } else {
+                // Content hasn't changed, return current state
+                console.log("🔵 [WebSocket Handler] Content unchanged, keeping existing message", {
+                  timestamp: Date.now(),
+                  optimisticIndex
+                });
+                return currentConversation;
+              }
             }
             
             // No optimistic message found - add the new message
@@ -530,7 +655,18 @@ export function Assistant({
               newMessageContentLength: incRes.content[0]?.text?.length || 0
             });
             
-            const newConversation = [...currentConversation, incRes];
+            // Always add the message - don't check for duplicate content
+            // CRITICAL: Ensure the message has actual text content so it won't be filtered by runtime
+            // The runtime may filter empty or incomplete messages when isRunning changes
+            const messageToAdd = {
+              ...incRes,
+              // Ensure content is properly structured
+              content: incRes.content && incRes.content.length > 0 
+                ? incRes.content 
+                : [{ text: messageText || '', type: "text", created_at: incoming.created_at }]
+            };
+            
+            const newConversation = [...currentConversation, messageToAdd];
             
             console.log("🔵 [WebSocket Handler] Returning new conversation with added message", {
               timestamp: Date.now(),
@@ -544,8 +680,25 @@ export function Assistant({
             });
             
             return newConversation;
+            });
           });
-        });
+        } catch (error) {
+          // If flushSync fails, try adding message directly as fallback
+          console.error("🔵 [WebSocket Handler] Error in flushSync, using fallback", {
+            timestamp: Date.now(),
+            error: error instanceof Error ? error.message : String(error),
+            messageId
+          });
+          
+          setMessages((currentConversation) => {
+            // Simple fallback: just add the message if it doesn't exist
+            const exists = currentConversation.some(msg => String(msg.id) === String(messageId));
+            if (!exists) {
+              return [...currentConversation, incRes];
+            }
+            return currentConversation;
+          });
+        }
         
         console.log("🔵 [WebSocket Handler] After flushSync, setting isRunning to false", {
           timestamp: Date.now(),
@@ -553,14 +706,50 @@ export function Assistant({
         });
         
         // Set isRunning to false after message is added
-        setIsRunning(false);
+        // Use a longer delay to ensure message is fully rendered and persisted before changing isRunning
+        // This prevents the runtime from filtering the message when suggestions appear
+        // CRITICAL: Wait longer to ensure message is fully in the DOM and cached before allowing runtime to filter
+        // Use multiple requestAnimationFrame to ensure React has fully processed the update
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              setIsRunning(false);
+            }, 200); // Additional delay to ensure message is fully persisted
+            });
+        });
+        
+        // CRITICAL: Wait 2 seconds after message response, then open keyboard if no action was received
+        // This is the safest way to avoid opening keyboard when suggestions are about to appear
+        // Clear any existing timeout first
+        if (keyboardOpenTimeoutRef.current) {
+          clearTimeout(keyboardOpenTimeoutRef.current);
+          keyboardOpenTimeoutRef.current = null;
+        }
+        
+        // Set a 2-second timeout to open keyboard if no action is received
+        keyboardOpenTimeoutRef.current = setTimeout(() => {
+          // Double-check that no suggestions are visible before opening keyboard
+          const hasSuggestions = suggestedMessages?.buttons?.length > 0;
+          const suggestionBar = document.querySelector('[data-suggestion-bar]');
+          const suggestionsVisible = suggestionBar && suggestionBar.getBoundingClientRect().height > 0;
+          const isIframeOpen = iframe.showIframe;
+          
+          // Only open keyboard if no suggestions are visible and iframe is closed
+          if (!hasSuggestions && !suggestionsVisible && !isIframeOpen) {
+            keepInputFocused();
+          }
+          
+          keyboardOpenTimeoutRef.current = null;
+        }, 2000); // Wait 2 seconds
       } else {
-        console.log("🔵 [WebSocket Handler] Message skipped - not assistant or no text", {
+        console.log("🔵 [WebSocket Handler] Message skipped - not assistant or invalid", {
           timestamp: Date.now(),
           type: incoming?.type,
-          hasText: !!incoming?.text,
-          textLength: incoming?.text?.length || 0,
-          textIsEmpty: incoming?.text?.trim().length === 0
+          hasText: incoming?.text !== undefined && incoming?.text !== null,
+          textType: typeof incoming?.text,
+          textValue: incoming?.text,
+          textLength: typeof incoming?.text === 'string' ? incoming.text.length : 0,
+          textIsEmpty: typeof incoming?.text === 'string' ? incoming.text.trim().length === 0 : true
         });
       }
     });
@@ -568,8 +757,17 @@ export function Assistant({
       // chatService.disconnect();
       unsubscribe();
       unsubscribeStatus();
+      // Clean up any pending keyboard open timeout
+      if (keyboardOpenTimeoutRef.current) {
+        clearTimeout(keyboardOpenTimeoutRef.current);
+        keyboardOpenTimeoutRef.current = null;
+      }
     };
-  }, [conversationId]);
+  }, [conversationId, suggestedMessages?.buttons?.length, iframe.showIframe]);
+
+  // NOTE: Keyboard opening is now handled by the 2-second timeout after message responses
+  // This is safer as it waits to see if any actions (like display_suggestions) are received
+  // The old 1-second timeout logic has been removed in favor of this approach
 
   // === Chat Handlers ===
   const createNewChat = () => {
@@ -582,7 +780,9 @@ export function Assistant({
   const switchConversation = (id: string) => {
     setStateData({ conversationId: id });
     router.push(`/chat/${id}`, undefined, { shallow: true });
+    if (typeof window !== 'undefined') {
     localStorage.setItem(`my-convo-${id}`, "true");
+    }
   };
 
   const updateTitleIfNeeded = (msgText: string) => {
@@ -648,7 +848,7 @@ export function Assistant({
         // In production, use flushSync to ensure atomic update
         flushSync(() => {
           setMessages((currentConversation) => [...currentConversation, optimisticMessage]);
-          setIsRunning(true);
+      setIsRunning(true);
         });
       } else {
         // In dev, regular batching is fine
@@ -770,12 +970,12 @@ export function Assistant({
             
             // No optimistic message found (shouldn't happen, but handle gracefully)
             
-            const assRes: ThreadMessageLike = {
+        const assRes: ThreadMessageLike = {
               role: assistantResponse.type || "assistant",
               content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
               id: messageId,
-              createdAt: new Date(),
-            };
+          createdAt: new Date(),
+        };
             return [...currentConversation, assRes];
           });
           
@@ -823,8 +1023,10 @@ export function Assistant({
 
   const deleteConversation = (id: string) => {
     const updated = history.filter((c) => c.id !== id);
+      if (typeof window !== 'undefined') {
     localStorage.setItem("chatHistory", JSON.stringify(updated));
     localStorage.removeItem(`conversation:${id}`);
+      }
     setHistory(updated);
 
     if (conversationId === id) {
@@ -834,11 +1036,11 @@ export function Assistant({
 
   // Memoize adapters to prevent recreation on every render
   const adapters = useMemo(() => ({
-    attachments: new CompositeAttachmentAdapter([
-      new SimpleImageAttachmentAdapter(),
-      new SimpleTextAttachmentAdapter(),
-      new SimplePdfAttachmentAdapter(),
-    ]),
+      attachments: new CompositeAttachmentAdapter([
+        new SimpleImageAttachmentAdapter(),
+        new SimpleTextAttachmentAdapter(),
+        new SimplePdfAttachmentAdapter(),
+      ]),
   }), []);
 
   // Memoize convertMessage to prevent runtime recreation
@@ -863,10 +1065,22 @@ export function Assistant({
       {/* HEADER */}
 
       {/* MAIN LAYOUT */}
-      <div className="flex flex-col h-[100dvh]">
+      <div 
+        className="flex flex-col relative"
+        style={{
+          height: visualViewportHeight ? `${visualViewportHeight}px` : '100dvh',
+          maxHeight: visualViewportHeight ? `${visualViewportHeight}px` : '100dvh',
+        }}
+      >
 
 <header
-  className="sticky top-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
+  className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
+  style={{
+    // On mobile, position relative to visual viewport offset
+    transform: typeof window !== 'undefined' && window.visualViewport 
+      ? `translateY(${window.visualViewport.offsetTop}px)` 
+      : undefined,
+  }}
 >
   <ThemeAwareLogo
     width={180}
@@ -882,7 +1096,14 @@ export function Assistant({
     </button>  */}
 </header>
 
-<main className="flex-1 overflow-y-auto" style={{ height: 'calc(100dvh - 4rem)' }}>
+<main 
+  className="flex-1 overflow-y-auto" 
+  style={{ 
+    marginTop: '4rem', // Account for fixed header height
+    height: visualViewportHeight ? `calc(${visualViewportHeight}px - 4rem)` : 'calc(100dvh - 4rem)',
+    maxHeight: visualViewportHeight ? `calc(${visualViewportHeight}px - 4rem)` : 'calc(100dvh - 4rem)',
+  }}
+>
   <Thread
     sidebarOpen={sidebarOpen}
     setStateData={setStateData}

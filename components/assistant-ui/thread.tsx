@@ -56,7 +56,7 @@ import {
   UserMessageAttachments,
 } from "../attachment";
 import Image from "next/image";
-import { blurActiveInputIfMobile } from "@/app/utils/deviceDetection";
+import { keepInputFocused } from "@/app/utils/deviceDetection";
 
 // CRITICAL: Module-level refs - these are updated but the components object never changes
 let globalConfigRef: { current: any } = { current: null };
@@ -124,8 +124,13 @@ export const Thread: FC<ThreadProps> = ({
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [visualViewportHeight, setVisualViewportHeight] = useState<number | null>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
   const lastScrollTopRef = useRef<number>(0);
+  const keepVisibleIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const visualViewportRef = useRef<VisualViewport | null>(null);
+  const suggestionBarRef = useRef<HTMLDivElement | null>(null);
+  const hasFocusedOnLoadRef = useRef<boolean>(false);
   
   // CRITICAL: Update module-level refs so components can read latest values
   // These refs are updated on every render, but the components object itself never changes
@@ -147,68 +152,122 @@ export const Thread: FC<ThreadProps> = ({
         viewportRef.current = viewport as HTMLElement;
       }
     }
+    
+    // Store visual viewport reference for keyboard detection
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      visualViewportRef.current = window.visualViewport;
+      setVisualViewportHeight(window.visualViewport.height);
+      
+      // Listen for viewport changes to update height state
+      const updateHeight = () => {
+        if (window.visualViewport) {
+          setVisualViewportHeight(window.visualViewport.height);
+        }
+      };
+      
+      window.visualViewport.addEventListener('resize', updateHeight);
+      window.visualViewport.addEventListener('scroll', updateHeight);
+      
+      return () => {
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', updateHeight);
+          window.visualViewport.removeEventListener('scroll', updateHeight);
+        }
+      };
+    } else {
+      // Fallback for browsers without visual viewport API
+      setVisualViewportHeight(window.innerHeight);
+    }
   }, []);
+
+  // Focus input on first load when messages are loaded
+  useEffect(() => {
+    // Only focus on first load, when we have messages and no suggestions
+    if (!hasFocusedOnLoadRef.current && messages.length > 0 && !suggestedMessages?.buttons?.length && !isIframeOpen) {
+      hasFocusedOnLoadRef.current = true;
+      
+      // Wait a bit for the DOM to be ready, then focus
+      const timeout = setTimeout(() => {
+        if (composerInputRef.current && document.activeElement !== composerInputRef.current) {
+          composerInputRef.current.focus();
+          setIsKeyboardOpen(true);
+          }
+        }, 300);
+      
+      return () => {
+        clearTimeout(timeout);
+      };
+    }
+  }, [messages.length, suggestedMessages?.buttons?.length, isIframeOpen]);
+
+  // Close keyboard when suggestions are displayed
+  useEffect(() => {
+    if (suggestedMessages?.buttons?.length > 0 && isKeyboardOpen) {
+      // Suggestions are visible, close keyboard
+      if (composerInputRef.current && document.activeElement === composerInputRef.current) {
+        composerInputRef.current.blur();
+        setIsKeyboardOpen(false);
+      }
+    }
+  }, [suggestedMessages?.buttons?.length, isKeyboardOpen]);
+
+  // Auto-scroll suggestions into view when they appear
+  useEffect(() => {
+    if (suggestedMessages?.buttons?.length > 0 && suggestionBarRef.current && viewportRef.current) {
+      // Wait a bit for the DOM to render the suggestions
+      const timeout = setTimeout(() => {
+        const suggestionBar = suggestionBarRef.current;
+        const viewport = viewportRef.current;
+        
+        if (!suggestionBar || !viewport) return;
+
+        // Get the bounding rectangles relative to the viewport
+        const suggestionRect = suggestionBar.getBoundingClientRect();
+        const viewportRect = viewport.getBoundingClientRect();
+        
+        // Calculate if suggestion bar is fully visible in viewport
+        const isFullyVisible = 
+          suggestionRect.top >= viewportRect.top &&
+          suggestionRect.bottom <= viewportRect.bottom;
+        
+        if (!isFullyVisible) {
+          // Calculate the scroll position needed to show the suggestion bar
+          // We want to scroll so the suggestion bar is visible, preferably near the bottom
+          const suggestionTop = suggestionBar.offsetTop;
+          const suggestionHeight = suggestionBar.offsetHeight;
+          const viewportHeight = viewport.clientHeight;
+          
+          // Calculate scroll position to show suggestion bar near bottom of viewport
+          // Leave some padding at the bottom
+          const padding = 20;
+          const targetScrollTop = suggestionTop + suggestionHeight - viewportHeight + padding;
+          
+          // Smooth scroll to the target position
+          viewport.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth'
+          });
+        }
+      }, 150); // Small delay to ensure DOM is ready and rendered
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [suggestedMessages?.buttons?.length]);
 
   // Keep composer visible when keyboard opens, maintain position when keyboard is open
   useEffect(() => {
     const handleFocus = () => {
       setIsKeyboardOpen(true);
-      if (composerInputRef.current && viewportRef.current) {
-        // Delay to let keyboard fully open
-    const timeout = setTimeout(() => {
-          const input = composerInputRef.current;
-          const viewport = viewportRef.current;
-          if (input && viewport) {
-            const inputRect = input.getBoundingClientRect();
-            const viewportRect = viewport.getBoundingClientRect();
-            const inputBottom = inputRect.bottom;
-            const viewportBottom = viewportRect.bottom;
-            
-            // Find the first message element to ensure it stays visible
-            // Look for message containers in the viewport
-            const messageContainers = viewport.querySelectorAll('[class*="grid"][class*="auto-rows"]');
-            const firstMessage = messageContainers.length > 0 
-              ? messageContainers[0] 
-              : viewport.querySelector('div > div') || viewport.firstElementChild;
-            
-            let firstMessageTop = 0;
-            if (firstMessage && firstMessage !== viewport) {
-              const firstMessageRect = firstMessage.getBoundingClientRect();
-              const viewportTop = viewportRect.top;
-              firstMessageTop = firstMessageRect.top - viewportTop + viewport.scrollTop;
-            }
-            
-            // Calculate desired scroll position to keep input above keyboard
-            const desiredSpace = 20; // Space between keyboard and input
-            const scrollAdjustment = inputBottom - viewportBottom + desiredSpace;
-            
-            if (scrollAdjustment > 0) {
-              const newScrollTop = viewport.scrollTop + scrollAdjustment;
-              
-              // Ensure we don't scroll past the first message
-              // Keep at least the first message visible (with some padding)
-              const minScrollTop = Math.max(0, firstMessageTop - 20);
-              const finalScrollTop = Math.max(minScrollTop, newScrollTop);
-              
-              lastScrollTopRef.current = finalScrollTop;
-              viewport.scrollTo({
-                top: finalScrollTop,
-                behavior: 'smooth'
-              });
-            } else {
-              // Store current position as target, but ensure first message is visible
-              const currentScrollTop = viewport.scrollTop;
-              const minScrollTop = Math.max(0, firstMessageTop - 20);
-              lastScrollTopRef.current = Math.max(minScrollTop, currentScrollTop);
-            }
-          }
-        }, 300);
-    return () => clearTimeout(timeout);
-      }
+      // The continuous visibility check will handle positioning
     };
 
     const handleBlur = () => {
+      // Don't immediately set to false - wait a bit in case it's a temporary blur
+      setTimeout(() => {
+        if (document.activeElement !== composerInputRef.current) {
       setIsKeyboardOpen(false);
+        }
+      }, 100);
     };
 
     const input = composerInputRef.current;
@@ -222,47 +281,188 @@ export const Thread: FC<ThreadProps> = ({
     }
   }, []);
 
-  // Prevent scroll jitter when keyboard is open - maintain stable scroll position
+  // CRITICAL: Continuously ensure input is always visible above keyboard
   useEffect(() => {
-    if (!isKeyboardOpen || !viewportRef.current) return;
-
+    const ensureInputVisible = () => {
+      const input = composerInputRef.current;
     const viewport = viewportRef.current;
-    const targetScrollTop = lastScrollTopRef.current || viewport.scrollTop;
-    
-    // When messages change and keyboard is open, maintain scroll position
-    // Use requestAnimationFrame to restore position after any autoscroll
-    const restoreScroll = () => {
-      requestAnimationFrame(() => {
-        if (viewport && isKeyboardOpen) {
-          // Only restore if scroll changed significantly (more than 20px)
-          if (Math.abs(viewport.scrollTop - targetScrollTop) > 20) {
-            viewport.scrollTop = targetScrollTop;
-          } else {
-            // Update target if it's a small adjustment
-            lastScrollTopRef.current = viewport.scrollTop;
-          }
+      
+      if (!input || !viewport) return;
+      
+      // Get visual viewport height (accounts for keyboard)
+      const visualViewport = visualViewportRef.current;
+      const viewportHeight = visualViewport ? visualViewport.height : window.innerHeight;
+      
+      // Calculate suggestion bar height if it exists and is visible
+      let suggestionBarHeight = 0;
+      let suggestionBarTop = 0;
+      let suggestionBarBottom = 0;
+      if (suggestionBarRef.current) {
+        const suggestionBarRect = suggestionBarRef.current.getBoundingClientRect();
+        // Only count suggestion bar if it's actually visible
+        if (suggestionBarRect.height > 0 && suggestionBarRect.width > 0) {
+          suggestionBarHeight = suggestionBarRect.height;
+          suggestionBarTop = suggestionBarRect.top;
+          suggestionBarBottom = suggestionBarRect.bottom;
         }
-      });
+      }
+      
+      // Get input position relative to viewport
+      const inputRect = input.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      
+      // Calculate if input is visible
+      const inputTop = inputRect.top;
+      const inputBottom = inputRect.bottom;
+      const viewportTop = viewportRect.top;
+      const viewportBottom = Math.min(viewportRect.bottom, viewportHeight);
+      
+      // Desired space above keyboard (padding)
+      const padding = 20;
+      
+      // Check if suggestion bar is positioned between input and keyboard/viewport bottom
+      // The suggestion bar is typically rendered above the input container
+      const suggestionBarIsVisible = suggestionBarHeight > 0;
+      const suggestionBarBetweenInputAndBottom = suggestionBarIsVisible && 
+                                                  suggestionBarBottom > inputTop && 
+                                                  suggestionBarBottom <= viewportBottom;
+      
+      // Account for suggestion bar height - input must be completely visible above both keyboard AND suggestion bar
+      // If suggestion bar exists and is between input and viewport bottom, we need to account for its full height
+      const totalSpaceNeeded = padding + (suggestionBarIsVisible && suggestionBarBetweenInputAndBottom ? suggestionBarHeight : 0);
+      const targetBottom = viewportBottom - totalSpaceNeeded;
+      
+      // Check if input is being covered by suggestion bar (suggestion bar overlaps input)
+      const inputCoveredBySuggestionBar = suggestionBarIsVisible && 
+                                          suggestionBarTop < inputBottom && 
+                                          suggestionBarBottom > inputTop;
+      
+      // Check if input is hidden below viewport, too close to bottom, or covered by suggestion bar
+      if (inputBottom > targetBottom || inputTop < viewportTop || inputCoveredBySuggestionBar) {
+        // Calculate how much to scroll
+        let scrollAdjustment = 0;
+        
+        if (inputCoveredBySuggestionBar) {
+          // Input is covered by suggestion bar - scroll enough to show input completely above it
+          scrollAdjustment = suggestionBarBottom - inputTop + padding;
+        } else if (inputBottom > targetBottom) {
+          // Input is below target position (keyboard + suggestion bar + padding)
+          scrollAdjustment = inputBottom - targetBottom;
+        } else if (inputTop < viewportTop) {
+          // Input is above viewport, scroll up to show it
+          scrollAdjustment = -(viewportTop - inputTop + padding);
+        }
+        
+        if (scrollAdjustment > 0) {
+          // Scroll down to show input
+          const newScrollTop = viewport.scrollTop + scrollAdjustment;
+          viewport.scrollTop = newScrollTop;
+          lastScrollTopRef.current = newScrollTop;
+        } else if (scrollAdjustment < 0) {
+          // Scroll up to show input
+          const newScrollTop = Math.max(0, viewport.scrollTop + scrollAdjustment);
+          viewport.scrollTop = newScrollTop;
+          lastScrollTopRef.current = newScrollTop;
+        }
+      }
     };
     
-    // Restore scroll position after a short delay to let autoscroll complete
-    const timeout = setTimeout(restoreScroll, 100);
+    // Use IntersectionObserver to monitor input visibility
+    let intersectionObserver: IntersectionObserver | null = null;
+    const input = composerInputRef.current;
     
-    return () => clearTimeout(timeout);
-  }, [messages.length, isKeyboardOpen]);
+    if (input && typeof IntersectionObserver !== 'undefined') {
+      intersectionObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            // If input is not fully visible, ensure it becomes visible
+            if (!entry.isIntersecting || entry.intersectionRatio < 1) {
+              ensureInputVisible();
+            }
+          });
+        },
+        {
+          root: viewportRef.current,
+          rootMargin: '0px',
+          threshold: [0, 0.5, 1.0], // Check at different visibility levels
+        }
+      );
+      
+      intersectionObserver.observe(input);
+    }
+    
+    // Run continuously when keyboard is open or input is focused
+    if (isKeyboardOpen || document.activeElement === composerInputRef.current) {
+      // Clear any existing interval
+      if (keepVisibleIntervalRef.current) {
+        clearInterval(keepVisibleIntervalRef.current);
+      }
+      
+      // Check immediately
+      ensureInputVisible();
+      
+      // Check continuously using requestAnimationFrame for smooth updates
+      let rafId: number;
+      const continuousCheck = () => {
+        ensureInputVisible();
+        rafId = requestAnimationFrame(continuousCheck);
+      };
+      rafId = requestAnimationFrame(continuousCheck);
+      
+      // Also check on visual viewport resize (keyboard open/close)
+      const handleVisualViewportResize = () => {
+        ensureInputVisible();
+      };
+      
+      // Also check on window resize
+      const handleResize = () => {
+        ensureInputVisible();
+      };
+      
+      if (visualViewportRef.current) {
+        visualViewportRef.current.addEventListener('resize', handleVisualViewportResize);
+        visualViewportRef.current.addEventListener('scroll', handleVisualViewportResize);
+      }
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+        cancelAnimationFrame(rafId);
+        if (keepVisibleIntervalRef.current) {
+          clearInterval(keepVisibleIntervalRef.current);
+          keepVisibleIntervalRef.current = null;
+        }
+        if (intersectionObserver) {
+          intersectionObserver.disconnect();
+        }
+        if (visualViewportRef.current) {
+          visualViewportRef.current.removeEventListener('resize', handleVisualViewportResize);
+          visualViewportRef.current.removeEventListener('scroll', handleVisualViewportResize);
+        }
+        window.removeEventListener('resize', handleResize);
+      };
+    } else {
+      // Clear interval when keyboard is closed
+      if (keepVisibleIntervalRef.current) {
+        clearInterval(keepVisibleIntervalRef.current);
+        keepVisibleIntervalRef.current = null;
+      }
+    }
+  }, [isKeyboardOpen, messages.length, suggestedMessages?.buttons?.length]);
 
-  // Handle iframe close - reset scroll and ensure input is visible
+  // Handle iframe close - reset scroll and ensure input is visible and focused
   useEffect(() => {
     if (!isIframeOpen && viewportRef.current && composerInputRef.current) {
       // Iframe just closed - reset scroll position and ensure input is visible
       const viewport = viewportRef.current;
       const input = composerInputRef.current;
       
-      // Blur the input to close keyboard if it's open
-      if (document.activeElement === input) {
-        input.blur();
-        setIsKeyboardOpen(false);
-      }
+      // Keep input focused to maintain keyboard open
+      setTimeout(() => {
+        if (input && document.activeElement !== input) {
+          input.focus();
+          setIsKeyboardOpen(true);
+        }
+      }, 100);
       
       // Reset scroll to show the input field
       setTimeout(() => {
@@ -311,8 +511,13 @@ export const Thread: FC<ThreadProps> = ({
       <ThreadPrimitive.Viewport 
         className="flex-0 md:flex-1 w-full overflow-y-auto"
         style={{ 
-          maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
-          height: "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
+          // Use visual viewport height if available (accounts for keyboard), otherwise fallback to dvh
+          maxHeight: visualViewportHeight 
+            ? `calc(${visualViewportHeight}px - 4rem - env(safe-area-inset-bottom))`
+            : "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
+          height: visualViewportHeight 
+            ? `calc(${visualViewportHeight}px - 4rem - env(safe-area-inset-bottom))`
+            : "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
           scrollPaddingBottom: "calc(env(safe-area-inset-bottom) + 120px)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
@@ -326,12 +531,14 @@ export const Thread: FC<ThreadProps> = ({
           <ThreadPrimitive.If empty={false}>
             <div className="min-h-8 flex-grow" />
           </ThreadPrimitive.If>
-        </div>
-      </ThreadPrimitive.Viewport>
       
-      {/* Suggestion bar - outside viewport so it doesn't interfere with composer */}
+          {/* Suggestion bar - inside viewport so it scrolls with messages */}
           {suggestedMessages?.buttons?.length > 0 && (
-        <div className="flex flex-col w-full items-center justify-center px-4 pb-2 bg-inherit z-5">
+            <div 
+              ref={suggestionBarRef}
+              data-suggestion-bar
+              className="flex flex-col w-full items-center justify-center px-4 pb-4 pt-2 bg-inherit"
+            >
           <ThreadWelcomeSuggestions
             composerInputRef={composerInputRef}
             suggestedMessages={suggestedMessages}
@@ -343,6 +550,8 @@ export const Thread: FC<ThreadProps> = ({
           />
         </div>
       )}
+        </div>
+      </ThreadPrimitive.Viewport>
 
       <div 
         className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto"
@@ -353,6 +562,9 @@ export const Thread: FC<ThreadProps> = ({
           bottom: 0,
           zIndex: 20,
           backgroundColor: 'inherit',
+          // Ensure input container stays above keyboard
+          transform: 'translateZ(0)', // Force hardware acceleration
+          willChange: 'transform', // Optimize for position changes
         }}
       >
         <ThreadScrollToBottom />
@@ -440,6 +652,14 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
     e: React.MouseEvent<HTMLButtonElement>
   ) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // CRITICAL: Blur the input if it's focused to prevent keyboard from opening
+    // This ensures keyboard stays closed when suggestion is clicked
+    if (composerInputRef.current && document.activeElement === composerInputRef.current) {
+      composerInputRef.current.blur();
+    }
+    
     setStateData({ suggestedMessages: [] });
 
     onNew({
@@ -450,8 +670,10 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
       role: "user",
     });
 
-    // Blur input field on mobile to keep keyboard down after sending suggestion
-    blurActiveInputIfMobile();
+    // DON'T focus the input after clicking a suggestion
+    // The keyboard should stay closed while waiting for the response
+    // If new suggestions appear, they will keep it closed
+    // If no suggestions appear, the 1-second timeout will open it
   };
 
   return (
@@ -461,6 +683,11 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
           key={message.label}
           className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
           onClick={(e) => handleSuggestionClick(message, e)}
+          onMouseDown={(e) => {
+            // Prevent button click from focusing the input
+            // This helps keep keyboard closed when suggestion is clicked
+            e.preventDefault();
+          }}
         >
           <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
             {message.label}
@@ -484,8 +711,111 @@ export const Composer: FC<ComposerProps> = ({
   suggestedMessages,
   isIframeOpen = false,
 }) => {
+  // Keep input focused to maintain keyboard open
+  useEffect(() => {
+    const input = composerInputRef.current;
+    if (!input || isIframeOpen) return;
+
+    let blurTimeout: NodeJS.Timeout | null = null;
+    let isUserIntentionalBlur = false;
+
+    // Prevent blur events that would close the keyboard
+    const handleBlur = (e: FocusEvent) => {
+      // CRITICAL: Don't re-focus if suggestions are visible
+      // Check both the prop and the DOM to ensure we have the latest state
+      const hasSuggestions = suggestedMessages?.buttons?.length > 0;
+      const suggestionBar = document.querySelector('[data-suggestion-bar]');
+      const suggestionsVisible = suggestionBar && suggestionBar.getBoundingClientRect().height > 0;
+      
+      if (hasSuggestions || suggestionsVisible) {
+        // Suggestions are visible, don't re-focus - let keyboard stay closed
+        if (blurTimeout) {
+          clearTimeout(blurTimeout);
+          blurTimeout = null;
+        }
+        return;
+      }
+
+      // Clear any pending re-focus
+      if (blurTimeout) {
+        clearTimeout(blurTimeout);
+        blurTimeout = null;
+      }
+
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      
+      // Check if blur is caused by clicking on interactive elements
+      // If user clicks on send button or attachment button, allow blur temporarily
+      if (relatedTarget && (
+        relatedTarget.closest('button') ||
+        relatedTarget.closest('[role="button"]') ||
+        relatedTarget.closest('a')
+      )) {
+        // Check if it's a suggestion button - don't re-focus if it is
+        const isSuggestionButton = relatedTarget.closest('[data-suggestion-bar]') || 
+                                   relatedTarget.closest('button')?.closest('[data-suggestion-bar]');
+        if (isSuggestionButton) {
+          // Suggestion button was clicked - don't re-focus, keep keyboard closed
+          return;
+        }
+        
+        // Check if it's the send button - we'll re-focus after message is sent
+        const isSendButton = relatedTarget.closest('button')?.querySelector('svg') || 
+                            relatedTarget.closest('[role="button"]')?.querySelector('svg');
+        if (isSendButton) {
+          // Re-focus after a short delay to keep keyboard open after sending
+          // But only if no suggestions are visible
+          blurTimeout = setTimeout(() => {
+            const stillNoSuggestions = !suggestedMessages?.buttons?.length;
+            const suggestionBarCheck = document.querySelector('[data-suggestion-bar]');
+            const stillNoSuggestionsVisible = !suggestionBarCheck || suggestionBarCheck.getBoundingClientRect().height === 0;
+            
+            if (input && document.activeElement !== input && !isIframeOpen && stillNoSuggestions && stillNoSuggestionsVisible) {
+              input.focus();
+            }
+          }, 300);
+        }
+        return;
+      }
+      
+      // For other blur events (like WebSocket messages, iframe actions, etc.),
+      // re-focus after a short delay to keep keyboard open
+      // But only if no suggestions are visible
+      blurTimeout = setTimeout(() => {
+        const stillNoSuggestions = !suggestedMessages?.buttons?.length;
+        const suggestionBarCheck = document.querySelector('[data-suggestion-bar]');
+        const stillNoSuggestionsVisible = !suggestionBarCheck || suggestionBarCheck.getBoundingClientRect().height === 0;
+        
+        if (input && document.activeElement !== input && !isIframeOpen && !isUserIntentionalBlur && stillNoSuggestions && stillNoSuggestionsVisible) {
+          input.focus();
+        }
+        isUserIntentionalBlur = false;
+      }, 100);
+    };
+
+    // Track if user intentionally wants to close keyboard (e.g., clicking outside)
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // If clicking outside the composer area, allow blur
+      if (!target.closest('[data-composer-root]') && !target.closest('.composer-input')) {
+        isUserIntentionalBlur = true;
+      }
+    };
+
+    input.addEventListener('blur', handleBlur);
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      if (blurTimeout) clearTimeout(blurTimeout);
+      input.removeEventListener('blur', handleBlur);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [composerInputRef, isIframeOpen, suggestedMessages?.buttons?.length]); // Add suggestedMessages to dependencies
+
   return (
-    <ComposerPrimitive.Root className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
+    <ComposerPrimitive.Root 
+      data-composer-root
+      className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
       <ComposerAttachments />
       <ComposerAddAttachment config={config} />
       <ComposerPrimitive.Input

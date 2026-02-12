@@ -17,7 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { AssistantModal } from "@/components/assistant-modal";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { getCookie, setCookie } from "cookies-next";
-import { blurActiveInputIfMobile } from "./utils/deviceDetection";
+import { keepInputFocused } from "./utils/deviceDetection";
 import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 export default function Widget({  }) {
@@ -116,9 +116,9 @@ export default function Widget({  }) {
   
           setMessages([autoMessage, ...converted]);
         } else {
-          const existingMessage = JSON.parse(
-            localStorage.getItem(`conversation:${selectedConversationId}`) || "[]"
-          );
+          const existingMessage = typeof window !== 'undefined' 
+            ? JSON.parse(localStorage.getItem(`conversation:${selectedConversationId}`) || "[]")
+            : [];
   
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
@@ -188,18 +188,27 @@ export default function Widget({  }) {
       if (incoming?.type === "event") {
         const action = incoming.event?.action;
         
-        // Blur input field to close keyboard when these actions are received (mobile only)
-        if (action === "open_url" || action === "close_url" || action === "display_suggestions" || action === "on_open" || action === "on_close") {
-          blurActiveInputIfMobile();
-        }
-        
         if (action === "open_url" || action === "on_open") {
           iframe.openIframe(incoming.event.url);
+          // Keep input focused when opening iframe (but only if no suggestions)
+          if (!suggestedMessages?.buttons?.length) {
+            keepInputFocused();
+          }
         } else if (action === "close_url" || action === "on_close") {
           iframe.closeIframe();
+          // Keep input focused when closing iframe (but only if no suggestions)
+          if (!suggestedMessages?.buttons?.length) {
+            keepInputFocused();
+          }
         } else if (action === "display_suggestions") {
+          // When displaying suggestions, blur input to close keyboard
           console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
           setStateData({ suggestedMessages: incoming.event });
+          // Close keyboard by blurring the input
+          const input = document.querySelector('textarea[placeholder], textarea[data-composer-input]') as HTMLTextAreaElement | null;
+          if (input && document.activeElement === input) {
+            input.blur();
+          }
         }
       }
     });
@@ -209,6 +218,30 @@ export default function Widget({  }) {
       unsubscribeStatus();
     };
   }, [conversationId]);
+
+  // Focus input after 1 second if no suggestions and iframe is closed
+  useEffect(() => {
+    const hasSuggestions = suggestedMessages?.buttons?.length > 0;
+    const isIframeOpen = iframe.showIframe;
+    
+    // Only focus if there are no suggestions and iframe is closed
+    if (!hasSuggestions && !isIframeOpen) {
+      const timeout = setTimeout(() => {
+        // Double-check conditions haven't changed before focusing
+        const stillNoSuggestions = !suggestedMessages?.buttons?.length;
+        const stillNoIframe = !iframe.showIframe;
+        
+        if (stillNoSuggestions && stillNoIframe) {
+          // Focus the input to open keyboard
+          keepInputFocused();
+        }
+      }, 1000); // Wait 1 second
+      
+      return () => {
+        clearTimeout(timeout);
+      };
+    }
+  }, [suggestedMessages, iframe.showIframe]);
 
   const onNew = useCallback(
     async (userAppendMessage: AppendMessage) => {

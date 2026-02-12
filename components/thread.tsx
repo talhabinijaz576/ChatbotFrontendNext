@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
 import { MarkdownText } from "./markdown-text";
 import { ComposerAddAttachment, ComposerAttachments, UserMessageAttachments } from "./attachment";
-import { blurActiveInputIfMobile } from "@/app/utils/deviceDetection";
+import { keepInputFocused } from "@/app/utils/deviceDetection";
 
 export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggestedMessages, onNew, messages, setStateData }) => {
 
@@ -130,8 +130,8 @@ const ThreadWelcomeSuggestions: FC = ({
       role: "user",
     });
 
-    // Blur input field on mobile to keep keyboard down after sending suggestion
-    blurActiveInputIfMobile();
+    // Keep input focused to maintain keyboard open after sending suggestion
+    keepInputFocused();
   };
 
   const isVertical = suggestedMessages?.buttons?.length > 1;
