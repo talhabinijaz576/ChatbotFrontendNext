@@ -557,7 +557,6 @@ export const Thread: FC<ThreadProps> = ({
         className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto"
         style={{
           paddingBottom: 'max(calc(1rem + env(safe-area-inset-bottom)), calc(env(safe-area-inset-bottom) + 0.5rem))',
-          marginBottom: 'env(safe-area-inset-bottom)',
           position: 'sticky',
           bottom: 0,
           zIndex: 20,
