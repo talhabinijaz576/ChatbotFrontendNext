@@ -180,6 +180,73 @@ export const Thread: FC<ThreadProps> = ({
     }
   }, []);
 
+  // Scroll to bottom on initial load to prevent white space on iPhone
+  useEffect(() => {
+    const scrollToBottom = () => {
+      const viewport = viewportRef.current;
+      if (viewport && viewport.scrollHeight > 0) {
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          // Scroll to the very bottom
+          const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+          viewport.scrollTop = Math.max(0, maxScroll);
+          lastScrollTopRef.current = viewport.scrollTop;
+        });
+      }
+    };
+
+    // Try multiple times to ensure it works on iPhone
+    // iPhone sometimes needs multiple attempts due to layout timing
+    const attemptScroll = () => {
+      scrollToBottom();
+    };
+
+    // Immediate attempt
+    attemptScroll();
+
+    // Delayed attempts to handle layout completion
+    const timeouts: NodeJS.Timeout[] = [];
+    [50, 100, 200, 300, 500].forEach((delay) => {
+      const timeout = setTimeout(attemptScroll, delay);
+      timeouts.push(timeout);
+    });
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [visualViewportHeight]);
+
+  // Scroll to bottom when messages are loaded or change
+  useEffect(() => {
+    if (messages.length > 0 && viewportRef.current) {
+      const viewport = viewportRef.current;
+      // Use multiple attempts to ensure scroll happens after layout
+      const scrollToBottom = () => {
+        if (viewport.scrollHeight > 0) {
+          requestAnimationFrame(() => {
+            const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+            viewport.scrollTop = Math.max(0, maxScroll);
+            lastScrollTopRef.current = viewport.scrollTop;
+          });
+        }
+      };
+
+      // Immediate scroll
+      scrollToBottom();
+
+      // Delayed scrolls to handle layout changes
+      const timeout1 = setTimeout(scrollToBottom, 50);
+      const timeout2 = setTimeout(scrollToBottom, 200);
+      const timeout3 = setTimeout(scrollToBottom, 400);
+
+      return () => {
+        clearTimeout(timeout1);
+        clearTimeout(timeout2);
+        clearTimeout(timeout3);
+      };
+    }
+  }, [messages.length]);
+
   // Focus input on first load when messages are loaded
   useEffect(() => {
     // Only focus on first load, when we have messages and no suggestions
