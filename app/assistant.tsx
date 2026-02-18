@@ -103,9 +103,11 @@ const style = {
 export function Assistant({
   initialConversationId,
   searchParams,
+  initialConfig,
 }: {
   initialConversationId: string | null;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined };
+  initialConfig?: any;
 }) {
   const router = useRouter();
   const iframe = useIframe();
@@ -121,7 +123,8 @@ export function Assistant({
   const [isRunning, setIsRunning] = useState(false);
   const keyboardOpenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const [config, setConfig] = useState<any>(null);
+  // Use initialConfig if provided (from server), otherwise fallback to state for backward compatibility
+  const [config, setConfig] = useState<any>(initialConfig || null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [open, setOpen] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
@@ -186,13 +189,23 @@ export function Assistant({
   }, []);
 
   useEffect(() => {
+    // If config is already provided from server, use it immediately
+    if (initialConfig) {
+      fetch("/api/getip")
+        .then((res) => res.json())
+        .then((data) => {
+          setStateData({ ipAddress: data });
+        });
+      setConfig(initialConfig);
+      initConversation(initialConfig);
+      window?.Cookiebot?.renew?.();
+      return;
+    }
+
+    // Fallback: fetch config if not provided (for backward compatibility)
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
-        // const cookieConsent = getCookie("cookieConsent");
-        // if (cookieConsent) {
-        //   setOpenCookieModal(false);
-        // }
         fetch("/api/getip")
         .then((res) => res.json())
         .then((data) => {
@@ -201,9 +214,8 @@ export function Assistant({
         setConfig(data);
         initConversation(data);
         window?.Cookiebot?.renew?.();
-        // call your logic here directly
       });
-  }, []);
+  }, [initialConfig]);
 
   useEffect(() => {
     const handleConsentUpdate = async (event) => {
@@ -265,12 +277,21 @@ export function Assistant({
     }
     const params = new URLSearchParams(resolvedSearchParams).toString();
 
-    // Only call /create once per conversationId
+    // Display the first message immediately without waiting for API calls
+    const autoMessage = {
+      role: config2.chat.autoMessage.role,
+      content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
+      id: "user-message-" + conversationId,
+      createdAt: new Date(),
+      created_at: new Date(),
+    };
+    setMessages([autoMessage]);
+
+    // Only call /create once per conversationId - run in background, non-blocking
     if (conversationId && !createdConversationsRef.current.has(conversationId)) {
       createdConversationsRef.current.add(conversationId);
       
-      let ipInfo = 
-      
+      // Fire and forget - don't wait for this to complete
       fetch('https://ipinfo.io/?callback=?',{
         method: "GET",
         headers: headers,
@@ -280,17 +301,16 @@ export function Assistant({
           method: "POST",
           headers: headers,
           body: JSON.stringify(ipInfo),
-        })
+        }).catch(() => {
+          // Fail silently
+        });
       }).catch(() => {
         // Fail silently
       });
     }
 
-
-      
-        
-
-
+    // Fetch conversation history in background - non-blocking
+    // This will update messages if there are existing messages, but won't block the initial display
     fetch(
       `${config2.api.baseUrl}/conversation/${conversationId}/view?${params}`,
       {
@@ -331,14 +351,8 @@ export function Assistant({
               created_at: item.created_at,
             };
           });
-          const autoMessage = {
-            role: config2.chat.autoMessage.role,
-            content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
-            id: "user-message-" + conversationId,
-            createdAt: new Date(),
-            created_at: new Date(),
-          };
 
+          // Update messages with history if available, but keep autoMessage at the start
           setMessages([autoMessage, ...converted]);
         } else {
           const existingMessage = typeof window !== 'undefined' 
@@ -353,27 +367,14 @@ export function Assistant({
               createdAt: new Date(),
             }));
             setMessages(parsedMessages);
-          } else {
-            setMessages([
-              {
-                role: config2.chat.autoMessage.role,
-                content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
-                id: "user-message-" + conversationId,
-                createdAt: new Date(),
-              },
-            ]);
           }
+          // If no existing messages, keep the autoMessage that was already set
         }
       })
       .catch((e) => {
-        setMessages([
-          {
-            role: config2.chat.autoMessage.role,
-            content: [{ ...config2.chat.autoMessage, type: "text" }],
-            id: "user-message-" + conversationId,
-            createdAt: new Date(),
-          },
-        ]);
+        // If view fails, keep the autoMessage that was already displayed
+        // Only update if we need to show error state (currently just keeping autoMessage)
+        console.error("Error loading conversation history:", e);
       });
   };
 

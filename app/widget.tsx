@@ -20,7 +20,7 @@ import { getCookie, setCookie } from "cookies-next";
 import { keepInputFocused } from "./utils/deviceDetection";
 import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
-export default function Widget({  }) {
+export default function Widget({ initialConfig }: { initialConfig?: any }) {
   const params = useSearchParams();
 
   // const parmsConversationId = params.get("conversationId");
@@ -29,7 +29,8 @@ export default function Widget({  }) {
   });
   const [messages, setMessages] = useState<ThreadMessageLike[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [config, setConfig] = useState<any>();
+  // Use initialConfig if provided (from server), otherwise fallback to state for backward compatibility
+  const [config, setConfig] = useState<any>(initialConfig);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [userId, setUserId] = useState(uuidv4);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
@@ -46,14 +47,21 @@ export default function Widget({  }) {
   
 
   useEffect(() => {
+    // If config is already provided from server, use it immediately
+    if (initialConfig) {
+      setConfig(initialConfig);
+      initConversation(initialConfig);
+      return;
+    }
+
+    // Fallback: fetch config if not provided (for backward compatibility)
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
         setConfig(data);
         initConversation(data);
-        // call your logic here directly
       });
-  }, []);
+  }, [initialConfig]);
 
   const initConversation = (config2) => {
     // ✅ Get cookie
@@ -74,8 +82,19 @@ export default function Widget({  }) {
     } catch (err) {
       console.error("❌ Failed to parse lastMessage cookie:", err);
     }
+
+    // Display the first message immediately without waiting for API calls
+    const autoMessage = {
+      role: config2.chat.autoMessage.role,
+      content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
+      id: "user-message-" + selectedConversationId,
+      createdAt: new Date(),
+      created_at: new Date(),
+    };
+    setMessages([autoMessage]);
   
-    // ✅ Use the selected conversationId
+    // Fetch conversation history in background - non-blocking
+    // This will update messages if there are existing messages, but won't block the initial display
     fetch(`${config2.api.baseUrl}/conversation/${selectedConversationId}/view`)
       .then((res) => res.json())
       .then((data) => {
@@ -106,20 +125,13 @@ export default function Widget({  }) {
             };
           });
   
-          const autoMessage = {
-            role: config2.chat.autoMessage.role,
-            content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
-            id: "user-message-" + selectedConversationId,
-            createdAt: new Date(),
-            created_at: new Date(),
-          };
-  
+          // Update messages with history if available, but keep autoMessage at the start
           setMessages([autoMessage, ...converted]);
         } else {
           const existingMessage = typeof window !== 'undefined' 
             ? JSON.parse(localStorage.getItem(`conversation:${selectedConversationId}`) || "[]")
             : [];
-  
+
           if (existingMessage.length > 1) {
             const parsedMessages = existingMessage.map((item) => ({
               role: item.role,
@@ -128,36 +140,22 @@ export default function Widget({  }) {
               createdAt: new Date(),
             }));
             setMessages(parsedMessages);
-          } else {
-            setMessages([
-              {
-                role: config2.chat.autoMessage.role,
-                content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
-                id: "user-message-" + selectedConversationId,
-                createdAt: new Date(),
-              },
-            ]);
           }
+          // If no existing messages, keep the autoMessage that was already set
         }
       })
       .catch((e) => {
-        console.log("🚀 ~ e:", e);
-        const existingMessage = JSON.parse(
-          localStorage.getItem(`conversation:${selectedConversationId}`) || "[]"
-        );
-  
+        console.error("Error loading conversation history:", e);
+        // If view fails, keep the autoMessage that was already displayed
+        // Check localStorage as fallback
+        const existingMessage = typeof window !== 'undefined'
+          ? JSON.parse(localStorage.getItem(`conversation:${selectedConversationId}`) || "[]")
+          : [];
+
         if (existingMessage.length > 1) {
           setMessages(existingMessage);
-        } else {
-          setMessages([
-            {
-              role: config2.chat.autoMessage.role,
-              content: [{ ...config2.chat.autoMessage, type: "text" }],
-              id: "user-message-" + selectedConversationId,
-              createdAt: new Date(),
-            },
-          ]);
         }
+        // Otherwise keep the autoMessage that was already set
       });
   };
 

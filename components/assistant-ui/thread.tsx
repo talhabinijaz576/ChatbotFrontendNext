@@ -217,6 +217,11 @@ export const Thread: FC<ThreadProps> = ({
   }, [visualViewportHeight]);
 
   // Scroll to bottom when messages are loaded or change
+  // Also trigger on last message content changes, not just length
+  const lastMessageContent = messages.length > 0 
+    ? JSON.stringify(messages[messages.length - 1]?.content) 
+    : '';
+  
   useEffect(() => {
     if (messages.length > 0 && viewportRef.current) {
       const viewport = viewportRef.current;
@@ -224,9 +229,19 @@ export const Thread: FC<ThreadProps> = ({
       const scrollToBottom = () => {
         if (viewport.scrollHeight > 0) {
           requestAnimationFrame(() => {
+            // Use scrollTo with smooth behavior for better UX, but ensure it reaches the bottom
             const maxScroll = viewport.scrollHeight - viewport.clientHeight;
-            viewport.scrollTop = Math.max(0, maxScroll);
-            lastScrollTopRef.current = viewport.scrollTop;
+            const targetScroll = Math.max(0, maxScroll);
+            
+            // Check if we're already at the bottom (within 10px threshold)
+            const currentScroll = viewport.scrollTop;
+            const isNearBottom = Math.abs(currentScroll - targetScroll) < 10;
+            
+            // Only scroll if we're not already at the bottom
+            if (!isNearBottom || targetScroll > currentScroll) {
+              viewport.scrollTop = targetScroll;
+              lastScrollTopRef.current = viewport.scrollTop;
+            }
           });
         }
       };
@@ -234,18 +249,106 @@ export const Thread: FC<ThreadProps> = ({
       // Immediate scroll
       scrollToBottom();
 
-      // Delayed scrolls to handle layout changes
+      // Delayed scrolls to handle layout changes and content rendering
       const timeout1 = setTimeout(scrollToBottom, 50);
       const timeout2 = setTimeout(scrollToBottom, 200);
       const timeout3 = setTimeout(scrollToBottom, 400);
+      const timeout4 = setTimeout(scrollToBottom, 600); // Additional delay for slow renders
 
       return () => {
         clearTimeout(timeout1);
         clearTimeout(timeout2);
         clearTimeout(timeout3);
+        clearTimeout(timeout4);
       };
     }
-  }, [messages.length]);
+  }, [messages.length, lastMessageContent]);
+
+  // Ensure last message scrolls into view when it appears or content changes
+  useEffect(() => {
+    if (messages.length === 0 || !viewportRef.current) return;
+
+    const viewport = viewportRef.current;
+    
+    // Find the last message element - look for MessagePrimitive.Root elements
+    const findLastMessage = () => {
+      // Try multiple selectors to find message elements
+      const selectors = [
+        '[role="article"]', // Radix UI message root
+        '[data-radix-scroll-area-viewport] > div > div', // Message container
+      ];
+      
+      for (const selector of selectors) {
+        const elements = viewport.querySelectorAll(selector);
+        if (elements.length > 0) {
+          return elements[elements.length - 1] as HTMLElement;
+        }
+      }
+      
+      // Fallback: find by structure - last div with message-like content
+      const allDivs = viewport.querySelectorAll('div');
+      for (let i = allDivs.length - 1; i >= 0; i--) {
+        const div = allDivs[i];
+        if (div.textContent && div.textContent.trim().length > 10) {
+          return div as HTMLElement;
+        }
+      }
+      return null;
+    };
+
+    const scrollToLastMessage = () => {
+      if (!viewport || viewport.scrollHeight === 0) return;
+      
+      // Always ensure we scroll to the absolute bottom
+      requestAnimationFrame(() => {
+        const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+        const targetScroll = Math.max(0, maxScroll);
+        const currentScroll = viewport.scrollTop;
+        
+        // Only scroll if we're not already at the bottom (within 5px threshold)
+        if (Math.abs(currentScroll - targetScroll) > 5) {
+          viewport.scrollTop = targetScroll;
+          lastScrollTopRef.current = viewport.scrollTop;
+        }
+      });
+      
+      // Also try to find and scroll the last message element for extra reliability
+      const lastMessage = findLastMessage();
+      if (lastMessage) {
+        // Use instant scroll for reliability, then smooth if needed
+        requestAnimationFrame(() => {
+          const messageRect = lastMessage.getBoundingClientRect();
+          const viewportRect = viewport.getBoundingClientRect();
+          
+          // Check if message is fully visible
+          const isFullyVisible = 
+            messageRect.top >= viewportRect.top &&
+            messageRect.bottom <= viewportRect.bottom;
+          
+          if (!isFullyVisible) {
+            // Message is not fully visible, scroll it into view
+            lastMessage.scrollIntoView({
+              behavior: 'auto', // Use instant for reliability
+              block: 'end',
+              inline: 'nearest'
+            });
+          }
+        });
+      }
+    };
+
+    // Scroll immediately and after delays to handle rendering
+    scrollToLastMessage();
+    const timeout1 = setTimeout(scrollToLastMessage, 100);
+    const timeout2 = setTimeout(scrollToLastMessage, 300);
+    const timeout3 = setTimeout(scrollToLastMessage, 600);
+
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      clearTimeout(timeout3);
+    };
+  }, [messages.length, lastMessageContent]);
 
   // Focus input on first load when messages are loaded
   useEffect(() => {
@@ -586,7 +689,9 @@ export const Thread: FC<ThreadProps> = ({
             ? `calc(${visualViewportHeight}px - 4rem - env(safe-area-inset-bottom))`
             : "calc(100dvh - 4rem - env(safe-area-inset-bottom))",
           scrollPaddingBottom: "calc(env(safe-area-inset-bottom) + 120px)",
-          paddingBottom: "env(safe-area-inset-bottom)",
+          // Minimal paddingBottom to prevent extra whitespace on iOS
+          // The sticky element below handles the main safe-area spacing
+          paddingBottom: "0.5rem",
         }}
       >
         <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
@@ -623,14 +728,30 @@ export const Thread: FC<ThreadProps> = ({
       <div 
         className="sticky bottom-0 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit px-4 md:pb-4 mx-auto"
         style={{
-          paddingBottom: 'max(calc(1rem + env(safe-area-inset-bottom)), calc(env(safe-area-inset-bottom) + 0.5rem))',
+          // Use a simpler calculation to prevent excessive padding on iOS
+          // The parent viewport already accounts for safe-area, so we minimize padding here
+          // Only add safe-area padding when keyboard is likely closed (viewport height matches window height)
+          paddingBottom: (() => {
+            if (typeof window === 'undefined') return '1rem';
+            // Check if keyboard is likely open (viewport height is significantly less than window height)
+            const isKeyboardOpen = visualViewportHeight && 
+                                   window.innerHeight && 
+                                   visualViewportHeight < window.innerHeight * 0.75;
+            // Use minimal padding when keyboard is open to prevent extra whitespace
+            return isKeyboardOpen 
+              ? '1rem' 
+              : `min(calc(1rem + env(safe-area-inset-bottom)), calc(env(safe-area-inset-bottom) + 0.5rem))`;
+          })(),
           position: 'sticky',
           bottom: 0,
           zIndex: 20,
           backgroundColor: 'inherit',
-          // Ensure input container stays above keyboard
-          transform: 'translateZ(0)', // Force hardware acceleration
-          willChange: 'transform', // Optimize for position changes
+          // Remove transform to avoid iOS Safari scrolling quirks
+          // transform: 'translateZ(0)', // Can cause scroll issues on iOS Safari
+          // willChange: 'transform', // Can cause scroll issues on iOS Safari
+          marginBottom: 0, // Prevent extra space
+          // Ensure it doesn't extend beyond viewport
+          maxHeight: '100%',
         }}
       >
         <ThreadScrollToBottom />
