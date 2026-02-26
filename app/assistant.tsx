@@ -31,7 +31,6 @@ import { ThreadList } from "@/components/assistant-ui/thread-list";
 import CookiebotLoader from "@/components/CookiebotLoader";
 import { getClientIp } from "./utils/get-ip";
 import { keepInputFocused } from "./utils/deviceDetection";
-import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 // === Utility Functions ===
 declare global {
@@ -122,6 +121,7 @@ export function Assistant({
   const [history, setHistory] = useState(() => getConversationHistory());
   const [isRunning, setIsRunning] = useState(false);
   const keyboardOpenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialViewportHeightRef = useRef<number | null>(null);
   
   // Use initialConfig if provided (from server), otherwise fallback to state for backward compatibility
   const [config, setConfig] = useState<any>(initialConfig || null);
@@ -143,6 +143,10 @@ export function Assistant({
     sidebarOpen: true,
     ipAddress: "",
   });
+  
+  // Keep ref in sync with state so handler can read current value
+  const suggestedMessagesRef = useRef<any>(null);
+  suggestedMessagesRef.current = suggestedMessages;
 
   
   const userId = getOrCreateUserId();
@@ -156,23 +160,184 @@ export function Assistant({
 
   // Monitor visual viewport height to adjust layout when keyboard opens
   useEffect(() => {
+    // #region agent log
+    const logViewportInfo = () => {
+      if (typeof window === 'undefined') return;
+      const html = document.documentElement;
+      const body = document.body;
+      const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:163',message:'Viewport dimensions check',data:{windowInnerHeight:window.innerHeight,windowOuterHeight:window.outerHeight,visualViewportHeight:window.visualViewport?.height||null,visualViewportOffsetTop:window.visualViewport?.offsetTop||null,htmlClientHeight:html.clientHeight,htmlScrollHeight:html.scrollHeight,htmlOffsetHeight:html.offsetHeight,bodyClientHeight:body.clientHeight,bodyScrollHeight:body.scrollHeight,bodyOffsetHeight:body.offsetHeight,mainContainerHeight:mainContainer?.offsetHeight||null,mainContainerComputedHeight:mainContainer ? window.getComputedStyle(mainContainer).height : null,scrollY:window.scrollY,userAgent:navigator.userAgent.includes('iPhone')||navigator.userAgent.includes('iPad')||navigator.userAgent.includes('Safari')},timestamp:Date.now(),runId:'viewport1',hypothesisId:'A'})}).catch(()=>{});
+    };
+    // #endregion
+    
     if (typeof window === 'undefined' || !window.visualViewport) {
       setVisualViewportHeight(window.innerHeight);
+      // #region agent log
+      logViewportInfo();
+      // #endregion
       return;
     }
 
     const visualViewport = window.visualViewport;
     
+    // Store initial viewport height for keyboard detection
+    if (initialViewportHeightRef.current === null) {
+      initialViewportHeightRef.current = visualViewport.height;
+    }
+    
     const updateViewportHeight = () => {
       // Update height and trigger re-render to adjust header position
       setVisualViewportHeight(visualViewport.height);
       
-      // Force header repositioning on mobile by updating transform
-      // This ensures the header stays visible when keyboard opens
+      // CRITICAL: Force header repositioning immediately when viewport changes
+      // This prevents delay in header movement when keyboard opens/closes
+      // Use requestAnimationFrame to ensure it happens in the same frame
       const header = document.querySelector('header');
       if (header && visualViewport.offsetTop !== undefined) {
+        // Apply transform immediately to prevent delay
         header.style.transform = `translateY(${visualViewport.offsetTop}px)`;
+        // Also use will-change for better performance
+        header.style.willChange = 'transform';
+      } else if (header) {
+        // Reset transform when offsetTop is not available
+        header.style.transform = '';
+        header.style.willChange = '';
       }
+      
+      // CRITICAL: Update body/html height to match visual viewport to prevent white space below screen
+      // When keyboard opens, visualViewport.height shrinks, but body/html might still be at full height
+      // This causes white space to appear below the screen on iOS Safari
+      const html = document.documentElement;
+      const body = document.body;
+      if (html && body) {
+        // CRITICAL: Better keyboard detection for Safari iOS
+        // On Safari, both visualViewport.height and window.innerHeight shrink when keyboard opens
+        // So we compare to the initial height and also check offsetTop (which changes when keyboard opens)
+        const initialHeight = initialViewportHeightRef.current || window.innerHeight;
+        const heightReduction = initialHeight - visualViewport.height;
+        const hasOffsetTop = visualViewport.offsetTop !== undefined && visualViewport.offsetTop > 0;
+        // Keyboard is open if height reduced significantly (>100px) OR offsetTop exists (Safari iOS behavior)
+        const isKeyboardOpen = heightReduction > 100 || hasOffsetTop;
+        
+        // Detect iOS (Safari, Chrome, or any browser on iOS)
+        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        
+        // #region agent log
+        const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
+        const mainContainerComputed = mainContainer ? window.getComputedStyle(mainContainer) : null;
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:183',message:'updateViewportHeight - BEFORE applying styles',data:{visualViewportHeight:visualViewport.height,windowInnerHeight:window.innerHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:visualViewport.offsetTop,isKeyboardOpen,isIOS,htmlHeightBefore:html.style.height,htmlMaxHeightBefore:html.style.maxHeight,htmlPositionBefore:html.style.position,bodyHeightBefore:body.style.height,bodyMaxHeightBefore:body.style.maxHeight,bodyPositionBefore:body.style.position,htmlComputedHeight:window.getComputedStyle(html).height,bodyComputedHeight:window.getComputedStyle(body).height,htmlComputedPosition:window.getComputedStyle(html).position,bodyComputedPosition:window.getComputedStyle(body).position,htmlComputedBackground:window.getComputedStyle(html).backgroundColor,bodyComputedBackground:window.getComputedStyle(body).backgroundColor,mainContainerPosition:mainContainerComputed?.position,mainContainerTop:mainContainerComputed?.top,mainContainerHeight:mainContainerComputed?.height,mainContainerBackground:mainContainerComputed?.backgroundColor,scrollY:window.scrollY,htmlScrollHeight:html.scrollHeight,bodyScrollHeight:body.scrollHeight,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        // CRITICAL: On iOS, prevent white/blue space by preventing any scrolling and clamping viewport
+        // The white/blue space appears because iOS allows scrolling below the viewport when keyboard opens
+        if (isIOS && isKeyboardOpen) {
+          // CRITICAL: Prevent window scrolling immediately
+          window.scrollTo(0, 0);
+          
+          // Prevent any scrolling by fixing position and clamping height
+          html.style.position = 'fixed';
+          html.style.top = '0';
+          html.style.left = '0';
+          html.style.right = '0';
+          html.style.width = '100%';
+          html.style.height = `${visualViewport.height}px`;
+          html.style.maxHeight = `${visualViewport.height}px`;
+          html.style.overflow = 'hidden';
+          
+          body.style.position = 'fixed';
+          body.style.top = '0';
+          body.style.left = '0';
+          body.style.right = '0';
+          body.style.width = '100%';
+          body.style.height = `${visualViewport.height}px`;
+          body.style.maxHeight = `${visualViewport.height}px`;
+          body.style.overflow = 'hidden';
+          
+          // Prevent touch scrolling on window/body to prevent white space
+          // But allow vertical scrolling within containers (messages container can scroll)
+          // The preventScroll function will handle preventing window scroll while allowing container scroll
+          body.style.touchAction = 'pan-y';
+          html.style.touchAction = 'pan-y';
+          
+          // Set background to match container to hide any visible space
+          const bodyComputed = window.getComputedStyle(body);
+          const isDark = document.documentElement.classList.contains('dark') || 
+                         bodyComputed.backgroundColor.includes('24') || 
+                         bodyComputed.backgroundColor.includes('27');
+          const bgColor = isDark ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)';
+          html.style.setProperty('background-color', bgColor, 'important');
+          body.style.setProperty('background-color', bgColor, 'important');
+        } else if (isIOS) {
+          // iOS but keyboard closed - restore normal but keep overflow hidden
+          html.style.position = '';
+          html.style.top = '';
+          html.style.left = '';
+          html.style.right = '';
+          html.style.width = '';
+          html.style.height = '';
+          html.style.maxHeight = '';
+          html.style.overflow = 'hidden';
+          html.style.touchAction = '';
+          
+          body.style.position = '';
+          body.style.top = '';
+          body.style.left = '';
+          body.style.right = '';
+          body.style.width = '';
+          body.style.height = '';
+          body.style.maxHeight = '';
+          body.style.overflow = 'hidden';
+          body.style.touchAction = '';
+          
+          // Keep background matching
+          const bodyComputed = window.getComputedStyle(body);
+          const isDark = document.documentElement.classList.contains('dark') || 
+                         bodyComputed.backgroundColor.includes('24') || 
+                         bodyComputed.backgroundColor.includes('27');
+          const bgColor = isDark ? 'rgb(24, 24, 27)' : 'rgb(255, 255, 255)';
+          html.style.setProperty('background-color', bgColor, 'important');
+          body.style.setProperty('background-color', bgColor, 'important');
+        } else {
+          // Non-iOS: normal behavior
+          html.style.position = '';
+          html.style.top = '';
+          html.style.left = '';
+          html.style.right = '';
+          html.style.width = '';
+          html.style.height = '';
+          html.style.maxHeight = '';
+          html.style.overflow = 'hidden';
+          html.style.touchAction = '';
+          
+          body.style.position = '';
+          body.style.top = '';
+          body.style.left = '';
+          body.style.right = '';
+          body.style.width = '';
+          body.style.height = '';
+          body.style.maxHeight = '';
+          body.style.overflow = 'hidden';
+          body.style.touchAction = '';
+          
+          html.style.setProperty('background-color', 'transparent', 'important');
+          body.style.setProperty('background-color', 'transparent', 'important');
+        }
+        
+        // #region agent log
+        // Use requestAnimationFrame to log AFTER styles are applied
+        requestAnimationFrame(() => {
+          const htmlAfter = window.getComputedStyle(html);
+          const bodyAfter = window.getComputedStyle(body);
+          const mainContainerAfter = mainContainer ? window.getComputedStyle(mainContainer) : null;
+          const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:183',message:'updateViewportHeight - AFTER applying styles',data:{visualViewportHeight:visualViewport.height,windowInnerHeight:window.innerHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:visualViewport.offsetTop,isKeyboardOpen,isIOS,htmlHeightAfter:html.style.height,htmlMaxHeightAfter:html.style.maxHeight,htmlPositionAfter:html.style.position,bodyHeightAfter:body.style.height,bodyMaxHeightAfter:body.style.maxHeight,bodyPositionAfter:body.style.position,htmlComputedHeight:htmlAfter.height,bodyComputedHeight:bodyAfter.height,htmlComputedPosition:htmlAfter.position,bodyComputedPosition:bodyAfter.position,htmlComputedBackground:htmlAfter.backgroundColor,bodyComputedBackground:bodyAfter.backgroundColor,htmlComputedOverflow:htmlAfter.overflow,bodyComputedOverflow:bodyAfter.overflow,mainContainerPosition:mainContainerAfter?.position,mainContainerTop:mainContainerAfter?.top,mainContainerLeft:mainContainerAfter?.left,mainContainerRight:mainContainerAfter?.right,mainContainerBottom:mainContainerAfter?.bottom,mainContainerHeight:mainContainerAfter?.height,mainContainerWidth:mainContainerAfter?.width,mainContainerBackground:mainContainerAfter?.backgroundColor,mainContainerZIndex:mainContainerAfter?.zIndex,scrollY:window.scrollY,htmlScrollHeight:html.scrollHeight,bodyScrollHeight:body.scrollHeight,htmlClientHeight:html.clientHeight,bodyClientHeight:body.clientHeight,mainContainerOffsetHeight:mainContainer?.offsetHeight,mainContainerOffsetTop:mainContainer?.offsetTop,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'B'})}).catch(()=>{});
+        });
+        // #endregion
+      }
+      
+      // #region agent log
+      logViewportInfo();
+      // #endregion
     };
 
     // Set initial height
@@ -181,10 +346,84 @@ export function Assistant({
     // Listen for viewport changes (keyboard open/close)
     visualViewport.addEventListener('resize', updateViewportHeight);
     visualViewport.addEventListener('scroll', updateViewportHeight);
-
+    
+    // CRITICAL: On iOS, prevent window scroll that causes white space
+    // But allow scrolling within the messages container
+    const isIOSDevice = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const preventScroll = (e: Event) => {
+      const initialHeight = initialViewportHeightRef.current || window.innerHeight;
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      const heightReduction = initialHeight - currentHeight;
+      const hasOffsetTop = window.visualViewport?.offsetTop !== undefined && window.visualViewport.offsetTop > 0;
+      const keyboardOpen = heightReduction > 100 || hasOffsetTop;
+      
+      if (isIOSDevice && keyboardOpen) {
+        // Allow scrolling within the messages container (ThreadPrimitive.Viewport)
+        const target = e.target as HTMLElement;
+        if (target) {
+          // Check if the event is within a scrollable container (messages viewport)
+          // Look for elements with overflow-y-auto or within the main container
+          const scrollableContainer = target.closest('[class*="Viewport"], [class*="viewport"], [class*="overflow-y-auto"], main');
+          if (scrollableContainer && scrollableContainer !== document.body && scrollableContainer !== document.documentElement) {
+            // Check if this container is actually scrollable
+            const computedStyle = window.getComputedStyle(scrollableContainer);
+            const isScrollable = computedStyle.overflowY === 'auto' || 
+                                 computedStyle.overflowY === 'scroll' ||
+                                 scrollableContainer.scrollHeight > scrollableContainer.clientHeight;
+            if (isScrollable) {
+              // Allow scrolling within the messages container
+              return;
+            }
+          }
+        }
+        
+        // Prevent window/body scrolling
+        e.preventDefault();
+        window.scrollTo(0, 0);
+      }
+    };
+    
+    if (isIOSDevice) {
+      window.addEventListener('scroll', preventScroll, { passive: false });
+      window.addEventListener('touchmove', preventScroll, { passive: false });
+    }
+    
+    // #region agent log
+    // Also log on window resize and scroll
+    const handleResize = () => {
+      logViewportInfo();
+      // Additional logging for resize events
+      const html = document.documentElement;
+      const body = document.body;
+      const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:240',message:'Window resize event',data:{windowInnerHeight:window.innerHeight,windowOuterHeight:window.outerHeight,visualViewportHeight:window.visualViewport?.height||null,htmlClientHeight:html.clientHeight,htmlScrollHeight:html.scrollHeight,bodyClientHeight:body.clientHeight,bodyScrollHeight:body.scrollHeight,mainContainerHeight:mainContainer?.offsetHeight||null,scrollY:window.scrollY,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios2',hypothesisId:'D'})}).catch(()=>{});
+    };
+    const handleScroll = () => {
+      logViewportInfo();
+      // Additional logging for scroll events
+      const html = document.documentElement;
+      const body = document.body;
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:241',message:'Window scroll event',data:{scrollY:window.scrollY,scrollX:window.scrollX,htmlScrollHeight:html.scrollHeight,htmlClientHeight:html.clientHeight,bodyScrollHeight:body.scrollHeight,bodyClientHeight:body.clientHeight,visualViewportHeight:window.visualViewport?.height||null,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios2',hypothesisId:'E'})}).catch(()=>{});
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll);
+    // Log initial state after a short delay to ensure DOM is ready
+    setTimeout(logViewportInfo, 100);
+    setTimeout(logViewportInfo, 500);
+    setTimeout(logViewportInfo, 1000);
+    // #endregion
+    
     return () => {
       visualViewport.removeEventListener('resize', updateViewportHeight);
       visualViewport.removeEventListener('scroll', updateViewportHeight);
+      // #region agent log
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
+      // #endregion
+      if (isIOSDevice) {
+        window.removeEventListener('scroll', preventScroll);
+        window.removeEventListener('touchmove', preventScroll);
+      }
     };
   }, []);
 
@@ -216,6 +455,60 @@ export function Assistant({
         window?.Cookiebot?.renew?.();
       });
   }, [initialConfig]);
+
+  // Update document title and favicon from config
+  useEffect(() => {
+    if (config?.app?.title) {
+      document.title = config.app.title;
+    }
+    
+    if (config?.app?.icon) {
+      let iconUrl = config.app.icon;
+      console.log('Setting favicon from config:', iconUrl);
+      
+      // Normalize the icon URL
+      // If it's a relative path and doesn't start with /, add it
+      // If it's a relative path starting with /, it's already correct for public folder
+      // If it's an absolute URL (http/https), use it as-is
+      if (!iconUrl.startsWith('http://') && !iconUrl.startsWith('https://') && !iconUrl.startsWith('/')) {
+        iconUrl = '/' + iconUrl;
+      }
+      
+      console.log('Normalized icon URL:', iconUrl);
+      
+      // Remove all existing favicon links first to avoid conflicts
+      const existingLinks = document.querySelectorAll("link[rel*='icon'], link[rel*='Icon']");
+      existingLinks.forEach(link => link.remove());
+      
+      // Create all favicon-related links
+      const iconTypes = [
+        { rel: "icon" },
+        { rel: "shortcut icon" },
+        { rel: "apple-touch-icon" },
+        { rel: "mask-icon" }
+      ];
+      
+      iconTypes.forEach(({ rel }) => {
+        const newLink = document.createElement("link");
+        newLink.rel = rel;
+        newLink.href = iconUrl;
+        
+        // Set appropriate type based on file extension
+        if (iconUrl.match(/\.svg$/i)) {
+          newLink.type = "image/svg+xml";
+        } else if (iconUrl.match(/\.png$/i)) {
+          newLink.type = "image/png";
+        } else if (iconUrl.match(/\.ico$/i)) {
+          newLink.type = "image/x-icon";
+        } else if (iconUrl.match(/\.jpg$/i) || iconUrl.match(/\.jpeg$/i)) {
+          newLink.type = "image/jpeg";
+        }
+        
+        document.head.appendChild(newLink);
+        console.log(`Added favicon link: ${rel} -> ${iconUrl}`);
+      });
+    }
+  }, [config]);
 
   useEffect(() => {
     const handleConsentUpdate = async (event) => {
@@ -277,10 +570,84 @@ export function Assistant({
     }
     const params = new URLSearchParams(resolvedSearchParams).toString();
 
+    // Get initial_state from URL parameters
+    const initialState = resolvedSearchParams?.initial_state;
+    const initialStateValue = Array.isArray(initialState) ? initialState[0] : initialState;
+    
+    // Parse initial_state - it might be a JSON object like {"nome": "John", "telefono": "3981235564"}
+    // Extract the key from the JSON object to use as the autoMessage key, and get all variables for template replacement
+    let autoMessageKey: string | null = null;
+    let templateVariables: Record<string, any> = {};
+    if (initialStateValue) {
+      let parsed: any = null;
+      let decodedValue = String(initialStateValue);
+      
+      // First, try to parse as-is (in case Next.js already decoded it)
+      try {
+        parsed = JSON.parse(decodedValue);
+      } catch (e) {
+        // If parsing fails, try decoding URL-encoded characters
+        try {
+          // Check if it contains URL-encoded characters (like %7B, %3A, etc.)
+          if (decodedValue.includes('%')) {
+            decodedValue = decodeURIComponent(decodedValue);
+          }
+          parsed = JSON.parse(decodedValue);
+        } catch (e2) {
+          // If still fails, try one more time with aggressive decoding
+          try {
+            // Sometimes the entire string might be double-encoded or have special characters
+            decodedValue = decodeURIComponent(decodeURIComponent(decodedValue));
+            parsed = JSON.parse(decodedValue);
+          } catch (e3) {
+            console.warn('Failed to parse initial_state after multiple attempts:', e3, 'Original value:', initialStateValue);
+            // If all parsing attempts fail, treat it as a plain string key
+            autoMessageKey = initialStateValue;
+          }
+        }
+      }
+      
+      // If we successfully parsed the JSON
+      if (parsed && typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        // Store all variables for template replacement
+        templateVariables = parsed;
+        
+        // Find the first key in initial_state that exists in chat.autoMessage (excluding "default")
+        const keys = Object.keys(parsed);
+        for (const key of keys) {
+          if (key !== 'default' && config2.chat.autoMessage[key]) {
+            autoMessageKey = key;
+            break;
+          }
+        }
+      } else if (parsed === null && autoMessageKey === null) {
+        // If parsing resulted in null or we couldn't parse, use the decoded value as key
+        autoMessageKey = decodedValue;
+      }
+    }
+    
+    // Select autoMessage based on initial_state
+    // If a matching field exists in chat.autoMessage, use it; otherwise use default
+    let selectedAutoMessage = config2.chat.autoMessage.default;
+    if (autoMessageKey && config2.chat.autoMessage[autoMessageKey]) {
+      selectedAutoMessage = config2.chat.autoMessage[autoMessageKey];
+    }
+    
+    // Replace template variables in the message text (e.g., {{nome}}, {{telefono}})
+    let messageText = selectedAutoMessage?.text || '';
+    if (messageText && Object.keys(templateVariables).length > 0) {
+      messageText = messageText.replace(/\{\{(\w+)\}\}/g, (match: string, key: string) => {
+        return templateVariables[key] !== undefined ? String(templateVariables[key]) : match;
+      });
+    }
+    
+    // Use the role from the selected message, or fallback to default role
+    const autoMessageRole = selectedAutoMessage?.role || config2.chat.autoMessage.role;
+
     // Display the first message immediately without waiting for API calls
     const autoMessage = {
-      role: config2.chat.autoMessage.role,
-      content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
+      role: autoMessageRole,
+      content: [{ ...selectedAutoMessage, text: messageText, type: "text", created_at: new Date() }],
       id: "user-message-" + conversationId,
       createdAt: new Date(),
       created_at: new Date(),
@@ -443,7 +810,7 @@ export function Assistant({
           
           iframe.openIframe(incoming.event.url);
           // Keep input focused when opening iframe (but only if no suggestions)
-          if (!suggestedMessages?.buttons?.length) {
+          if (!suggestedMessagesRef.current?.buttons?.length) {
             keepInputFocused();
           }
         } else if (action === "close_url" || action === "on_close") {
@@ -455,28 +822,18 @@ export function Assistant({
           
           iframe.closeIframe();
           // Keep input focused when closing iframe (but only if no suggestions)
-          if (!suggestedMessages?.buttons?.length) {
+          if (!suggestedMessagesRef.current?.buttons?.length) {
             keepInputFocused();
           }
         } else if (action === "display_suggestions") {
-          // When displaying suggestions, blur input to close keyboard
-          // CRITICAL: Cancel any pending keyboard open timeout since suggestions are appearing
-          if (keyboardOpenTimeoutRef.current) {
-            clearTimeout(keyboardOpenTimeoutRef.current);
-            keyboardOpenTimeoutRef.current = null;
-          }
-          
+          // When displaying suggestions, keep keyboard open but disable send button
           // CRITICAL: Delay suggestions display to ensure any pending message updates complete first
           // This prevents messages from disappearing when suggestions appear
           setTimeout(() => {
             flushSync(() => {
           setStateData({ suggestedMessages: incoming.event });
             });
-            // Close keyboard by blurring the input
-            const input = document.querySelector('textarea[placeholder], textarea[data-composer-input]') as HTMLTextAreaElement | null;
-            if (input && document.activeElement === input) {
-              input.blur();
-            }
+            // Keep keyboard open - don't blur the input
           }, 100); // Delay to ensure messages are fully rendered first
         }
         return;
@@ -494,13 +851,17 @@ export function Assistant({
         });
         
         // Use pk (primary key) if available, otherwise use id, otherwise generate one
-        // CRITICAL: Use a stable ID format that won't be confused with optimistic messages
-        // Include timestamp to ensure uniqueness, but make it clear it's a real message
+        // CRITICAL: Use the same ID format as API responses to ensure messages can be found/updated
+        // This matches the format used in onNew: assistant-message-${pk} or assistant-message-${Date.now()}
         const messageId = incoming.pk 
-          ? `ws-msg-${String(incoming.pk)}` 
+          ? `assistant-message-${String(incoming.pk)}` 
           : incoming.id 
-          ? `ws-msg-${String(incoming.id)}` 
-          : `ws-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          ? `assistant-message-${String(incoming.id)}` 
+          : `assistant-message-${Date.now()}`;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:856',message:'WebSocket: Message received',data:{messageId,incomingPk:incoming.pk,incomingId:incoming.id,incomingType:incoming.type,incomingTextLength:incoming.text?.length||0,fromPk:!!incoming.pk,fromId:!!incoming.id},timestamp:Date.now(),runId:'websocket1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         
         console.log("🔵 [WebSocket Handler] Generated messageId", {
           timestamp: Date.now(),
@@ -556,6 +917,10 @@ export function Assistant({
               return false;
             });
             
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:901',message:'WebSocket: Checking for existing message by ID',data:{messageId,incomingPk:incoming.pk,incomingId:incoming.id,existingByIdIndex,foundById:existingByIdIndex!==-1,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'websocket1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
+            
             console.log("🔵 [WebSocket Handler] ID check result", {
               timestamp: Date.now(),
               existingByIdIndex,
@@ -593,6 +958,10 @@ export function Assistant({
               }
             }
             
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:943',message:'WebSocket: Checking for optimistic message',data:{messageId,optimisticIndex,foundOptimistic:optimisticIndex!==-1,optimisticId:optimisticIndex!==-1?currentConversation[optimisticIndex].id:null,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            
             console.log("🔵 [WebSocket Handler] Optimistic message check", {
               timestamp: Date.now(),
               optimisticIndex,
@@ -607,6 +976,10 @@ export function Assistant({
               const existingText = currentConversation[optimisticIndex].content[0]?.text || '';
               const newText = incRes.content[0]?.text || '';
               
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:960',message:'WebSocket: Updating optimistic message (keeping optimistic ID)',data:{optimisticIndex,optimisticId,newMessageId:messageId,willKeepOptimisticId:true,existingTextLength:existingText.length,newTextLength:newText.length,problematicBehavior:'Keeping optimistic ID means WebSocket messages for next turn might update this message'},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
+              // #endregion
+              
               console.log("🔵 [WebSocket Handler] Updating optimistic message", {
                 timestamp: Date.now(),
                 optimisticIndex,
@@ -617,33 +990,30 @@ export function Assistant({
                 newTextLength: newText.length
               });
               
-              // Only update if new content is longer or different (for streaming updates)
-              if (newText.length > existingText.length || newText !== existingText) {
-                const updated = [...currentConversation];
-                updated[optimisticIndex] = {
-                  ...incRes,
-                  id: optimisticId, // Keep the optimistic ID
-                };
-                
-                console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
-                  timestamp: Date.now(),
-                  updatedLength: updated.length,
-                  updatedMessage: updated[optimisticIndex] ? {
-                    id: updated[optimisticIndex].id,
-                    role: updated[optimisticIndex].role,
-                    contentLength: updated[optimisticIndex].content[0]?.text?.length || 0
-                  } : null
-                });
-                
-                return updated;
-              } else {
-                // Content hasn't changed, return current state
-                console.log("🔵 [WebSocket Handler] Content unchanged, keeping existing message", {
-                  timestamp: Date.now(),
-                  optimisticIndex
-                });
-                return currentConversation;
-              }
+              // CRITICAL: Always update the optimistic message with websocket content
+              // The websocket message is the authoritative source, even if it's shorter
+              // This ensures the real response replaces the optimistic placeholder
+              const updated = [...currentConversation];
+              updated[optimisticIndex] = {
+                ...incRes,
+                id: optimisticId, // Keep the optimistic ID to maintain component reference
+              };
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:981',message:'WebSocket: Updated optimistic message (kept optimistic ID)',data:{optimisticIndex,optimisticId,newMessageId:messageId,updatedMessageId:updated[optimisticIndex].id,updatedMessageRole:updated[optimisticIndex].role,updatedMessageContentLength:updated[optimisticIndex].content[0]?.text?.length||0,updatedLength:updated.length},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
+              // #endregion
+              
+              console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
+                timestamp: Date.now(),
+                updatedLength: updated.length,
+                updatedMessage: updated[optimisticIndex] ? {
+                  id: updated[optimisticIndex].id,
+                  role: updated[optimisticIndex].role,
+                  contentLength: updated[optimisticIndex].content[0]?.text?.length || 0
+                } : null
+              });
+              
+              return updated;
             }
             
             // No optimistic message found - add the new message
@@ -730,7 +1100,7 @@ export function Assistant({
         // Set a 2-second timeout to open keyboard if no action is received
         keyboardOpenTimeoutRef.current = setTimeout(() => {
           // Double-check that no suggestions are visible before opening keyboard
-          const hasSuggestions = suggestedMessages?.buttons?.length > 0;
+          const hasSuggestions = suggestedMessagesRef.current?.buttons?.length > 0;
           const suggestionBar = document.querySelector('[data-suggestion-bar]');
           const suggestionsVisible = suggestionBar && suggestionBar.getBoundingClientRect().height > 0;
           const isIframeOpen = iframe.showIframe;
@@ -764,7 +1134,7 @@ export function Assistant({
         keyboardOpenTimeoutRef.current = null;
       }
     };
-  }, [conversationId, suggestedMessages?.buttons?.length, iframe.showIframe]);
+  }, [conversationId, iframe.showIframe]);
 
   // NOTE: Keyboard opening is now handled by the 2-second timeout after message responses
   // This is safer as it waits to see if any actions (like display_suggestions) are received
@@ -844,16 +1214,30 @@ export function Assistant({
         createdAt: new Date(),
       };
       
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1189',message:'onNew: Creating optimistic message',data:{optimisticId,userMessageId:userAppendMessage.id,userMessageRole:userAppendMessage.role,userMessageContentLength:userAppendMessage.content[0]?.text?.length||0,conversationId,userId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
       // Add optimistic message and set isRunning atomically
       if (process.env.NODE_ENV === 'production') {
         // In production, use flushSync to ensure atomic update
         flushSync(() => {
-          setMessages((currentConversation) => [...currentConversation, optimisticMessage]);
+          setMessages((currentConversation) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1201',message:'onNew: Adding optimistic message to state',data:{optimisticId,currentConversationLength:currentConversation.length,existingMessageIds:currentConversation.map(m=>({id:m.id,role:m.role})),willAddOptimistic:true},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            return [...currentConversation, optimisticMessage];
+          });
       setIsRunning(true);
         });
       } else {
         // In dev, regular batching is fine
-        setMessages((currentConversation) => [...currentConversation, optimisticMessage]);
+        setMessages((currentConversation) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1206',message:'onNew: Adding optimistic message to state (dev)',data:{optimisticId,currentConversationLength:currentConversation.length,existingMessageIds:currentConversation.map(m=>({id:m.id,role:m.role})),willAddOptimistic:true},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+          return [...currentConversation, optimisticMessage];
+        });
         setIsRunning(true);
       }
       
@@ -869,16 +1253,39 @@ export function Assistant({
         
         // Fail silently if response is empty, undefined, or invalid
         if (!assistantResponse || !assistantResponse.type || !assistantResponse.text) {
-          // Remove optimistic message and stop running state
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1255',message:'onNew: HTTP response invalid/empty',data:{assistantResponse:!!assistantResponse,assistantResponseType:assistantResponse?.type,assistantResponseText:!!assistantResponse?.text,optimisticId},timestamp:Date.now(),runId:'error1',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+          
+          // CRITICAL: Only remove empty optimistic messages
+          // If WebSocket already updated the message with real content, keep it
+          // WebSocket messages have real IDs (assistant-message-*) so they won't be removed
           flushSync(() => {
             setMessages((currentConversation) => {
-              // Remove optimistic messages
-              return currentConversation.filter((msg) => {
-                if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                  return false;
+              // #region agent log
+              const beforeFilter = currentConversation.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}));
+              // #endregion
+              
+              // Only remove optimistic messages that are still empty (not updated by WebSocket)
+              // WebSocket updates change the ID to assistant-message-* so they won't match this filter
+              const filtered = currentConversation.filter((msg) => {
+                const isOptimistic = msg.role === "assistant" && String(msg.id).startsWith("__optimistic__");
+                if (isOptimistic) {
+                  // Check if message has real content (WebSocket might have updated it)
+                  const hasContent = typeof msg.content[0] === 'object' && 
+                                     msg.content[0]?.text && 
+                                     String(msg.content[0].text).trim().length > 0;
+                  // Only remove if it's still empty (not updated by WebSocket)
+                  return hasContent; // Keep if has content, remove if empty
                 }
-                return true;
+                return true; // Keep all non-optimistic messages
               });
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1260',message:'onNew: Filtering optimistic messages after HTTP error',data:{beforeLength:currentConversation.length,afterLength:filtered.length,removedCount:currentConversation.length-filtered.length,beforeMessages:beforeFilter,afterMessages:filtered.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}))},timestamp:Date.now(),runId:'error1',hypothesisId:'F'})}).catch(()=>{});
+              // #endregion
+              
+              return filtered;
             });
           });
           setIsRunning(false);
@@ -891,11 +1298,19 @@ export function Assistant({
         // This prevents the runtime from seeing an inconsistent state in production
         const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
         
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1242',message:'onNew: API response received',data:{messageId,assistantResponsePk:assistantResponse?.pk,assistantResponseId:assistantResponse?.id,assistantResponseType:assistantResponse?.type,assistantResponseTextLength:assistantResponse?.text?.length||0,assistantResponseCreatedAt:assistantResponse?.created_at,optimisticId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        
         // CRITICAL: Don't use messages.length here - it's a stale closure value!
         // We'll check inside setMessages callback where we have the current state
         flushSync(() => {
           setMessages((currentConversation) => {
             // CRITICAL: Use currentConversation (current state) not messages (stale closure)
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1247',message:'onNew: Starting to update optimistic message',data:{messageId,optimisticId,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             
             // CRITICAL: The runtime creates optimistic messages internally (not in our state)
             // The component sees them via useMessage and locks onto their optimistic ID
@@ -914,6 +1329,10 @@ export function Assistant({
               }
             }
             
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1261',message:'onNew: Found optimistic message',data:{optimisticIndex,foundOptimistic:optimisticIndex!==-1,optimisticMessageId:optimisticIndex!==-1?currentConversation[optimisticIndex].id:null,messageId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
             // If no optimistic message found, find the last assistant message
             let lastAssistantIndex = -1;
             if (optimisticIndex === -1) {
@@ -930,26 +1349,36 @@ export function Assistant({
             // If we found a target message (optimistic or last assistant), replace it
             // This handles both cases: runtime added optimistic to state, or we need to update last assistant
             if (targetIndex !== -1) {
-              // Update the target message in place, keeping its ID
-              // This ensures useMessage returns a message with the same ID,
-              // which matches what the component's stable ID reference expects
+              // Update the target message in place
+              // CRITICAL: Change the ID from optimistic to real message ID
+              // This prevents subsequent websocket messages for the next turn from finding and updating this message
+              // The real message ID format is: assistant-message-${pk}
               const targetId = currentConversation[targetIndex].id;
+              const isOptimisticId = String(targetId).startsWith('__optimistic__');
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1282',message:'onNew: Replacing optimistic message with real ID',data:{targetIndex,targetId,isOptimisticId,oldId:targetId,newId:messageId,willReplaceId:true,assistantResponseTextLength:assistantResponse.text?.length||0},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
               
               const updated = [...currentConversation];
               
-              // CRITICAL: React 19 + Next.js 15.2 production has stricter automatic batching
-              // The component locks onto the optimistic ID via stable ref
-              // If we change the ID, useMessage might return a different message, causing unmount
-              // Solution: Keep the optimistic ID so the component's stable ref continues to match
-              // The message will have real content, so it won't be empty even if runtime filters optimistic messages
-              // We'll delay setting isRunning=false to ensure the update renders first
+              // CRITICAL: Use the real message ID (assistant-message-${pk}) instead of keeping the optimistic ID
+              // This ensures:
+              // 1. The message has a proper ID that websocket messages can match by pk
+              // 2. When websocket messages for the NEXT turn arrive (different pk), they won't find this message
+              //    and will create a new message instead of updating this old one
+              // The component will handle the ID change gracefully since the message content is updated
               
               updated[targetIndex] = {
                 role: assistantResponse.type || "assistant",
                 content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
-                id: targetId, // CRITICAL: Keep the optimistic ID so component's stable ref matches
+                id: messageId, // CRITICAL: Use real message ID, not optimistic ID
                 createdAt: new Date(),
               };
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1302',message:'onNew: Message replaced with real ID',data:{targetIndex,oldId:targetId,newId:messageId,replacedMessageId:updated[targetIndex].id,replacedMessageRole:updated[targetIndex].role,replacedMessageContentLength:updated[targetIndex].content[0]?.text?.length||0,updatedLength:updated.length},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
               
               // CRITICAL: Remove any OTHER optimistic messages (old ones from previous messages)
               // This prevents multiple optimistic messages from accumulating
@@ -1004,16 +1433,39 @@ export function Assistant({
         
         setlastMessageResponse(assistantResponse);
       } catch (error) {
-        // Fail silently - remove optimistic message and stop running state
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1412',message:'onNew: HTTP request threw error',data:{errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'Unknown',optimisticId},timestamp:Date.now(),runId:'error1',hypothesisId:'G'})}).catch(()=>{});
+        // #endregion
+        
+        // CRITICAL: Only remove empty optimistic messages
+        // If WebSocket already updated the message with real content, keep it
+        // WebSocket messages have real IDs (assistant-message-*) so they won't be removed
         flushSync(() => {
           setMessages((currentConversation) => {
-            // Remove optimistic messages
-            return currentConversation.filter((msg) => {
-              if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                return false;
+            // #region agent log
+            const beforeFilter = currentConversation.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}));
+            // #endregion
+            
+            // Only remove optimistic messages that are still empty (not updated by WebSocket)
+            // WebSocket updates change the ID to assistant-message-* so they won't match this filter
+            const filtered = currentConversation.filter((msg) => {
+              const isOptimistic = msg.role === "assistant" && String(msg.id).startsWith("__optimistic__");
+              if (isOptimistic) {
+                // Check if message has real content (WebSocket might have updated it)
+                const hasContent = typeof msg.content[0] === 'object' && 
+                                   msg.content[0]?.text && 
+                                   String(msg.content[0].text).trim().length > 0;
+                // Only remove if it's still empty (not updated by WebSocket)
+                return hasContent; // Keep if has content, remove if empty
               }
-              return true;
+              return true; // Keep all non-optimistic messages
             });
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1417',message:'onNew: Filtering optimistic messages after HTTP exception',data:{beforeLength:currentConversation.length,afterLength:filtered.length,removedCount:currentConversation.length-filtered.length,beforeMessages:beforeFilter,afterMessages:filtered.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}))},timestamp:Date.now(),runId:'error1',hypothesisId:'G'})}).catch(()=>{});
+            // #endregion
+            
+            return filtered;
           });
         });
         setIsRunning(false);
@@ -1047,6 +1499,26 @@ export function Assistant({
   // Memoize convertMessage to prevent runtime recreation
   const convertMessage = useCallback((m: any) => m, []);
 
+  // Detect iOS (Safari, Chrome, or any browser on iOS)
+  const isIOS = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  }, []);
+
+  // Calculate if keyboard is open (for Safari fix)
+  const isKeyboardOpen = useMemo(() => {
+    if (typeof window === 'undefined' || !visualViewportHeight || !window.visualViewport) return false;
+    const initialHeight = initialViewportHeightRef.current || window.innerHeight;
+    const heightReduction = initialHeight - visualViewportHeight;
+    const hasOffsetTop = window.visualViewport.offsetTop !== undefined && window.visualViewport.offsetTop > 0;
+    // Keyboard is open if height reduced significantly (>100px) OR offsetTop exists (Safari iOS behavior)
+    return heightReduction > 100 || hasOffsetTop;
+  }, [visualViewportHeight]);
+
+  // Track messages changes for debugging
+  useEffect(() => {
+  }, [messages, isRunning]);
+
   const runtime = useExternalStoreRuntime({
     isRunning,
     messages,
@@ -1061,7 +1533,6 @@ export function Assistant({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <WebSocketLoadingOverlay isVisible={!isWebSocketConnected} />
         {/* <CookiebotLoader config={config} /> */}
       {/* HEADER */}
 
@@ -1071,16 +1542,54 @@ export function Assistant({
         style={{
           height: visualViewportHeight ? `${visualViewportHeight}px` : '100dvh',
           maxHeight: visualViewportHeight ? `${visualViewportHeight}px` : '100dvh',
+          width: '100%',
+          // CRITICAL: On iOS when keyboard is open, use fixed positioning to prevent white space
+          // The main container must be fixed to prevent scrolling that reveals white/blue space below
+          position: (isIOS && isKeyboardOpen) ? 'fixed' : 'relative',
+          ...((isIOS && isKeyboardOpen) && {
+            top: '0',
+            left: '0',
+            right: '0',
+            bottom: '0',
+          }),
+          // CRITICAL: Set background to match body to prevent white/blue space
+          backgroundColor: isDarkMode ? 'rgb(24 24 27)' : 'rgb(255 255 255)',
+          // #region agent log
+          // iOS Safari fix: Prevent overflow that causes white space below screen
+          overflow: 'hidden',
+          // Allow touch scrolling within this container and its children (messages container)
+          touchAction: (isIOS && isKeyboardOpen) ? 'pan-y' : 'auto',
+          // #endregion
+        }}
+        ref={(el) => {
+          // #region agent log
+          if (el) {
+            const computed = window.getComputedStyle(el);
+            const initialHeight = initialViewportHeightRef.current || window.innerHeight;
+          const heightReduction = initialHeight - (visualViewportHeight || window.innerHeight);
+          const hasOffsetTop = typeof window !== 'undefined' && window.visualViewport && window.visualViewport.offsetTop !== undefined && window.visualViewport.offsetTop > 0;
+          const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1141',message:'Main container render - style values',data:{visualViewportHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:typeof window !== 'undefined' && window.visualViewport ? window.visualViewport.offsetTop : null,isKeyboardOpen,isIOS,computedPosition:computed.position,computedTop:computed.top,computedLeft:computed.left,computedRight:computed.right,computedBottom:computed.bottom,computedHeight:computed.height,computedWidth:computed.width,computedBackground:computed.backgroundColor,computedOverflow:computed.overflow,offsetHeight:el.offsetHeight,offsetWidth:el.offsetWidth,clientHeight:el.clientHeight,clientWidth:el.clientWidth,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop,getBoundingClientRect:JSON.stringify(el.getBoundingClientRect()),userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'C'})}).catch(()=>{});
+          }
+          // #endregion
         }}
       >
 
 <header
-  className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 bg-blue-950 border-b dark:bg-zinc-900 dark:border-zinc-800 dark:text-white"
+  ref={(el) => {
+    if (el && config?.chat?.topBarColor) {
+      // Set background color with important flag to override CSS classes
+      el.style.setProperty('background-color', config.chat.topBarColor, 'important');
+    }
+  }}
+  className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-4 sm:px-6 border-b dark:border-zinc-800 dark:text-white"
   style={{
     // On mobile, position relative to visual viewport offset
     transform: typeof window !== 'undefined' && window.visualViewport 
       ? `translateY(${window.visualViewport.offsetTop}px)` 
       : undefined,
+    // Apply topBarColor from config if available
+    backgroundColor: config?.chat?.topBarColor || undefined,
   }}
 >
   <ThemeAwareLogo
@@ -1098,11 +1607,14 @@ export function Assistant({
 </header>
 
 <main 
-  className="flex-1 overflow-y-auto" 
+  className="flex-1" 
   style={{ 
     marginTop: '4rem', // Account for fixed header height
     height: visualViewportHeight ? `calc(${visualViewportHeight}px - 4rem)` : 'calc(100dvh - 4rem)',
     maxHeight: visualViewportHeight ? `calc(${visualViewportHeight}px - 4rem)` : 'calc(100dvh - 4rem)',
+    // CRITICAL: Allow scrolling within messages container even when keyboard is open
+    // The ThreadPrimitive.Viewport inside will handle the actual scrolling
+    overflow: 'hidden', // Prevent main container from scrolling, but allow children to scroll
   }}
 >
   <Thread

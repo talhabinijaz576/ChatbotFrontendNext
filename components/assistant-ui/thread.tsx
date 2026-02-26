@@ -370,47 +370,51 @@ export const Thread: FC<ThreadProps> = ({
     }
   }, [messages.length, suggestedMessages?.buttons?.length, isIframeOpen]);
 
-  // Close keyboard when suggestions are displayed
-  useEffect(() => {
-    if (suggestedMessages?.buttons?.length > 0 && isKeyboardOpen) {
-      // Suggestions are visible, close keyboard
-      if (composerInputRef.current && document.activeElement === composerInputRef.current) {
-        composerInputRef.current.blur();
-        setIsKeyboardOpen(false);
-      }
-    }
-  }, [suggestedMessages?.buttons?.length, isKeyboardOpen]);
+  // Keep keyboard open when suggestions are displayed - send button will be disabled instead
 
-  // Auto-scroll suggestions into view when they appear
+  // Auto-scroll suggestions into view when they appear, ensuring they're above the keyboard
   useEffect(() => {
     if (suggestedMessages?.buttons?.length > 0 && suggestionBarRef.current && viewportRef.current) {
-      // Wait a bit for the DOM to render the suggestions
+      // Wait a bit for the DOM to render the suggestions and keyboard to settle
       const timeout = setTimeout(() => {
         const suggestionBar = suggestionBarRef.current;
         const viewport = viewportRef.current;
         
         if (!suggestionBar || !viewport) return;
 
+        // Get visual viewport height (accounts for keyboard)
+        const visualViewport = visualViewportRef.current;
+        const viewportHeight = visualViewport ? visualViewport.height : window.innerHeight;
+        
         // Get the bounding rectangles relative to the viewport
         const suggestionRect = suggestionBar.getBoundingClientRect();
         const viewportRect = viewport.getBoundingClientRect();
         
-        // Calculate if suggestion bar is fully visible in viewport
+        // Calculate the visible viewport bottom (accounting for keyboard)
+        const visibleViewportBottom = Math.min(viewportRect.bottom, viewportHeight);
+        
+        // Check if suggestion bar is fully visible above the keyboard
         const isFullyVisible = 
           suggestionRect.top >= viewportRect.top &&
-          suggestionRect.bottom <= viewportRect.bottom;
+          suggestionRect.bottom <= visibleViewportBottom;
         
         if (!isFullyVisible) {
-          // Calculate the scroll position needed to show the suggestion bar
-          // We want to scroll so the suggestion bar is visible, preferably near the bottom
+          // Calculate the scroll position needed to show the suggestion bar above the keyboard
           const suggestionTop = suggestionBar.offsetTop;
           const suggestionHeight = suggestionBar.offsetHeight;
-          const viewportHeight = viewport.clientHeight;
           
-          // Calculate scroll position to show suggestion bar near bottom of viewport
-          // Leave some padding at the bottom
+          // Account for input/composer height (we want suggestions above the input)
+          const input = composerInputRef.current;
+          let inputHeight = 0;
+          if (input) {
+            const inputRect = input.getBoundingClientRect();
+            inputHeight = inputRect.height;
+          }
+          
+          // Calculate scroll position to show suggestion bar above input and keyboard
+          // Leave padding between suggestions and input
           const padding = 20;
-          const targetScrollTop = suggestionTop + suggestionHeight - viewportHeight + padding;
+          const targetScrollTop = suggestionTop + suggestionHeight + inputHeight + padding - viewportHeight;
           
           // Smooth scroll to the target position
           viewport.scrollTo({
@@ -418,11 +422,11 @@ export const Thread: FC<ThreadProps> = ({
             behavior: 'smooth'
           });
         }
-      }, 150); // Small delay to ensure DOM is ready and rendered
+      }, 300); // Longer delay to ensure keyboard is fully open and DOM is ready
       
       return () => clearTimeout(timeout);
     }
-  }, [suggestedMessages?.buttons?.length]);
+  }, [suggestedMessages?.buttons?.length, visualViewportHeight, isKeyboardOpen]);
 
   // Keep composer visible when keyboard opens, maintain position when keyboard is open
   useEffect(() => {
@@ -484,39 +488,53 @@ export const Thread: FC<ThreadProps> = ({
       // Calculate if input is visible
       const inputTop = inputRect.top;
       const inputBottom = inputRect.bottom;
+      const inputHeight = inputRect.height;
       const viewportTop = viewportRect.top;
       const viewportBottom = Math.min(viewportRect.bottom, viewportHeight);
       
       // Desired space above keyboard (padding)
       const padding = 20;
       
-      // Check if suggestion bar is positioned between input and keyboard/viewport bottom
-      // The suggestion bar is typically rendered above the input container
+      // Ensure suggestions are visible above the keyboard and input
       const suggestionBarIsVisible = suggestionBarHeight > 0;
-      const suggestionBarBetweenInputAndBottom = suggestionBarIsVisible && 
-                                                  suggestionBarBottom > inputTop && 
-                                                  suggestionBarBottom <= viewportBottom;
       
-      // Account for suggestion bar height - input must be completely visible above both keyboard AND suggestion bar
-      // If suggestion bar exists and is between input and viewport bottom, we need to account for its full height
-      const totalSpaceNeeded = padding + (suggestionBarIsVisible && suggestionBarBetweenInputAndBottom ? suggestionBarHeight : 0);
+      // Check if suggestion bar is hidden below the visible viewport (behind keyboard)
+      const suggestionBarHiddenBelowViewport = suggestionBarIsVisible && 
+                                                suggestionBarBottom > viewportBottom;
+      
+      // Check if suggestion bar is above the input (correct position)
+      const suggestionBarAboveInput = suggestionBarIsVisible && 
+                                      suggestionBarBottom <= inputTop;
+      
+      // If suggestions exist, ensure they're visible above keyboard and input
+      if (suggestionBarIsVisible && suggestionBarRef.current) {
+        if (suggestionBarHiddenBelowViewport || !suggestionBarAboveInput) {
+          // Scroll to show suggestions above input and keyboard
+          const suggestionTop = suggestionBarRef.current.offsetTop;
+          const suggestionHeight = suggestionBarHeight;
+          
+          // Calculate scroll position to show suggestions above input
+          const targetScrollTop = suggestionTop + suggestionHeight + inputHeight + padding - viewportHeight;
+          
+          viewport.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth'
+          });
+        }
+      }
+      
+      // Account for suggestion bar height - input must be completely visible above keyboard
+      // Suggestions should be above input, so we need space for both
+      const totalSpaceNeeded = padding + (suggestionBarIsVisible ? suggestionBarHeight + inputHeight : inputHeight);
       const targetBottom = viewportBottom - totalSpaceNeeded;
       
-      // Check if input is being covered by suggestion bar (suggestion bar overlaps input)
-      const inputCoveredBySuggestionBar = suggestionBarIsVisible && 
-                                          suggestionBarTop < inputBottom && 
-                                          suggestionBarBottom > inputTop;
-      
-      // Check if input is hidden below viewport, too close to bottom, or covered by suggestion bar
-      if (inputBottom > targetBottom || inputTop < viewportTop || inputCoveredBySuggestionBar) {
+      // Check if input is hidden below viewport or too close to bottom
+      if (inputBottom > targetBottom || inputTop < viewportTop) {
         // Calculate how much to scroll
         let scrollAdjustment = 0;
         
-        if (inputCoveredBySuggestionBar) {
-          // Input is covered by suggestion bar - scroll enough to show input completely above it
-          scrollAdjustment = suggestionBarBottom - inputTop + padding;
-        } else if (inputBottom > targetBottom) {
-          // Input is below target position (keyboard + suggestion bar + padding)
+        if (inputBottom > targetBottom) {
+          // Input is below target position (keyboard + suggestions + input + padding)
           scrollAdjustment = inputBottom - targetBottom;
         } else if (inputTop < viewportTop) {
           // Input is above viewport, scroll up to show it
@@ -705,6 +723,7 @@ export const Thread: FC<ThreadProps> = ({
           </ThreadPrimitive.If>
       
           {/* Suggestion bar - inside viewport so it scrolls with messages */}
+          {/* Always show suggestions above keyboard */}
           {suggestedMessages?.buttons?.length > 0 && (
             <div 
               ref={suggestionBarRef}
@@ -720,8 +739,8 @@ export const Thread: FC<ThreadProps> = ({
             messages={messages}
             setStateData={setStateData}
           />
-        </div>
-      )}
+            </div>
+          )}
         </div>
       </ThreadPrimitive.Viewport>
 
@@ -846,7 +865,6 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
     if (composerInputRef.current && document.activeElement === composerInputRef.current) {
       composerInputRef.current.blur();
     }
-    
     setStateData({ suggestedMessages: [] });
 
     onNew({
@@ -863,12 +881,58 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
     // If no suggestions appear, the 1-second timeout will open it
   };
 
+  // Get colors from config with fallbacks
+  // Path: chat.colors.assistantMessage.suggestions_colors.background and .text
+  const suggestionColors = config?.chat?.colors?.assistantMessage?.suggestions_colors;
+  const backgroundColor = suggestionColors?.background || '#F1F0F0';
+  const textColor = suggestionColors?.text || '#000000';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#eef2ff';
+  };
+  
+  const hoverColor = getHoverColor(backgroundColor);
+
   return (
-    <div className="mt-3 flex flex-col md:flex-row w-full md:items-stretch justify-center gap-4 dark:text-white items-center">
+    <div className="mt-2 md:mt-3 flex flex-col md:flex-row w-full md:items-stretch justify-center gap-2 md:gap-4 dark:text-white items-center">
       {suggestedMessages?.buttons?.map((message: any) => (
         <button
           key={message.label}
-          className="hover:bg-[#eef2ff] w-full dark:hover:bg-zinc-800 flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-3 transition-colors ease-in"
+          ref={(el) => {
+            if (el) {
+              // Set styles with important flag to override any CSS classes
+              el.style.setProperty('background-color', backgroundColor, 'important');
+              el.style.setProperty('color', textColor, 'important');
+            }
+          }}
+          className="w-full flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-xl md:rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-2 md:p-3 transition-colors ease-in"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.setProperty('background-color', backgroundColor, 'important');
+          }}
           onClick={(e) => handleSuggestionClick(message, e)}
           onMouseDown={(e) => {
             // Prevent button click from focusing the input
@@ -876,7 +940,7 @@ const ThreadWelcomeSuggestions: FC<ThreadWelcomeSuggestionsProps> = ({
             e.preventDefault();
           }}
         >
-          <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          <span className="line-clamp-2 text-ellipsis text-xs md:text-sm font-semibold px-1">
             {message.label}
           </span>
         </button>
@@ -908,20 +972,7 @@ export const Composer: FC<ComposerProps> = ({
 
     // Prevent blur events that would close the keyboard
     const handleBlur = (e: FocusEvent) => {
-      // CRITICAL: Don't re-focus if suggestions are visible
-      // Check both the prop and the DOM to ensure we have the latest state
-      const hasSuggestions = suggestedMessages?.buttons?.length > 0;
-      const suggestionBar = document.querySelector('[data-suggestion-bar]');
-      const suggestionsVisible = suggestionBar && suggestionBar.getBoundingClientRect().height > 0;
-      
-      if (hasSuggestions || suggestionsVisible) {
-        // Suggestions are visible, don't re-focus - let keyboard stay closed
-        if (blurTimeout) {
-          clearTimeout(blurTimeout);
-          blurTimeout = null;
-        }
-        return;
-      }
+      // Keep keyboard open even when suggestions are visible - send button will be disabled instead
 
       // Clear any pending re-focus
       if (blurTimeout) {
@@ -967,13 +1018,9 @@ export const Composer: FC<ComposerProps> = ({
       
       // For other blur events (like WebSocket messages, iframe actions, etc.),
       // re-focus after a short delay to keep keyboard open
-      // But only if no suggestions are visible
+      // Keep keyboard open even when suggestions are visible - send button will be disabled instead
       blurTimeout = setTimeout(() => {
-        const stillNoSuggestions = !suggestedMessages?.buttons?.length;
-        const suggestionBarCheck = document.querySelector('[data-suggestion-bar]');
-        const stillNoSuggestionsVisible = !suggestionBarCheck || suggestionBarCheck.getBoundingClientRect().height === 0;
-        
-        if (input && document.activeElement !== input && !isIframeOpen && !isUserIntentionalBlur && stillNoSuggestions && stillNoSuggestionsVisible) {
+        if (input && document.activeElement !== input && !isIframeOpen && !isUserIntentionalBlur) {
           input.focus();
         }
         isUserIntentionalBlur = false;
@@ -1029,6 +1076,36 @@ const ComposerAction: FC<ComposerActionProps> = ({ config, suggestedMessages, is
   const hasActiveButtons = suggestedMessages?.buttons?.length > 0;
   const isDisabled = hasActiveButtons || isIframeOpen;
   
+  // Get send button color from config
+  const sendButtonColor = config?.chat?.colors?.userMessage?.background || '#4f46e5';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#4338ca';
+  };
+  
+  const hoverColor = getHoverColor(sendButtonColor);
+  
   return (
     <>
       <ThreadPrimitive.If running={false}>
@@ -1037,7 +1114,21 @@ const ComposerAction: FC<ComposerActionProps> = ({ config, suggestedMessages, is
             tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
             disabled={isDisabled}
-            className="my-2.5 size-8 p-2 transition-opacity ease-in bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="my-2.5 size-8 p-2 transition-opacity ease-in text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+            onMouseEnter={(e) => {
+              if (!isDisabled) {
+                e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
           >
             <SendHorizontalIcon />
           </TooltipIconButton>
@@ -1048,7 +1139,19 @@ const ComposerAction: FC<ComposerActionProps> = ({ config, suggestedMessages, is
           <TooltipIconButton
             tooltip="Cancel"
             variant="default"
-            className="my-2.5 size-8 p-2 transition-opacity ease-in bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-full"
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="my-2.5 size-8 p-2 transition-opacity ease-in text-white rounded-full"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
           >
             <CircleStopIcon />
           </TooltipIconButton>
@@ -1077,15 +1180,21 @@ const UserMessage: FC = ({ colors}) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const backgroundColor = colors?.userMessage?.background ?? "#10101a";
+  const textColor = colors?.userMessage?.text ?? "#ffffff";
+  
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       <UserMessageAttachments />
       <div
-        style={{
-          backgroundColor: colors?.userMessage?.background ?? "#10101a",
-          color: colors?.userMessage?.text ?? "#ffffff",
+        ref={(el) => {
+          if (el) {
+            // Set styles with important flag to override any CSS classes
+            el.style.setProperty('background-color', backgroundColor, 'important');
+            el.style.setProperty('color', textColor, 'important');
+          }
         }}
-        className="bg-[#4f46e5] text-sm dark:bg-[#6366f1] text-white max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2"
+        className="text-sm max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2"
       >
         <MessagePrimitive.Content />
         <AssistantActionBar timestamp={timestamp} type="user" />
@@ -1114,6 +1223,37 @@ const UserActionBar: FC = ({ timestamp }) => {
 };
 
 const EditComposer: FC = () => {
+  // Get send button color from config via global ref
+  const config = globalConfigRef.current;
+  const sendButtonColor = config?.chat?.colors?.userMessage?.background || '#4f46e5';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#4338ca';
+  };
+  
+  const hoverColor = getHoverColor(sendButtonColor);
+  
   return (
     <ComposerPrimitive.Root className="bg-[#eef2ff] dark:bg-zinc-800 my-4 flex w-full max-w-[var(--thread-max-width)] flex-col gap-2 rounded-xl">
       <ComposerPrimitive.Input className="text-[#1e293b] dark:text-zinc-200 flex h-8 w-full resize-none bg-transparent p-4 pb-0 outline-none" />
@@ -1128,7 +1268,21 @@ const EditComposer: FC = () => {
           </Button>
         </ComposerPrimitive.Cancel>
         <ComposerPrimitive.Send asChild>
-          <Button className="bg-[#4f46e5] dark:bg-[#6366f1] hover:bg-[#4338ca] dark:hover:bg-[#4f46e5] text-white rounded-[2rem]">
+          <Button 
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="text-white rounded-[2rem]"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
+          >
             Send
           </Button>
         </ComposerPrimitive.Send>
@@ -1183,8 +1337,12 @@ const AssistantMessageComponent: FC = () => {
   }, [messageIdForKey]);
   
   // Extract config values directly - no memoization needed, just read from ref
+  // Avatar comes from: chat.colors.assistantMessage.avatar
+  // Background comes from: chat.assistantAvatarColor
+  // Show avatar based on: chat.showBotAvatar
+  const showBotAvatar = actualConfig?.chat?.showBotAvatar !== false; // Default to true if not set
   const avatarUrl = actualConfig?.chat?.colors?.assistantMessage?.avatar ?? "";
-  const backgroundColor = actualConfig?.chat?.backgroundColor ?? "bg-blue-950";
+  const backgroundColor = actualConfig?.chat?.assistantAvatarColor ?? "#1e3a8a";
   
   // Use refs to track previous values and prevent unnecessary re-renders
   const prevContentRef = useRef<string>('');
@@ -1662,9 +1820,11 @@ const AssistantMessageComponent: FC = () => {
         )}
       </ThreadPrimitive.If>
 
-      <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-        <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
-      </div>
+      {showBotAvatar && (
+        <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+          <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
+        </div>
+      )}
     </MessagePrimitive.Root>
   );
   } catch (error) {
@@ -1688,7 +1848,14 @@ const LoadingDots: FC = () => {
 // This component only re-renders when avatarUrl or backgroundColor actually change
 const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.memo(({avatarUrl, backgroundColor}) => {
   return (
-    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${backgroundColor}`}>
+    <div 
+      ref={(el) => {
+        if (el) {
+          // Set background color with important flag to override CSS classes
+          el.style.setProperty('background-color', backgroundColor, 'important');
+        }
+      }}
+      className="flex items-center justify-center w-8 h-8 rounded-full">
       <Image
         key={`img-${avatarUrl}`} // Stable key based on URL
         src={avatarUrl}
@@ -1709,24 +1876,39 @@ const AssistantAvatar: FC<{avatarUrl: string; backgroundColor: string}> = React.
 AssistantAvatar.displayName = 'AssistantAvatar';
 
 // Loading message component that appears when assistant is generating a response
+// Avatar comes from: chat.colors.assistantMessage.avatar
+// Background comes from: chat.assistantAvatarColor
+// Show avatar based on: chat.showBotAvatar
 const LoadingMessage: FC<{config: any}> = ({config}) => {
+  const showBotAvatar = config?.chat?.showBotAvatar !== false; // Default to true if not set
+  const avatarBackgroundColor = config?.chat?.assistantAvatarColor ?? "#1e3a8a";
+  
   return (
     <div className="grid grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] relative w-full max-w-[var(--thread-max-width)] py-4">
       <div className="text-[#1e293b] dark:text-zinc-200 max-w-[calc(var(--thread-max-width)*0.8)] break-words col-span-2 col-start-2 row-start-1 my-1.5 bg-white dark:bg-zinc-800 rounded-3xl px-5 py-2.5 border border-[#e2e8f0] dark:border-zinc-700 shadow-sm">
         <LoadingDots />
       </div>
 
-      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
-        <Image
-          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
-          alt="Assistant Avatar"
-          width={20}
-          height={20}
-          className="invert brightness-0 saturate-0 contrast-200"
-        />
-      </div>
-      </div>
+      {showBotAvatar && (
+        <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+        <div 
+          ref={(el) => {
+            if (el) {
+              // Set background color with important flag to override CSS classes
+              el.style.setProperty('background-color', avatarBackgroundColor, 'important');
+            }
+          }}
+          className="flex items-center justify-center w-8 h-8 rounded-full">
+          <Image
+            src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+            alt="Assistant Avatar"
+            width={20}
+            height={20}
+            className="invert brightness-0 saturate-0 contrast-200"
+          />
+        </div>
+        </div>
+      )}
     </div>
   );
 };

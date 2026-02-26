@@ -18,7 +18,6 @@ import { AssistantModal } from "@/components/assistant-modal";
 import { useBindReducer } from "./utils/useThunkReducer";
 import { getCookie, setCookie } from "cookies-next";
 import { keepInputFocused } from "./utils/deviceDetection";
-import { WebSocketLoadingOverlay } from "@/components/websocket-loading-overlay";
 
 export default function Widget({ initialConfig }: { initialConfig?: any }) {
   const params = useSearchParams();
@@ -63,6 +62,60 @@ export default function Widget({ initialConfig }: { initialConfig?: any }) {
       });
   }, [initialConfig]);
 
+  // Update document title and favicon from config
+  useEffect(() => {
+    if (config?.app?.title) {
+      document.title = config.app.title;
+    }
+    
+    if (config?.app?.icon) {
+      let iconUrl = config.app.icon;
+      console.log('Setting favicon from config:', iconUrl);
+      
+      // Normalize the icon URL
+      // If it's a relative path and doesn't start with /, add it
+      // If it's a relative path starting with /, it's already correct for public folder
+      // If it's an absolute URL (http/https), use it as-is
+      if (!iconUrl.startsWith('http://') && !iconUrl.startsWith('https://') && !iconUrl.startsWith('/')) {
+        iconUrl = '/' + iconUrl;
+      }
+      
+      console.log('Normalized icon URL:', iconUrl);
+      
+      // Remove all existing favicon links first to avoid conflicts
+      const existingLinks = document.querySelectorAll("link[rel*='icon'], link[rel*='Icon']");
+      existingLinks.forEach(link => link.remove());
+      
+      // Create all favicon-related links
+      const iconTypes = [
+        { rel: "icon" },
+        { rel: "shortcut icon" },
+        { rel: "apple-touch-icon" },
+        { rel: "mask-icon" }
+      ];
+      
+      iconTypes.forEach(({ rel }) => {
+        const newLink = document.createElement("link");
+        newLink.rel = rel;
+        newLink.href = iconUrl;
+        
+        // Set appropriate type based on file extension
+        if (iconUrl.match(/\.svg$/i)) {
+          newLink.type = "image/svg+xml";
+        } else if (iconUrl.match(/\.png$/i)) {
+          newLink.type = "image/png";
+        } else if (iconUrl.match(/\.ico$/i)) {
+          newLink.type = "image/x-icon";
+        } else if (iconUrl.match(/\.jpg$/i) || iconUrl.match(/\.jpeg$/i)) {
+          newLink.type = "image/jpeg";
+        }
+        
+        document.head.appendChild(newLink);
+        console.log(`Added favicon link: ${rel} -> ${iconUrl}`);
+      });
+    }
+  }, [config]);
+
   const initConversation = (config2) => {
     // ✅ Get cookie
     const lastMessageCookie = getCookie("lastMessage");
@@ -83,10 +136,83 @@ export default function Widget({ initialConfig }: { initialConfig?: any }) {
       console.error("❌ Failed to parse lastMessage cookie:", err);
     }
 
+    // Get initial_state from URL parameters
+    const initialState = params?.get("initial_state");
+    
+    // Parse initial_state - it might be a JSON object like {"nome": "John", "telefono": "3981235564"}
+    // Extract the key from the JSON object to use as the autoMessage key, and get all variables for template replacement
+    let autoMessageKey: string | null = null;
+    let templateVariables: Record<string, any> = {};
+    if (initialState) {
+      let parsed: any = null;
+      let decodedValue = String(initialState);
+      
+      // First, try to parse as-is (in case Next.js already decoded it)
+      try {
+        parsed = JSON.parse(decodedValue);
+      } catch (e) {
+        // If parsing fails, try decoding URL-encoded characters
+        try {
+          // Check if it contains URL-encoded characters (like %7B, %3A, etc.)
+          if (decodedValue.includes('%')) {
+            decodedValue = decodeURIComponent(decodedValue);
+          }
+          parsed = JSON.parse(decodedValue);
+        } catch (e2) {
+          // If still fails, try one more time with aggressive decoding
+          try {
+            // Sometimes the entire string might be double-encoded or have special characters
+            decodedValue = decodeURIComponent(decodeURIComponent(decodedValue));
+            parsed = JSON.parse(decodedValue);
+          } catch (e3) {
+            console.warn('Failed to parse initial_state after multiple attempts:', e3, 'Original value:', initialState);
+            // If all parsing attempts fail, treat it as a plain string key
+            autoMessageKey = initialState;
+          }
+        }
+      }
+      
+      // If we successfully parsed the JSON
+      if (parsed && typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        // Store all variables for template replacement
+        templateVariables = parsed;
+        
+        // Find the first key in initial_state that exists in chat.autoMessage (excluding "default")
+        const keys = Object.keys(parsed);
+        for (const key of keys) {
+          if (key !== 'default' && config2.chat.autoMessage[key]) {
+            autoMessageKey = key;
+            break;
+          }
+        }
+      } else if (parsed === null && autoMessageKey === null) {
+        // If parsing resulted in null or we couldn't parse, use the decoded value as key
+        autoMessageKey = decodedValue;
+      }
+    }
+    
+    // Select autoMessage based on initial_state
+    // If a matching field exists in chat.autoMessage, use it; otherwise use default
+    let selectedAutoMessage = config2.chat.autoMessage.default;
+    if (autoMessageKey && config2.chat.autoMessage[autoMessageKey]) {
+      selectedAutoMessage = config2.chat.autoMessage[autoMessageKey];
+    }
+    
+    // Replace template variables in the message text (e.g., {{nome}}, {{telefono}})
+    let messageText = selectedAutoMessage?.text || '';
+    if (messageText && Object.keys(templateVariables).length > 0) {
+      messageText = messageText.replace(/\{\{(\w+)\}\}/g, (match: string, key: string) => {
+        return templateVariables[key] !== undefined ? String(templateVariables[key]) : match;
+      });
+    }
+    
+    // Use the role from the selected message, or fallback to default role
+    const autoMessageRole = selectedAutoMessage?.role || config2.chat.autoMessage.role;
+
     // Display the first message immediately without waiting for API calls
     const autoMessage = {
-      role: config2.chat.autoMessage.role,
-      content: [{ ...config2.chat.autoMessage, type: "text", created_at: new Date() }],
+      role: autoMessageRole,
+      content: [{ ...selectedAutoMessage, text: messageText, type: "text", created_at: new Date() }],
       id: "user-message-" + selectedConversationId,
       createdAt: new Date(),
       created_at: new Date(),
@@ -199,14 +325,10 @@ export default function Widget({ initialConfig }: { initialConfig?: any }) {
             keepInputFocused();
           }
         } else if (action === "display_suggestions") {
-          // When displaying suggestions, blur input to close keyboard
+          // When displaying suggestions, keep keyboard open but disable send button
           console.log("🚀 ~ unsubscribe ~ incoming.event:", incoming.event)
           setStateData({ suggestedMessages: incoming.event });
-          // Close keyboard by blurring the input
-          const input = document.querySelector('textarea[placeholder], textarea[data-composer-input]') as HTMLTextAreaElement | null;
-          if (input && document.activeElement === input) {
-            input.blur();
-          }
+          // Keep keyboard open - don't blur the input
         }
       }
     });
@@ -309,10 +431,10 @@ export default function Widget({ initialConfig }: { initialConfig?: any }) {
       threadVisibility: "hidden",
       eventPointers: config.chat.isWidgetOpen ? "auto" : "none" // Dynamic based on widget state
     }}>
-      <WebSocketLoadingOverlay isVisible={!isWebSocketConnected} />
       <AssistantModal config={config} suggestedMessages={suggestedMessages} onNew={onNew} messages={messages} setStateData={setStateData} />
 
       <ActionModal
+          config={config}
           open={iframe.showIframe}
           url={iframe.iframeUrl}
           iframeError={iframe.iframeError}

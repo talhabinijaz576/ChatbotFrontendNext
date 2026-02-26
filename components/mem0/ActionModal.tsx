@@ -73,14 +73,15 @@ const ActionModal: React.FC<ActionModalProps> = ({
         }}
       >
         {/* Modal Header */}
+        {/* Background comes from: chat.topBarColor */}
         <Box
-          className="bg-blue-950"
           sx={{
             p: 1,
             borderBottom: "1px solid #e2e8f0",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            backgroundColor: config?.chat?.topBarColor || "#1e3a8a", // Default to blue-950 if not set
           }}
         >
           <Typography

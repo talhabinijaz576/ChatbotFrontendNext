@@ -43,7 +43,7 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
         <ThreadPrimitive.Messages
           components={{
             UserMessage: (props) => <UserMessage {...props} colors={colors} />,
-            EditComposer: EditComposer,
+            EditComposer: () => <EditComposer config={config} />,
             AssistantMessage: (props) => <AssistantMessage {...props} config={config} />,
           }}
         />
@@ -67,8 +67,21 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
 
 const ThreadHeader: FC = ({ defaultTitle, config }) => {
   const logoSrc =  config?.app?.lightLogo;
+  const topBarColor = config?.chat?.topBarColor;
+  
   return (
-    <div className={`flex p-4 border-b-1 border-blue-500 ${config?.chat?.backgroundColor ?? "bg-blue-950"} text-white`}>
+    <div 
+      ref={(el) => {
+        if (el && topBarColor) {
+          // Set background color with important flag to override CSS classes
+          el.style.setProperty('background-color', topBarColor, 'important');
+        }
+      }}
+      className="flex p-4 border-b-1 border-blue-500 text-white"
+      style={{
+        backgroundColor: topBarColor || undefined,
+      }}
+    >
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center">
         <Image
@@ -112,6 +125,7 @@ const ThreadWelcome: FC = ({  defaultTitle, disclaimer }) => {
 
 const ThreadWelcomeSuggestions: FC = ({
   suggestedMessages,
+  config,
   onNew,
   messages,
   setStateData,
@@ -134,23 +148,68 @@ const ThreadWelcomeSuggestions: FC = ({
     keepInputFocused();
   };
 
+  // Get colors from config with fallbacks
+  // Path: chat.colors.assistantMessage.suggestions_colors.background and .text
+  const suggestionColors = config?.chat?.colors?.assistantMessage?.suggestions_colors;
+  const backgroundColor = suggestionColors?.background || '#F1F0F0';
+  const textColor = suggestionColors?.text || '#000000';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#eef2ff';
+  };
+  
+  const hoverColor = getHoverColor(backgroundColor);
+
   const isVertical = suggestedMessages?.buttons?.length > 1;
 
   return (
     <div
-      className={`flex w-full justify-center gap-4 ${
+      className={`flex w-full justify-center gap-2 md:gap-4 ${
         isVertical ? "flex-col" : "flex-row"
       }`}
     >
      {suggestedMessages?.buttons?.map((message: any) => (
     <button
       key={message.label}
+      ref={(el) => {
+        if (el) {
+          // Set styles with important flag to override any CSS classes
+          el.style.setProperty('background-color', backgroundColor, 'important');
+          el.style.setProperty('color', textColor, 'important');
+        }
+      }}
       onClick={(e) => handleSuggestionClick(message, e)}
-      className="flex h-14 flex-1 items-center justify-center rounded-[2rem] border border-[#e2e8f0] p-3
-                 text-center text-sm font-semibold transition-colors ease-in
-                 hover:bg-[#eef2ff] dark:border-zinc-700 dark:hover:bg-zinc-800"
+      className="flex h-10 md:h-14 flex-1 items-center justify-center rounded-xl md:rounded-[2rem] border border-[#e2e8f0] dark:border-zinc-700 p-2 md:p-3
+                 text-center text-xs md:text-sm font-semibold transition-colors ease-in"
+      onMouseEnter={(e) => {
+        e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.setProperty('background-color', backgroundColor, 'important');
+      }}
     >
-      <span className="text-center leading-tight">{message.label}</span>
+      <span className="text-center leading-tight px-1">{message.label}</span>
     </button>
   ))}
     </div>
@@ -167,16 +226,49 @@ const Composer: FC = ({ config,suggestedMessages }) => {
       <ComposerPrimitive.Input
         rows={1}
         autoFocus
-        disabled={suggestedMessages?.disable_regular_message}
         placeholder={config.app.name || "..."}
-        className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0 disabled:cursor-not-allowed"
+        className="placeholder:text-muted-foreground max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-sm outline-none focus:ring-0"
       />
-      <ComposerAction config={config}/>
+      <ComposerAction config={config} suggestedMessages={suggestedMessages}/>
     </ComposerPrimitive.Root>
   );
 };
 
-const ComposerAction: FC = ({config}) => {
+const ComposerAction: FC = ({config, suggestedMessages}) => {
+  // Disable send button when suggestions are displayed
+  const hasActiveButtons = suggestedMessages?.buttons?.length > 0;
+  const isDisabled = hasActiveButtons || suggestedMessages?.disable_regular_message;
+  
+  // Get send button color from config
+  const sendButtonColor = config?.chat?.colors?.userMessage?.background || '#4f46e5';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#4338ca';
+  };
+  
+  const hoverColor = getHoverColor(sendButtonColor);
+  
   return (
     <>
       <ThreadPrimitive.If running={false}>
@@ -184,8 +276,21 @@ const ComposerAction: FC = ({config}) => {
           <TooltipIconButton
             tooltip={config?.chat?.attachment?.btnSendTooltip}
             variant="default"
+            disabled={isDisabled}
             tooltipColor={config?.widget?.bgColor}
-            className={`my-2.5 size-8 bg-[${config?.widget?.bgColor}] p-2 transition-opacity ease-in hover:bg-[${config?.widget?.hoverColor}]`}
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="my-2.5 size-8 p-2 transition-opacity ease-in text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
           >
             <SendHorizontalIcon />
           </TooltipIconButton>
@@ -196,7 +301,19 @@ const ComposerAction: FC = ({config}) => {
           <TooltipIconButton
             tooltip="Cancel"
             variant="default"
-            className="my-2.5 size-8 p-2 transition-opacity ease-in"
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="my-2.5 size-8 p-2 transition-opacity ease-in text-white rounded-full"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
           >
             <CircleStopIcon />
           </TooltipIconButton>
@@ -225,15 +342,22 @@ const UserMessage: FC = ({colors}) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const backgroundColor = colors?.userMessage?.background ?? "#10101a";
+  const textColor = colors?.userMessage?.text ?? "#ffffff";
+  
   return (
     <MessagePrimitive.Root className="grid auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 [&:where(>*)]:col-start-2 w-full max-w-[var(--thread-max-width)] py-4">
       {/* <UserActionBar /> */}
       <UserMessageAttachments />
-      <div style={{
-          backgroundColor: colors?.userMessage?.background ?? "#10101a",
-          color: colors?.userMessage?.text ?? "#ffffff",
+      <div
+        ref={(el) => {
+          if (el) {
+            // Set styles with important flag to override any CSS classes
+            el.style.setProperty('background-color', backgroundColor, 'important');
+            el.style.setProperty('color', textColor, 'important');
+          }
         }}
-        className="bg-muted text-foreground max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
+        className="max-w-[calc(var(--thread-max-width)*0.8)] break-words rounded-3xl px-5 py-2.5 col-start-2 row-start-2">
         <MessagePrimitive.Content />
       
         <AssistantActionBar timestamp={timestamp} type="user" />
@@ -260,7 +384,37 @@ const UserActionBar: FC = () => {
   );
 };
 
-const EditComposer: FC = () => {
+const EditComposer: FC = ({ config }: { config?: any }) => {
+  // Get send button color from config
+  const sendButtonColor = config?.chat?.colors?.userMessage?.background || '#4f46e5';
+  
+  // Create hover color by slightly darkening the background
+  const getHoverColor = (bgColor: string) => {
+    // If it's a hex color, convert to RGB and darken
+    if (bgColor.startsWith('#')) {
+      const hex = bgColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Darken by 10%
+      return `rgb(${Math.max(0, r - 25)}, ${Math.max(0, g - 25)}, ${Math.max(0, b - 25)})`;
+    }
+    // If it's already rgb, extract and darken
+    if (bgColor.startsWith('rgb')) {
+      const matches = bgColor.match(/\d+/g);
+      if (matches && matches.length >= 3) {
+        const r = Math.max(0, parseInt(matches[0]) - 25);
+        const g = Math.max(0, parseInt(matches[1]) - 25);
+        const b = Math.max(0, parseInt(matches[2]) - 25);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    // Fallback
+    return '#4338ca';
+  };
+  
+  const hoverColor = getHoverColor(sendButtonColor);
+  
   return (
     <ComposerPrimitive.Root className="bg-muted my-4 flex w-full max-w-[var(--thread-max-width)] flex-col gap-2 rounded-xl">
       <ComposerPrimitive.Input className="text-foreground flex h-8 w-full resize-none bg-transparent p-4 pb-0 outline-none" />
@@ -270,7 +424,23 @@ const EditComposer: FC = () => {
           <Button variant="ghost">Cancel</Button>
         </ComposerPrimitive.Cancel>
         <ComposerPrimitive.Send asChild>
-          <Button>Send</Button>
+          <Button
+            ref={(el) => {
+              if (el) {
+                // Set background color with important flag to override CSS classes
+                el.style.setProperty('background-color', sendButtonColor, 'important');
+              }
+            }}
+            className="text-white rounded-[2rem]"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
+            }}
+          >
+            Send
+          </Button>
         </ComposerPrimitive.Send>
       </div>
     </ComposerPrimitive.Root>
@@ -305,18 +475,31 @@ const AssistantMessage: FC = ({config}) => {
       </div>
 
       {/* Assistant Avatar - positioned at bottom left */}
-      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${config?.chat?.backgroundColor ?? "bg-blue-950"}`}>
-        <Image
-          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
-          alt="Assistant Avatar"
-          width={20}
-          height={20}
-          className="invert brightness-0 saturate-0 contrast-200"
-        />
-      </div>
+      {/* Avatar comes from: chat.colors.assistantMessage.avatar */}
+      {/* Background comes from: chat.assistantAvatarColor */}
+      {/* Show avatar based on: chat.showBotAvatar */}
+      {config?.chat?.showBotAvatar !== false && (
+        <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+        <div 
+          ref={(el) => {
+            if (el) {
+              // Set background color with important flag to override CSS classes
+              const backgroundColor = config?.chat?.assistantAvatarColor ?? "#1e3a8a";
+              el.style.setProperty('background-color', backgroundColor, 'important');
+            }
+          }}
+          className="flex items-center justify-center w-8 h-8 rounded-full">
+          <Image
+            src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+            alt="Assistant Avatar"
+            width={20}
+            height={20}
+            className="invert brightness-0 saturate-0 contrast-200"
+          />
+        </div>
 
-      </div>
+        </div>
+      )}
 
       {/* <AssistantActionBar /> */}
 
