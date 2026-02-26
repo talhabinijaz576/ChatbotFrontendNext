@@ -160,21 +160,9 @@ export function Assistant({
 
   // Monitor visual viewport height to adjust layout when keyboard opens
   useEffect(() => {
-    // #region agent log
-    const logViewportInfo = () => {
-      if (typeof window === 'undefined') return;
-      const html = document.documentElement;
-      const body = document.body;
-      const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:163',message:'Viewport dimensions check',data:{windowInnerHeight:window.innerHeight,windowOuterHeight:window.outerHeight,visualViewportHeight:window.visualViewport?.height||null,visualViewportOffsetTop:window.visualViewport?.offsetTop||null,htmlClientHeight:html.clientHeight,htmlScrollHeight:html.scrollHeight,htmlOffsetHeight:html.offsetHeight,bodyClientHeight:body.clientHeight,bodyScrollHeight:body.scrollHeight,bodyOffsetHeight:body.offsetHeight,mainContainerHeight:mainContainer?.offsetHeight||null,mainContainerComputedHeight:mainContainer ? window.getComputedStyle(mainContainer).height : null,scrollY:window.scrollY,userAgent:navigator.userAgent.includes('iPhone')||navigator.userAgent.includes('iPad')||navigator.userAgent.includes('Safari')},timestamp:Date.now(),runId:'viewport1',hypothesisId:'A'})}).catch(()=>{});
-    };
-    // #endregion
     
     if (typeof window === 'undefined' || !window.visualViewport) {
       setVisualViewportHeight(window.innerHeight);
-      // #region agent log
-      logViewportInfo();
-      // #endregion
       return;
     }
 
@@ -222,11 +210,6 @@ export function Assistant({
         // Detect iOS (Safari, Chrome, or any browser on iOS)
         const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
         
-        // #region agent log
-        const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
-        const mainContainerComputed = mainContainer ? window.getComputedStyle(mainContainer) : null;
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:183',message:'updateViewportHeight - BEFORE applying styles',data:{visualViewportHeight:visualViewport.height,windowInnerHeight:window.innerHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:visualViewport.offsetTop,isKeyboardOpen,isIOS,htmlHeightBefore:html.style.height,htmlMaxHeightBefore:html.style.maxHeight,htmlPositionBefore:html.style.position,bodyHeightBefore:body.style.height,bodyMaxHeightBefore:body.style.maxHeight,bodyPositionBefore:body.style.position,htmlComputedHeight:window.getComputedStyle(html).height,bodyComputedHeight:window.getComputedStyle(body).height,htmlComputedPosition:window.getComputedStyle(html).position,bodyComputedPosition:window.getComputedStyle(body).position,htmlComputedBackground:window.getComputedStyle(html).backgroundColor,bodyComputedBackground:window.getComputedStyle(body).backgroundColor,mainContainerPosition:mainContainerComputed?.position,mainContainerTop:mainContainerComputed?.top,mainContainerHeight:mainContainerComputed?.height,mainContainerBackground:mainContainerComputed?.backgroundColor,scrollY:window.scrollY,htmlScrollHeight:html.scrollHeight,bodyScrollHeight:body.scrollHeight,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         
         // CRITICAL: On iOS, prevent white/blue space by preventing any scrolling and clamping viewport
         // The white/blue space appears because iOS allows scrolling below the viewport when keyboard opens
@@ -323,21 +306,7 @@ export function Assistant({
           body.style.setProperty('background-color', 'transparent', 'important');
         }
         
-        // #region agent log
-        // Use requestAnimationFrame to log AFTER styles are applied
-        requestAnimationFrame(() => {
-          const htmlAfter = window.getComputedStyle(html);
-          const bodyAfter = window.getComputedStyle(body);
-          const mainContainerAfter = mainContainer ? window.getComputedStyle(mainContainer) : null;
-          const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:183',message:'updateViewportHeight - AFTER applying styles',data:{visualViewportHeight:visualViewport.height,windowInnerHeight:window.innerHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:visualViewport.offsetTop,isKeyboardOpen,isIOS,htmlHeightAfter:html.style.height,htmlMaxHeightAfter:html.style.maxHeight,htmlPositionAfter:html.style.position,bodyHeightAfter:body.style.height,bodyMaxHeightAfter:body.style.maxHeight,bodyPositionAfter:body.style.position,htmlComputedHeight:htmlAfter.height,bodyComputedHeight:bodyAfter.height,htmlComputedPosition:htmlAfter.position,bodyComputedPosition:bodyAfter.position,htmlComputedBackground:htmlAfter.backgroundColor,bodyComputedBackground:bodyAfter.backgroundColor,htmlComputedOverflow:htmlAfter.overflow,bodyComputedOverflow:bodyAfter.overflow,mainContainerPosition:mainContainerAfter?.position,mainContainerTop:mainContainerAfter?.top,mainContainerLeft:mainContainerAfter?.left,mainContainerRight:mainContainerAfter?.right,mainContainerBottom:mainContainerAfter?.bottom,mainContainerHeight:mainContainerAfter?.height,mainContainerWidth:mainContainerAfter?.width,mainContainerBackground:mainContainerAfter?.backgroundColor,mainContainerZIndex:mainContainerAfter?.zIndex,scrollY:window.scrollY,htmlScrollHeight:html.scrollHeight,bodyScrollHeight:body.scrollHeight,htmlClientHeight:html.clientHeight,bodyClientHeight:body.clientHeight,mainContainerOffsetHeight:mainContainer?.offsetHeight,mainContainerOffsetTop:mainContainer?.offsetTop,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'B'})}).catch(()=>{});
-        });
-        // #endregion
       }
-      
-      // #region agent log
-      logViewportInfo();
-      // #endregion
     };
 
     // Set initial height
@@ -388,38 +357,9 @@ export function Assistant({
       window.addEventListener('touchmove', preventScroll, { passive: false });
     }
     
-    // #region agent log
-    // Also log on window resize and scroll
-    const handleResize = () => {
-      logViewportInfo();
-      // Additional logging for resize events
-      const html = document.documentElement;
-      const body = document.body;
-      const mainContainer = document.querySelector('[style*="100dvh"], [style*="visualViewportHeight"]') as HTMLElement | null;
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:240',message:'Window resize event',data:{windowInnerHeight:window.innerHeight,windowOuterHeight:window.outerHeight,visualViewportHeight:window.visualViewport?.height||null,htmlClientHeight:html.clientHeight,htmlScrollHeight:html.scrollHeight,bodyClientHeight:body.clientHeight,bodyScrollHeight:body.scrollHeight,mainContainerHeight:mainContainer?.offsetHeight||null,scrollY:window.scrollY,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios2',hypothesisId:'D'})}).catch(()=>{});
-    };
-    const handleScroll = () => {
-      logViewportInfo();
-      // Additional logging for scroll events
-      const html = document.documentElement;
-      const body = document.body;
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:241',message:'Window scroll event',data:{scrollY:window.scrollY,scrollX:window.scrollX,htmlScrollHeight:html.scrollHeight,htmlClientHeight:html.clientHeight,bodyScrollHeight:body.scrollHeight,bodyClientHeight:body.clientHeight,visualViewportHeight:window.visualViewport?.height||null,userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios2',hypothesisId:'E'})}).catch(()=>{});
-    };
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleScroll);
-    // Log initial state after a short delay to ensure DOM is ready
-    setTimeout(logViewportInfo, 100);
-    setTimeout(logViewportInfo, 500);
-    setTimeout(logViewportInfo, 1000);
-    // #endregion
-    
-    return () => {
-      visualViewport.removeEventListener('resize', updateViewportHeight);
-      visualViewport.removeEventListener('scroll', updateViewportHeight);
-      // #region agent log
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll);
-      // #endregion
+        return () => {
+          visualViewport.removeEventListener('resize', updateViewportHeight);
+          visualViewport.removeEventListener('scroll', updateViewportHeight);
       if (isIOSDevice) {
         window.removeEventListener('scroll', preventScroll);
         window.removeEventListener('touchmove', preventScroll);
@@ -725,6 +665,7 @@ export function Assistant({
             };
           });
 
+
           // Update messages with history if available, but keep autoMessage at the start
           setMessages([autoMessage, ...converted]);
         } else {
@@ -772,11 +713,11 @@ export function Assistant({
   }, [messages]);
 
   useEffect(() => {
+    
     chatService.initializeConnection(conversationId);
     
     // Subscribe to connection status changes
     const unsubscribeStatus = chatService.onConnectionStatusChange((isConnected) => {
-      console.log(`📡 [Assistant] Connection status changed: ${isConnected}`);
       setIsWebSocketConnected(isConnected);
     });
     
@@ -895,12 +836,20 @@ export function Assistant({
         try {
           flushSync(() => {
             setMessages((currentConversation) => {
-            console.log("🔵 [WebSocket Handler] setMessages callback - current state", {
-              timestamp: Date.now(),
-              conversationLength: currentConversation.length,
-              messageIds: currentConversation.map(m => ({ id: m.id, role: m.role })),
-              searchingForId: messageId
-            });
+            try {
+              try {
+                console.log("🔵 [WebSocket Handler] setMessages callback - current state", {
+                  timestamp: Date.now(),
+                  conversationLength: currentConversation.length,
+                  messageIds: currentConversation.map(m => ({ id: m.id, role: m.role, contentLength: typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0 })),
+                  searchingForId: messageId,
+                  incomingPk: incoming.pk,
+                  incomingId: incoming.id,
+                  isSecondLoad: currentConversation.length > 1 && currentConversation.some(m => !String(m.id).startsWith('__optimistic__') && !String(m.id).startsWith('user-message-'))
+                });
+              } catch (logError) {
+                // Silently ignore console.log errors
+              }
             
             // First, check if message already exists by ID (pk) - most reliable check
             // Also check for messages with the same pk/id even if the prefix differs
@@ -916,15 +865,37 @@ export function Assistant({
               if (incomingPkStr && (msgIdStr.includes(incomingPkStr) || msgIdStr === incomingPkStr)) return true;
               if (incomingIdStr && (msgIdStr.includes(incomingIdStr) || msgIdStr === incomingIdStr)) return true;
               
+              // CRITICAL: Also check if history message ID format matches
+              // History uses: ${item.type}-message-${item.id}
+              // WebSocket uses: assistant-message-${incoming.pk}
+              // If item.id from history === incoming.pk, they should match
+              if (incomingPkStr) {
+                // Extract the numeric ID from history message format (e.g., "assistant-message-123" -> "123")
+                const historyIdMatch = msgIdStr.match(/-message-(\d+)$/);
+                if (historyIdMatch && historyIdMatch[1] === incomingPkStr) {
+                  return true;
+                }
+              }
+              
               return false;
             });
             
-            console.log("🔵 [WebSocket Handler] ID check result", {
-              timestamp: Date.now(),
-              existingByIdIndex,
-              foundById: existingByIdIndex !== -1,
-              messageId
-            });
+            const matchedMessage = existingByIdIndex !== -1 ? currentConversation[existingByIdIndex] : null;
+            try {
+              console.log("🔵 [WebSocket Handler] ID check result", {
+                timestamp: Date.now(),
+                existingByIdIndex,
+                foundById: existingByIdIndex !== -1,
+                messageId,
+                incomingPk: incoming.pk,
+                incomingId: incoming.id,
+                matchedMessageId: matchedMessage?.id,
+                matchedMessageRole: matchedMessage?.role,
+                allMessageIds: currentConversation.map(m => ({ id: m.id, role: m.role, format: String(m.id).includes('-message-') ? 'history' : 'other' }))
+              });
+            } catch (logError2) {
+              // Silently ignore console.log errors
+            }
             
             if (existingByIdIndex !== -1) {
               // Message already exists with this ID - update it to ensure content is current
@@ -983,10 +954,11 @@ export function Assistant({
               // CRITICAL: Always update the optimistic message with websocket content
               // The websocket message is the authoritative source, even if it's shorter
               // This ensures the real response replaces the optimistic placeholder
+              // CRITICAL: Change the ID to the real message ID so subsequent messages don't overwrite this one
               const updated = [...currentConversation];
               updated[optimisticIndex] = {
                 ...incRes,
-                id: optimisticId, // Keep the optimistic ID to maintain component reference
+                id: messageId, // Use real message ID so next message won't find and overwrite this one
               };
               
               console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
@@ -1024,19 +996,31 @@ export function Assistant({
             };
             
             const newConversation = [...currentConversation, messageToAdd];
-            
-            console.log("🔵 [WebSocket Handler] Returning new conversation with added message", {
-              timestamp: Date.now(),
-              newLength: newConversation.length,
-              lastMessage: newConversation[newConversation.length - 1] ? {
-                id: newConversation[newConversation.length - 1].id,
-                role: newConversation[newConversation.length - 1].role,
-                contentLength: newConversation[newConversation.length - 1].content[0]?.text?.length || 0
-              } : null,
-              allMessageIds: newConversation.map(m => ({ id: m.id, role: m.role }))
-            });
+            try {
+              console.log("🔵 [WebSocket Handler] Returning new conversation with added message", {
+                timestamp: Date.now(),
+                newLength: newConversation.length,
+                lastMessage: newConversation[newConversation.length - 1] ? {
+                  id: newConversation[newConversation.length - 1].id,
+                  role: newConversation[newConversation.length - 1].role,
+                  contentLength: newConversation[newConversation.length - 1].content[0]?.text?.length || 0
+                } : null,
+                allMessageIds: newConversation.map(m => ({ id: m.id, role: m.role }))
+              });
+            } catch (logError3) {
+              // Silently ignore console.log errors
+            }
             
             return newConversation;
+            } catch (callbackError) {
+              console.error("🔵 [WebSocket Handler] Error in setMessages callback", {
+                timestamp: Date.now(),
+                error: callbackError instanceof Error ? callbackError.message : String(callbackError),
+                stack: callbackError instanceof Error ? callbackError.stack : undefined
+              });
+              // Return current state to prevent state corruption
+              return currentConversation;
+            }
             });
           });
         } catch (error) {
@@ -1120,7 +1104,7 @@ export function Assistant({
         keyboardOpenTimeoutRef.current = null;
       }
     };
-  }, [conversationId, iframe.showIframe]);
+  }, [conversationId]);
 
   // NOTE: Keyboard opening is now handled by the 2-second timeout after message responses
   // This is safer as it waits to see if any actions (like display_suggestions) are received
@@ -1482,24 +1466,12 @@ export function Assistant({
           }),
           // CRITICAL: Set background to match body to prevent white/blue space
           backgroundColor: isDarkMode ? 'rgb(24 24 27)' : 'rgb(255 255 255)',
-          // #region agent log
           // iOS Safari fix: Prevent overflow that causes white space below screen
           overflow: 'hidden',
           // Allow touch scrolling within this container and its children (messages container)
           touchAction: (isIOS && isKeyboardOpen) ? 'pan-y' : 'auto',
-          // #endregion
         }}
         ref={(el) => {
-          // #region agent log
-          if (el) {
-            const computed = window.getComputedStyle(el);
-            const initialHeight = initialViewportHeightRef.current || window.innerHeight;
-          const heightReduction = initialHeight - (visualViewportHeight || window.innerHeight);
-          const hasOffsetTop = typeof window !== 'undefined' && window.visualViewport && window.visualViewport.offsetTop !== undefined && window.visualViewport.offsetTop > 0;
-          const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1141',message:'Main container render - style values',data:{visualViewportHeight,initialViewportHeight:initialViewportHeightRef.current,heightReduction,hasOffsetTop,visualViewportOffsetTop:typeof window !== 'undefined' && window.visualViewport ? window.visualViewport.offsetTop : null,isKeyboardOpen,isIOS,computedPosition:computed.position,computedTop:computed.top,computedLeft:computed.left,computedRight:computed.right,computedBottom:computed.bottom,computedHeight:computed.height,computedWidth:computed.width,computedBackground:computed.backgroundColor,computedOverflow:computed.overflow,offsetHeight:el.offsetHeight,offsetWidth:el.offsetWidth,clientHeight:el.clientHeight,clientWidth:el.clientWidth,scrollHeight:el.scrollHeight,scrollTop:el.scrollTop,getBoundingClientRect:JSON.stringify(el.getBoundingClientRect()),userAgent:navigator.userAgent},timestamp:Date.now(),runId:'ios1',hypothesisId:'C'})}).catch(()=>{});
-          }
-          // #endregion
         }}
       >
 

@@ -147,13 +147,15 @@ class ChatService {
                 parsedType: data.type
               });
             } catch (parseError) {
-              // If parsing fails, the event might be a plain string or invalid JSON
-              // Use data1 directly as fallback
-              data = data1;
-              console.log("🟢 [ChatService] Event string parse failed, using data1", {
+              // If parsing fails, keep data1 with the event string intact
+              // handleIncomingMessage will try to parse it again with better error handling
+              console.log("🟢 [ChatService] Event string parse failed, keeping data1 with event string for handleIncomingMessage", {
                 timestamp: Date.now(),
-                parseError: parseError instanceof Error ? parseError.message : String(parseError)
+                parseError: parseError instanceof Error ? parseError.message : String(parseError),
+                eventStringPreview: data1.event?.substring(0, 100)
               });
+              // Keep data1 with the event string - handleIncomingMessage will handle it
+              data = data1;
             }
           } else {
             data = data1;
@@ -379,13 +381,59 @@ class ChatService {
         continue;
       }
       
+      // Normalize message format:
+      // Backend sometimes sends: { type: "message", event: "<json string with assistant message>" }
+      // Example:
+      // {
+      //   "type": "message",
+      //   "event": "{\"pk\": 20013, \"conversation_id\": \"...\", \"type\": \"assistant\", \"text\": \"...\", ...}"
+      // }
+      // In this case we want to treat it as a normal assistant message so that
+      // downstream handlers (and the UI) see a consistent shape.
+      let normalized = d;
+      if (d.type === "message" && typeof d.event === "string") {
+        try {
+          const parsed = JSON.parse(d.event);
+          // Prefer inner fields (pk, type=assistant, text, etc.) but keep outer
+          // properties like original type/event if needed.
+          normalized = {
+            ...d,
+            ...parsed,
+          };
+        } catch (e) {
+          console.error("🟢 [ChatService] Failed to parse nested event payload", {
+            timestamp: Date.now(),
+            error: e instanceof Error ? e.message : String(e),
+            rawEvent: d.event,
+          });
+          // If parsing fails, try to extract the inner JSON by removing outer quotes/escaping
+          // The event string might be double-encoded or have extra escaping
+          try {
+            // Try unescaping common JSON escape sequences
+            let unescaped = d.event
+              .replace(/\\"/g, '"')
+              .replace(/\\n/g, '\n')
+              .replace(/\\t/g, '\t')
+              .replace(/\\\\/g, '\\');
+            // Try parsing the unescaped version
+            const parsed = JSON.parse(unescaped);
+            normalized = {
+              ...d,
+              ...parsed,
+            };
+          } catch (e2) {
+            // If unescaping also fails, keep the original (will be skipped by handler)
+          }
+        }
+      }
+
       console.log("🟢 [ChatService] Processing message", {
         timestamp: Date.now(),
-        type: d.type,
-        pk: d.pk,
-        id: d.id,
-        hasText: !!d.text,
-        textLength: d.text?.length || 0,
+        type: normalized.type,
+        pk: normalized.pk,
+        id: normalized.id,
+        hasText: !!normalized.text,
+        textLength: normalized.text?.length || 0,
         handlerCount: this.messageHandlers.length
       });
 
@@ -395,14 +443,14 @@ class ChatService {
           console.log("🟢 [ChatService] Calling handler", {
             timestamp: Date.now(),
             handlerIndex: index,
-            messageType: d.type,
-            messagePk: d.pk
+            messageType: normalized.type,
+            messagePk: normalized.pk
           });
-          h(d);
+          h(normalized);
           console.log("🟢 [ChatService] Handler completed", {
             timestamp: Date.now(),
             handlerIndex: index,
-            messageType: d.type
+            messageType: normalized.type
           });
         } catch (error) {
           // Fail silently if handler throws
@@ -415,23 +463,23 @@ class ChatService {
         }
       });
 
-      if (d.type === "event") {
+      if (normalized.type === "event") {
         console.log("🟢 [ChatService] Message is event type, calling runActions", {
           timestamp: Date.now(),
-          action: d.event?.action
+          action: normalized.event?.action
         });
-        this.runActions?.(d);
-      } else if (d.type === "assistant") {
+        this.runActions?.(normalized);
+      } else if (normalized.type === "assistant") {
         console.log("🟢 [ChatService] Message is assistant type, calling processMessage", {
           timestamp: Date.now(),
-          pk: d.pk,
-          textLength: d.text?.length || 0
+          pk: normalized.pk,
+          textLength: normalized.text?.length || 0
         });
-        this.processMessage(d);
+        this.processMessage(normalized);
       } else {
         console.log("🟢 [ChatService] Message type not recognized", {
           timestamp: Date.now(),
-          type: d.type
+          type: normalized.type
         });
       }
     }

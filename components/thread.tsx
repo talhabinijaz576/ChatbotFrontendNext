@@ -284,7 +284,7 @@ const ComposerAction: FC = ({config, suggestedMessages}) => {
                 el.style.setProperty('background-color', sendButtonColor, 'important');
               }
             }}
-            className="my-2.5 size-8 p-2 transition-opacity ease-in text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="my-2.5 size-12 md:size-8 p-3 md:p-2 transition-opacity ease-in text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             onMouseEnter={(e) => {
               e.currentTarget.style.setProperty('background-color', hoverColor, 'important');
             }}
@@ -292,7 +292,7 @@ const ComposerAction: FC = ({config, suggestedMessages}) => {
               e.currentTarget.style.setProperty('background-color', sendButtonColor, 'important');
             }}
           >
-            <SendHorizontalIcon />
+            <SendHorizontalIcon className="w-6 h-6 md:w-4 md:h-4" />
           </TooltipIconButton>
         </ComposerPrimitive.Send>
       </ThreadPrimitive.If>
