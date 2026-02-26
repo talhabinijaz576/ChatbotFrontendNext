@@ -568,6 +568,9 @@ export function Assistant({
     if (otpPhraseArray?.passphrase) {
       headers.set("passphrase", otpPhraseArray.passphrase);
     }
+    
+    // CRITICAL: Construct params the same way as sendMessage to ensure all URL parameters are passed
+    // This ensures consistency between /create and /message requests
     const params = new URLSearchParams(resolvedSearchParams).toString();
 
     // Get initial_state from URL parameters
@@ -664,6 +667,8 @@ export function Assistant({
         headers: headers,
       }).then(res => res?.text()).then(data => {
         let ipInfo = data;
+        // CRITICAL: Use params (constructed from resolvedSearchParams) to ensure all URL parameters are passed
+        // This matches how sendMessage constructs params, ensuring consistency between /create and /message requests
         fetch(`${config2.api.baseUrl}/conversation/${conversationId}/create?${params}`, {
           method: "POST",
           headers: headers,
@@ -859,10 +864,6 @@ export function Assistant({
           ? `assistant-message-${String(incoming.id)}` 
           : `assistant-message-${Date.now()}`;
         
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:856',message:'WebSocket: Message received',data:{messageId,incomingPk:incoming.pk,incomingId:incoming.id,incomingType:incoming.type,incomingTextLength:incoming.text?.length||0,fromPk:!!incoming.pk,fromId:!!incoming.id},timestamp:Date.now(),runId:'websocket1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        
         console.log("🔵 [WebSocket Handler] Generated messageId", {
           timestamp: Date.now(),
           messageId,
@@ -917,10 +918,6 @@ export function Assistant({
               return false;
             });
             
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:901',message:'WebSocket: Checking for existing message by ID',data:{messageId,incomingPk:incoming.pk,incomingId:incoming.id,existingByIdIndex,foundById:existingByIdIndex!==-1,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'websocket1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
-            
             console.log("🔵 [WebSocket Handler] ID check result", {
               timestamp: Date.now(),
               existingByIdIndex,
@@ -958,10 +955,6 @@ export function Assistant({
               }
             }
             
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:943',message:'WebSocket: Checking for optimistic message',data:{messageId,optimisticIndex,foundOptimistic:optimisticIndex!==-1,optimisticId:optimisticIndex!==-1?currentConversation[optimisticIndex].id:null,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
-            // #endregion
-            
             console.log("🔵 [WebSocket Handler] Optimistic message check", {
               timestamp: Date.now(),
               optimisticIndex,
@@ -975,10 +968,6 @@ export function Assistant({
               const optimisticId = currentConversation[optimisticIndex].id;
               const existingText = currentConversation[optimisticIndex].content[0]?.text || '';
               const newText = incRes.content[0]?.text || '';
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:960',message:'WebSocket: Updating optimistic message (keeping optimistic ID)',data:{optimisticIndex,optimisticId,newMessageId:messageId,willKeepOptimisticId:true,existingTextLength:existingText.length,newTextLength:newText.length,problematicBehavior:'Keeping optimistic ID means WebSocket messages for next turn might update this message'},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
-              // #endregion
               
               console.log("🔵 [WebSocket Handler] Updating optimistic message", {
                 timestamp: Date.now(),
@@ -998,10 +987,6 @@ export function Assistant({
                 ...incRes,
                 id: optimisticId, // Keep the optimistic ID to maintain component reference
               };
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:981',message:'WebSocket: Updated optimistic message (kept optimistic ID)',data:{optimisticIndex,optimisticId,newMessageId:messageId,updatedMessageId:updated[optimisticIndex].id,updatedMessageRole:updated[optimisticIndex].role,updatedMessageContentLength:updated[optimisticIndex].content[0]?.text?.length||0,updatedLength:updated.length},timestamp:Date.now(),runId:'websocket1',hypothesisId:'E'})}).catch(()=>{});
-              // #endregion
               
               console.log("🔵 [WebSocket Handler] Returning updated conversation (optimistic)", {
                 timestamp: Date.now(),
@@ -1214,18 +1199,11 @@ export function Assistant({
         createdAt: new Date(),
       };
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1189',message:'onNew: Creating optimistic message',data:{optimisticId,userMessageId:userAppendMessage.id,userMessageRole:userAppendMessage.role,userMessageContentLength:userAppendMessage.content[0]?.text?.length||0,conversationId,userId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
       // Add optimistic message and set isRunning atomically
       if (process.env.NODE_ENV === 'production') {
         // In production, use flushSync to ensure atomic update
         flushSync(() => {
           setMessages((currentConversation) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1201',message:'onNew: Adding optimistic message to state',data:{optimisticId,currentConversationLength:currentConversation.length,existingMessageIds:currentConversation.map(m=>({id:m.id,role:m.role})),willAddOptimistic:true},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             return [...currentConversation, optimisticMessage];
           });
       setIsRunning(true);
@@ -1233,9 +1211,6 @@ export function Assistant({
       } else {
         // In dev, regular batching is fine
         setMessages((currentConversation) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1206',message:'onNew: Adding optimistic message to state (dev)',data:{optimisticId,currentConversationLength:currentConversation.length,existingMessageIds:currentConversation.map(m=>({id:m.id,role:m.role})),willAddOptimistic:true},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           return [...currentConversation, optimisticMessage];
         });
         setIsRunning(true);
@@ -1253,22 +1228,14 @@ export function Assistant({
         
         // Fail silently if response is empty, undefined, or invalid
         if (!assistantResponse || !assistantResponse.type || !assistantResponse.text) {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1255',message:'onNew: HTTP response invalid/empty',data:{assistantResponse:!!assistantResponse,assistantResponseType:assistantResponse?.type,assistantResponseText:!!assistantResponse?.text,optimisticId},timestamp:Date.now(),runId:'error1',hypothesisId:'F'})}).catch(()=>{});
-          // #endregion
-          
           // CRITICAL: Only remove empty optimistic messages
           // If WebSocket already updated the message with real content, keep it
           // WebSocket messages have real IDs (assistant-message-*) so they won't be removed
           flushSync(() => {
             setMessages((currentConversation) => {
-              // #region agent log
-              const beforeFilter = currentConversation.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}));
-              // #endregion
-              
               // Only remove optimistic messages that are still empty (not updated by WebSocket)
               // WebSocket updates change the ID to assistant-message-* so they won't match this filter
-              const filtered = currentConversation.filter((msg) => {
+              return currentConversation.filter((msg) => {
                 const isOptimistic = msg.role === "assistant" && String(msg.id).startsWith("__optimistic__");
                 if (isOptimistic) {
                   // Check if message has real content (WebSocket might have updated it)
@@ -1280,12 +1247,6 @@ export function Assistant({
                 }
                 return true; // Keep all non-optimistic messages
               });
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1260',message:'onNew: Filtering optimistic messages after HTTP error',data:{beforeLength:currentConversation.length,afterLength:filtered.length,removedCount:currentConversation.length-filtered.length,beforeMessages:beforeFilter,afterMessages:filtered.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}))},timestamp:Date.now(),runId:'error1',hypothesisId:'F'})}).catch(()=>{});
-              // #endregion
-              
-              return filtered;
             });
           });
           setIsRunning(false);
@@ -1298,19 +1259,11 @@ export function Assistant({
         // This prevents the runtime from seeing an inconsistent state in production
         const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
         
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1242',message:'onNew: API response received',data:{messageId,assistantResponsePk:assistantResponse?.pk,assistantResponseId:assistantResponse?.id,assistantResponseType:assistantResponse?.type,assistantResponseTextLength:assistantResponse?.text?.length||0,assistantResponseCreatedAt:assistantResponse?.created_at,optimisticId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        
         // CRITICAL: Don't use messages.length here - it's a stale closure value!
         // We'll check inside setMessages callback where we have the current state
         flushSync(() => {
           setMessages((currentConversation) => {
             // CRITICAL: Use currentConversation (current state) not messages (stale closure)
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1247',message:'onNew: Starting to update optimistic message',data:{messageId,optimisticId,currentConversationLength:currentConversation.length,allMessageIds:currentConversation.map(m=>({id:m.id,role:m.role}))},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             
             // CRITICAL: The runtime creates optimistic messages internally (not in our state)
             // The component sees them via useMessage and locks onto their optimistic ID
@@ -1328,10 +1281,6 @@ export function Assistant({
                 break;
               }
             }
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1261',message:'onNew: Found optimistic message',data:{optimisticIndex,foundOptimistic:optimisticIndex!==-1,optimisticMessageId:optimisticIndex!==-1?currentConversation[optimisticIndex].id:null,messageId},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             
             // If no optimistic message found, find the last assistant message
             let lastAssistantIndex = -1;
@@ -1356,10 +1305,6 @@ export function Assistant({
               const targetId = currentConversation[targetIndex].id;
               const isOptimisticId = String(targetId).startsWith('__optimistic__');
               
-              // #region agent log
-              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1282',message:'onNew: Replacing optimistic message with real ID',data:{targetIndex,targetId,isOptimisticId,oldId:targetId,newId:messageId,willReplaceId:true,assistantResponseTextLength:assistantResponse.text?.length||0},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'C'})}).catch(()=>{});
-              // #endregion
-              
               const updated = [...currentConversation];
               
               // CRITICAL: Use the real message ID (assistant-message-${pk}) instead of keeping the optimistic ID
@@ -1375,10 +1320,6 @@ export function Assistant({
                 id: messageId, // CRITICAL: Use real message ID, not optimistic ID
                 createdAt: new Date(),
               };
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1302',message:'onNew: Message replaced with real ID',data:{targetIndex,oldId:targetId,newId:messageId,replacedMessageId:updated[targetIndex].id,replacedMessageRole:updated[targetIndex].role,replacedMessageContentLength:updated[targetIndex].content[0]?.text?.length||0,updatedLength:updated.length},timestamp:Date.now(),runId:'optimistic1',hypothesisId:'C'})}).catch(()=>{});
-              // #endregion
               
               // CRITICAL: Remove any OTHER optimistic messages (old ones from previous messages)
               // This prevents multiple optimistic messages from accumulating
@@ -1433,22 +1374,14 @@ export function Assistant({
         
         setlastMessageResponse(assistantResponse);
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1412',message:'onNew: HTTP request threw error',data:{errorMessage:error instanceof Error?error.message:String(error),errorName:error instanceof Error?error.name:'Unknown',optimisticId},timestamp:Date.now(),runId:'error1',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
-        
         // CRITICAL: Only remove empty optimistic messages
         // If WebSocket already updated the message with real content, keep it
         // WebSocket messages have real IDs (assistant-message-*) so they won't be removed
         flushSync(() => {
           setMessages((currentConversation) => {
-            // #region agent log
-            const beforeFilter = currentConversation.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}));
-            // #endregion
-            
             // Only remove optimistic messages that are still empty (not updated by WebSocket)
             // WebSocket updates change the ID to assistant-message-* so they won't match this filter
-            const filtered = currentConversation.filter((msg) => {
+            return currentConversation.filter((msg) => {
               const isOptimistic = msg.role === "assistant" && String(msg.id).startsWith("__optimistic__");
               if (isOptimistic) {
                 // Check if message has real content (WebSocket might have updated it)
@@ -1460,12 +1393,6 @@ export function Assistant({
               }
               return true; // Keep all non-optimistic messages
             });
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'assistant.tsx:1417',message:'onNew: Filtering optimistic messages after HTTP exception',data:{beforeLength:currentConversation.length,afterLength:filtered.length,removedCount:currentConversation.length-filtered.length,beforeMessages:beforeFilter,afterMessages:filtered.map(m => ({id:m.id,role:m.role,contentLength:typeof m.content[0]==='object'?m.content[0]?.text?.length||0:0,isOptimistic:String(m.id).startsWith('__optimistic__')}))},timestamp:Date.now(),runId:'error1',hypothesisId:'G'})}).catch(()=>{});
-            // #endregion
-            
-            return filtered;
           });
         });
         setIsRunning(false);
