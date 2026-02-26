@@ -662,10 +662,11 @@ export function Assistant({
       createdConversationsRef.current.add(conversationId);
       
       // Fire and forget - don't wait for this to complete
-      fetch('https://ipinfo.io/?callback=?',{
+      // Use JSON format instead of JSONP to avoid permission prompts
+      fetch('https://ipinfo.io/json',{
         method: "GET",
         headers: headers,
-      }).then(res => res?.text()).then(data => {
+      }).then(res => res.json()).then(data => {
         let ipInfo = data;
         // CRITICAL: Use params (constructed from resolvedSearchParams) to ensure all URL parameters are passed
         // This matches how sendMessage constructs params, ensuring consistency between /create and /message requests

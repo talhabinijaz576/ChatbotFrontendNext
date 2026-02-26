@@ -72,13 +72,19 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+         {/* Cookiebot - Skip loading if ID contains "DISABLE" to prevent permission prompts */}
+         {/* The ID contains "DISABLE" which indicates it should not be loaded */}
+         {/* Uncomment and update the ID below if Cookiebot is needed */}
+         {/* 
          <Script
-          id="Cookiebot"
-          src="https://consent.cookiebot.com/uc.js"
-          data-cbid="DISABLE99d8218b-7b80-4667-afac-d4a918cc85e2"
-          data-blockingmode="auto"
-          type="text/javascript"
-        />
+           id="Cookiebot"
+           src="https://consent.cookiebot.com/uc.js"
+           data-cbid="DISABLE99d8218b-7b80-4667-afac-d4a918cc85e2"
+           data-blockingmode="auto"
+           type="text/javascript"
+           strategy="lazyOnload"
+         />
+         */}
         {children}
       </body>
     </html>
