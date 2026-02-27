@@ -1238,125 +1238,49 @@ export function Assistant({
           return;
         }
         
-        // Update the optimistic message with the real response
-        // The library creates optimistic messages with IDs starting with '__optimistic__'
-        // CRITICAL: Update both messages and isRunning atomically in the same flushSync
-        // This prevents the runtime from seeing an inconsistent state in production
-        const messageId = assistantResponse?.pk || assistantResponse?.id || `assistant-message-${Date.now()}`;
-        
-        // CRITICAL: Don't use messages.length here - it's a stale closure value!
-        // We'll check inside setMessages callback where we have the current state
-        flushSync(() => {
-          setMessages((currentConversation) => {
-            // CRITICAL: Use currentConversation (current state) not messages (stale closure)
-            
-            // CRITICAL: The runtime creates optimistic messages internally (not in our state)
-            // The component sees them via useMessage and locks onto their optimistic ID
-            // Strategy: 
-            // 1. First, try to find ANY optimistic message (runtime might have added it to our state)
-            // 2. If not found, replace the LAST assistant message
-            // This ensures we update the message the component is locked onto
-            
-            // First, search for optimistic messages (runtime might have added them to our state)
-            let optimisticIndex = -1;
-            for (let i = currentConversation.length - 1; i >= 0; i--) {
-              const msg = currentConversation[i];
-              if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                optimisticIndex = i;
-                break;
-              }
-            }
-            
-            // If no optimistic message found, find the last assistant message
-            let lastAssistantIndex = -1;
-            if (optimisticIndex === -1) {
-              for (let i = currentConversation.length - 1; i >= 0; i--) {
-                if (currentConversation[i].role === "assistant") {
-                  lastAssistantIndex = i;
-                  break;
-                }
-              }
-            }
-            
-            const targetIndex = optimisticIndex !== -1 ? optimisticIndex : lastAssistantIndex;
-            
-            // If we found a target message (optimistic or last assistant), replace it
-            // This handles both cases: runtime added optimistic to state, or we need to update last assistant
-            if (targetIndex !== -1) {
-              // Update the target message in place
-              // CRITICAL: Change the ID from optimistic to real message ID
-              // This prevents subsequent websocket messages for the next turn from finding and updating this message
-              // The real message ID format is: assistant-message-${pk}
-              const targetId = currentConversation[targetIndex].id;
-              const isOptimisticId = String(targetId).startsWith('__optimistic__');
-              
-              const updated = [...currentConversation];
-              
-              // CRITICAL: Use the real message ID (assistant-message-${pk}) instead of keeping the optimistic ID
-              // This ensures:
-              // 1. The message has a proper ID that websocket messages can match by pk
-              // 2. When websocket messages for the NEXT turn arrive (different pk), they won't find this message
-              //    and will create a new message instead of updating this old one
-              // The component will handle the ID change gracefully since the message content is updated
-              
-              updated[targetIndex] = {
-                role: assistantResponse.type || "assistant",
-                content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
-                id: messageId, // CRITICAL: Use real message ID, not optimistic ID
-                createdAt: new Date(),
-              };
-              
-              // CRITICAL: Remove any OTHER optimistic messages (old ones from previous messages)
-              // This prevents multiple optimistic messages from accumulating
-              const cleaned = updated.filter((msg, idx) => {
-                if (idx === targetIndex) return true; // Keep the one we just updated
-                // Remove other optimistic assistant messages
-                if (msg.role === "assistant" && String(msg.id).startsWith("__optimistic__")) {
-                  return false;
-                }
-                return true;
-              });
-              
-              if (cleaned.length !== updated.length) {
-                return cleaned;
-              }
-              
-              return updated;
-            }
-            
-            // No optimistic message found (shouldn't happen, but handle gracefully)
-            
+        // HTTP response is a separate assistant message from any WebSocket messages
+        // (different pk), so always append it as its own message.
+        const messageId =
+          assistantResponse?.pk ||
+          assistantResponse?.id ||
+          `assistant-message-${Date.now()}`;
+
         const assRes: ThreadMessageLike = {
-              role: assistantResponse.type || "assistant",
-              content: [{ text: assistantResponse.text || "", type: "text", created_at: assistantResponse.created_at }],
-              id: messageId,
+          role: assistantResponse.type || "assistant",
+          content: [
+            {
+              text: assistantResponse.text || "",
+              type: "text",
+              created_at: assistantResponse.created_at,
+            },
+          ],
+          id: messageId,
           createdAt: new Date(),
         };
-            return [...currentConversation, assRes];
+
+        // Append HTTP message and clean up any leftover empty optimistic assistant
+        // messages so we don't leave behind "orphan" avatars / loading rows.
+        setMessages((currentConversation) => {
+          const cleaned = currentConversation.filter((msg) => {
+            const isOptimisticAssistant =
+              msg.role === "assistant" &&
+              String(msg.id).startsWith("__optimistic__");
+
+            if (isOptimisticAssistant) {
+              const first = msg.content?.[0] as any;
+              const text = first?.text ? String(first.text).trim() : "";
+              // Drop optimistic messages that never received any text
+              if (!text) {
+                return false;
+              }
+            }
+            return true;
           });
-          
-          // CRITICAL: Don't set isRunning to false immediately
-          // The runtime filters optimistic messages when isRunning=false, causing flicker
-          // We'll set it to false after a delay to ensure the message update is fully rendered
-          // In production, React's batching is stricter, so we need explicit timing
-          
-          // Set isRunning to false after the message update is rendered
-          // This prevents the runtime from filtering the optimistic message before it's updated
-          if (process.env.NODE_ENV === 'production') {
-            // In production, use multiple requestAnimationFrame to ensure render completes
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setIsRunning(false);
-              });
-            });
-          } else {
-            // In dev, single frame is usually enough
-            requestAnimationFrame(() => {
-              setIsRunning(false);
-            });
-          }
+
+          return [...cleaned, assRes];
         });
-        
+
+        setIsRunning(false);
         setlastMessageResponse(assistantResponse);
       } catch (error) {
         // CRITICAL: Only remove empty optimistic messages
