@@ -1417,22 +1417,22 @@ export function Assistant({
   }}
 >
   {config?.app?.darkLogo2 && config?.app?.lightLogo2 ? (
-    // Dual logo mode: show both logos
-    <>
+    // Dual logo mode: show both logos with spacing
+    <div className="flex w-full items-center justify-between gap-4 sm:gap-6">
       <ThemeAwareLogo
-        width={180}
-        height={30}
+        width={120}
+        height={24}
         isDarkMode={isDarkMode}
         config={config}
       />
       <ThemeAwareLogo
-        width={180}
-        height={30}
+        width={120}
+        height={24}
         isDarkMode={isDarkMode}
         config={config}
         useLogo2={true}
       />
-    </>
+    </div>
   ) : (
     // Single logo mode: show one logo with positioning
     <ThemeAwareLogo

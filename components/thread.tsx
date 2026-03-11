@@ -96,8 +96,8 @@ const ThreadHeader: FC = ({ defaultTitle, config }) => {
       }}
     >
       {hasDualLogos ? (
-        // Dual logo mode: show both logos
-        <>
+        // Dual logo mode: show both logos with spacing
+        <div className="flex w-full items-center justify-between gap-4 sm:gap-6">
           <ThemeAwareLogo
             width={120}
             height={32}
@@ -111,7 +111,7 @@ const ThreadHeader: FC = ({ defaultTitle, config }) => {
             config={config}
             useLogo2={true}
           />
-        </>
+        </div>
       ) : (
         // Single logo mode: show one logo with positioning
         <ThemeAwareLogo
