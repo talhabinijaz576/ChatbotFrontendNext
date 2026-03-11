@@ -426,7 +426,7 @@ class ChatService {
           }
         }
       }
-
+      
       console.log("🟢 [ChatService] Processing message", {
         timestamp: Date.now(),
         type: normalized.type,

@@ -11,6 +11,7 @@ export default function ThemeAwareLogo({
   variant = "default",
   isDarkMode = false,
   config,
+  useLogo2 = false,
 }: {
   width?: number;
   height?: number;
@@ -20,13 +21,17 @@ export default function ThemeAwareLogo({
     app: {
       lightLogo: string;
       darkLogo: string;
+      lightLogo2?: string;
+      darkLogo2?: string;
+      logoPosition?: "left" | "right" | "center";
     };
   };
+  useLogo2?: boolean;
 }) {
   // For collapsed variant, always use the icon
   // if (variant === "collapsed") {
   //   return (
-  //     <div 
+  //     <div
   //       className={`flex items-center justify-center rounded-full ${isDarkMode ? 'bg-[#6366f1]' : 'bg-[#4f46e5]'}`}
   //       style={{ width, height }}
   //     >
@@ -34,16 +39,22 @@ export default function ThemeAwareLogo({
   //     </div>
   //   );
   // }
-  
+
   // For default variant, use the full logo image
-  const logoSrc = isDarkMode ? config?.app?.darkLogo || darkLogo : config?.app?.lightLogo || lightLogo;
-  
+  // If useLogo2 is true, use the second logo set, otherwise use the first
+  const logoSrc = useLogo2
+    ? (isDarkMode ? config?.app?.darkLogo2 || darkLogo : config?.app?.lightLogo2 || lightLogo)
+    : (isDarkMode ? config?.app?.darkLogo || darkLogo : config?.app?.lightLogo || lightLogo);
+
   return (
-    <Image
-      src={logoSrc}
-      alt="Jazee.ai"
-      width={width}
-      height={height}
-    />
+    <div className="flex h-full items-center py-1">
+      <Image
+        src={logoSrc}
+        alt="Jazee.ai"
+        width={width}
+        height={height}
+        className="h-full w-auto object-contain"
+      />
+    </div>
   );
 }

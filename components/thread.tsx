@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import ThemeAwareLogo from "@/components/mem0/theme-aware-logo";
 
 import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/tooltip-icon-button";
@@ -66,32 +67,60 @@ export const Thread: FC = ({ defaultTitle, disclaimer, colors, config, suggested
 };
 
 const ThreadHeader: FC = ({ defaultTitle, config }) => {
-  const logoSrc =  config?.app?.lightLogo;
   const topBarColor = config?.chat?.topBarColor;
-  
+  // Simple dark mode detection - check if document has dark class
+  const isDarkMode =
+    typeof window !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+  const hasDualLogos = config?.app?.darkLogo2 && config?.app?.lightLogo2;
+  const logoPosition = config?.app?.logoPosition || "left";
+
   return (
-    <div 
+    <div
       ref={(el) => {
         if (el && topBarColor) {
           // Set background color with important flag to override CSS classes
-          el.style.setProperty('background-color', topBarColor, 'important');
+          el.style.setProperty("background-color", topBarColor, "important");
         }
       }}
-      className="flex p-4 border-b-1 border-blue-500 text-white"
+      className="flex h-16 items-center px-4 border-b-1 border-blue-500 text-white"
       style={{
         backgroundColor: topBarColor || undefined,
+        justifyContent: hasDualLogos
+          ? "space-between"
+          : logoPosition === "center"
+          ? "center"
+          : logoPosition === "right"
+          ? "flex-end"
+          : "flex-start",
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center">
-        <Image
-          src={logoSrc}
-          alt="Jazee.ai"
+      {hasDualLogos ? (
+        // Dual logo mode: show both logos
+        <>
+          <ThemeAwareLogo
+            width={120}
+            height={32}
+            isDarkMode={isDarkMode}
+            config={config}
+          />
+          <ThemeAwareLogo
+            width={120}
+            height={32}
+            isDarkMode={isDarkMode}
+            config={config}
+            useLogo2={true}
+          />
+        </>
+      ) : (
+        // Single logo mode: show one logo with positioning
+        <ThemeAwareLogo
           width={120}
-          height={40}
+          height={32}
+          isDarkMode={isDarkMode}
+          config={config}
         />
-        </div>
-      </div>
+      )}
     </div>
   );
 };

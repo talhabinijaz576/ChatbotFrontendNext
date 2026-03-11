@@ -385,7 +385,7 @@ export const Thread: FC<ThreadProps> = ({
         // Get visual viewport height (accounts for keyboard)
         const visualViewport = visualViewportRef.current;
         const viewportHeight = visualViewport ? visualViewport.height : window.innerHeight;
-        
+
         // Get the bounding rectangles relative to the viewport
         const suggestionRect = suggestionBar.getBoundingClientRect();
         const viewportRect = viewport.getBoundingClientRect();
@@ -739,8 +739,8 @@ export const Thread: FC<ThreadProps> = ({
             messages={messages}
             setStateData={setStateData}
           />
-            </div>
-          )}
+        </div>
+      )}
         </div>
       </ThreadPrimitive.Viewport>
 
@@ -1700,6 +1700,17 @@ const AssistantMessageComponent: FC = () => {
   const displayContent = React.useMemo(() => {
     const currentMessageId = messageIdForKey || messageId || '';
     
+    // #region agent log
+    try {
+      const rawText = typeof content?.content === "string" 
+        ? content.content 
+        : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
+        ? content.content[0].text || ""
+        : "";
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1700',message:'displayContent calculation start',data:{messageId:currentMessageId,hasCachedContent:!!cachedRenderedContent,messageContentType:typeof messageContent,messageContentIsNull:messageContent===null,rawTextLength:rawText?.length||0,rawTextPreview:rawText?.substring(0,50)||''},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+    } catch(e) {}
+    // #endregion
+    
     // If message ID changed, reset the ref (new message)
     if (lastValidMessageIdRef.current && lastValidMessageIdRef.current !== currentMessageId) {
       lastValidDisplayContentRef.current = null;
@@ -1742,6 +1753,12 @@ const AssistantMessageComponent: FC = () => {
       }
     }
     
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1747',message:'displayContent calculation result',data:{messageId:currentMessageId,calculatedContentType:typeof calculatedContent,calculatedContentIsNull:calculatedContent===null,hasCalculatedContent:!!calculatedContent,usedCached:!!cachedRenderedContent&&calculatedContent===cachedRenderedContent.content,usedMessageContent:calculatedContent===messageContent,usedRawText:typeof calculatedContent==='string'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+    } catch(e) {}
+    // #endregion
+    
     // CRITICAL: If we have calculated content, store it in ref and return it
     // This ensures we preserve it for future renders AND allows new content to show
     if (calculatedContent) {
@@ -1783,6 +1800,17 @@ const AssistantMessageComponent: FC = () => {
     // This ensures content is fully processed and ready to display
     // For new messages, don't show bubble until content is cached and ready
     const hasActualContent = React.useMemo(() => {
+      // #region agent log
+      try {
+        const rawText = typeof content?.content === "string" 
+          ? content.content 
+          : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
+          ? content.content[0].text || ""
+          : "";
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1785',message:'hasActualContent calculation',data:{messageId:messageIdForKey||messageId,rawTextLength:rawText?.length||0,markdownTextLength:markdownText?.length||0,cachedHasText:!!(cachedRenderedContent?.markdownText&&cachedRenderedContent.markdownText.trim().length>0),displayContentType:typeof displayContent,displayContentIsNull:displayContent===null,displayContentIsUndefined:displayContent===undefined,hasCachedContent:!!cachedRenderedContent},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+      } catch(e) {}
+      // #endregion
+      
       // CRITICAL: Check if cached rendered content has text - this means content is fully processed
       // Only show bubble if we have cached content with text, ensuring it's ready
       const cachedHasText = cachedRenderedContent?.markdownText && cachedRenderedContent.markdownText.trim().length > 0;
@@ -1795,7 +1823,15 @@ const AssistantMessageComponent: FC = () => {
       // For ReactNodes, ONLY show bubble if cached rendered content has text
       // This ensures the content has been fully processed and is ready to display
       // Don't show bubble just because source has text - wait for it to be processed
-      return cachedHasText && displayContent !== null && displayContent !== undefined;
+      const result = cachedHasText && displayContent !== null && displayContent !== undefined;
+      
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1798',message:'hasActualContent result',data:{messageId:messageIdForKey||messageId,result,cachedHasText,displayContentNotNull:displayContent!==null,displayContentNotUndefined:displayContent!==undefined},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+      } catch(e) {}
+      // #endregion
+      
+      return result;
     }, [displayContent, cachedRenderedContent]);
     
     const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
@@ -1821,9 +1857,9 @@ const AssistantMessageComponent: FC = () => {
       </ThreadPrimitive.If>
 
       {showBotAvatar && (
-        <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-          <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
-        </div>
+      <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+        <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
+      </div>
       )}
     </MessagePrimitive.Root>
   );
@@ -1890,7 +1926,7 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
       </div>
 
       {showBotAvatar && (
-        <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
+      <div className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
         <div 
           ref={(el) => {
             if (el) {
@@ -1899,15 +1935,15 @@ const LoadingMessage: FC<{config: any}> = ({config}) => {
             }
           }}
           className="flex items-center justify-center w-8 h-8 rounded-full">
-          <Image
-            src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
-            alt="Assistant Avatar"
-            width={20}
-            height={20}
-            className="invert brightness-0 saturate-0 contrast-200"
-          />
-        </div>
-        </div>
+        <Image
+          src={config?.chat?.colors?.assistantMessage?.avatar ?? ""}
+          alt="Assistant Avatar"
+          width={20}
+          height={20}
+          className="invert brightness-0 saturate-0 contrast-200"
+        />
+      </div>
+      </div>
       )}
     </div>
   );
