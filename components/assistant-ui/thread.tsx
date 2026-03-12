@@ -714,9 +714,14 @@ export const Thread: FC<ThreadProps> = ({
       >
         <div className="flex flex-col w-full items-center px-4 pt-4 pb-4 justify-end">
           {!messages.length && <Loader />}
-          <ThreadPrimitive.Messages
+      <ThreadPrimitive.Messages
           components={messageComponents}
         />  
+
+          {/* Global loading bubble for assistant while running */}
+          <ThreadPrimitive.If running>
+            <LoadingMessage config={config} />
+          </ThreadPrimitive.If>
 
           <ThreadPrimitive.If empty={false}>
             <div className="min-h-8 flex-grow" />
@@ -1707,7 +1712,6 @@ const AssistantMessageComponent: FC = () => {
         : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
         ? content.content[0].text || ""
         : "";
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1700',message:'displayContent calculation start',data:{messageId:currentMessageId,hasCachedContent:!!cachedRenderedContent,messageContentType:typeof messageContent,messageContentIsNull:messageContent===null,rawTextLength:rawText?.length||0,rawTextPreview:rawText?.substring(0,50)||''},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
     } catch(e) {}
     // #endregion
     
@@ -1755,7 +1759,6 @@ const AssistantMessageComponent: FC = () => {
     
     // #region agent log
     try {
-      fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1747',message:'displayContent calculation result',data:{messageId:currentMessageId,calculatedContentType:typeof calculatedContent,calculatedContentIsNull:calculatedContent===null,hasCalculatedContent:!!calculatedContent,usedCached:!!cachedRenderedContent&&calculatedContent===cachedRenderedContent.content,usedMessageContent:calculatedContent===messageContent,usedRawText:typeof calculatedContent==='string'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
     } catch(e) {}
     // #endregion
     
@@ -1807,7 +1810,6 @@ const AssistantMessageComponent: FC = () => {
           : Array.isArray(content?.content) && content.content[0] && typeof content.content[0] === 'object' && content.content[0]?.text
           ? content.content[0].text || ""
           : "";
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1785',message:'hasActualContent calculation',data:{messageId:messageIdForKey||messageId,rawTextLength:rawText?.length||0,markdownTextLength:markdownText?.length||0,cachedHasText:!!(cachedRenderedContent?.markdownText&&cachedRenderedContent.markdownText.trim().length>0),displayContentType:typeof displayContent,displayContentIsNull:displayContent===null,displayContentIsUndefined:displayContent===undefined,hasCachedContent:!!cachedRenderedContent},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
       } catch(e) {}
       // #endregion
       
@@ -1827,14 +1829,11 @@ const AssistantMessageComponent: FC = () => {
       
       // #region agent log
       try {
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'components/assistant-ui/thread.tsx:1798',message:'hasActualContent result',data:{messageId:messageIdForKey||messageId,result,cachedHasText,displayContentNotNull:displayContent!==null,displayContentNotUndefined:displayContent!==undefined},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
       } catch(e) {}
       // #endregion
       
       return result;
     }, [displayContent, cachedRenderedContent]);
-    
-    const shouldShowLoadingDots = isEmpty && messageId && !hasActualContent;
     
     return (
     <MessagePrimitive.Root 
@@ -1847,19 +1846,19 @@ const AssistantMessageComponent: FC = () => {
           {displayContent}
         </div>
       )}
-      {/* Show loading dots only when running and no content yet */}
-      <ThreadPrimitive.If running>
-        {shouldShowLoadingDots && (
-          <div className="col-span-2 col-start-2 row-start-1 my-1.5 flex items-center">
-            <LoadingDots />
-          </div>
-        )}
-      </ThreadPrimitive.If>
 
-      {showBotAvatar && (
-      <div key={`avatar-${avatarUrl}`} className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1">
-        <AssistantAvatar avatarUrl={avatarUrl} backgroundColor={backgroundColor} />
-      </div>
+      {/* Only show avatar when this message has actual content.
+          The global LoadingMessage handles avatar display while running. */}
+      {showBotAvatar && hasActualContent && (
+        <div
+          key={`avatar-${avatarUrl}`}
+          className="flex items-end justify-center col-start-1 row-start-1 mr-1 mb-1"
+        >
+          <AssistantAvatar
+            avatarUrl={avatarUrl}
+            backgroundColor={backgroundColor}
+          />
+        </div>
       )}
     </MessagePrimitive.Root>
   );

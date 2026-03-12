@@ -1259,12 +1259,10 @@ export function Assistant({
         };
 
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/assistant.tsx:1248',message:'HTTP response message created',data:{messageId,textLength:assistantResponse.text?.length||0,textPreview:assistantResponse.text?.substring(0,50)||'',hasText:!!assistantResponse.text,textValue:assistantResponse.text||''},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
 
         setMessages((currentConversation) => {
           // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/b924afbe-002b-4741-a237-97e02892efc5',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/assistant.tsx:1261',message:'Adding HTTP message to state',data:{messageId,textLength:assRes.content[0]?.text?.length||0,textPreview:assRes.content[0]?.text?.substring(0,50)||'',currentLength:currentConversation.length,newLength:currentConversation.length+1},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
           // #endregion
           return [
             ...currentConversation,
