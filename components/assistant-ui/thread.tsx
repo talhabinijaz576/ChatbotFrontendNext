@@ -1054,18 +1054,26 @@ export const Composer: FC<ComposerProps> = ({
   return (
     <ComposerPrimitive.Root 
       data-composer-root
-      className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-wrap items-end rounded-full border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in">
-      <ComposerAttachments />
-      <ComposerAddAttachment config={config} />
-      <ComposerPrimitive.Input
-        rows={1}
-        autoFocus
-        disabled={isIframeOpen}
-        placeholder={config.app.name || "..."}
-        className="placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 flex-grow resize-none border-none bg-transparent px-2 py-4 text-base outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
-        ref={composerInputRef}
-      />
-      <ComposerAction config={config} suggestedMessages={suggestedMessages} isIframeOpen={isIframeOpen} />
+      className="focus-within:border-[#4f46e5]/20 dark:focus-within:border-[#6366f1]/20 flex w-full flex-col rounded-3xl border border-[#e2e8f0] dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 shadow-sm transition-colors ease-in"
+    >
+      {/* Attachments row (full width) */}
+      <div className="w-full pt-2">
+        <ComposerAttachments />
+      </div>
+
+      {/* Input + actions row (never wrap) */}
+      <div className="flex w-full items-end gap-1 pb-1">
+        <ComposerAddAttachment config={config} />
+        <ComposerPrimitive.Input
+          rows={1}
+          autoFocus
+          disabled={isIframeOpen}
+          placeholder={config.app.name || "..."}
+          className="composer-input placeholder:text-zinc-400 dark:placeholder:text-zinc-500 max-h-40 min-h-12 flex-1 resize-none border-none bg-transparent px-2 py-3 text-base leading-6 outline-none focus:ring-0 disabled:cursor-not-allowed text-[#1e293b] dark:text-zinc-200"
+          ref={composerInputRef}
+        />
+        <ComposerAction config={config} suggestedMessages={suggestedMessages} isIframeOpen={isIframeOpen} />
+      </div>
     </ComposerPrimitive.Root>
   );
 };
